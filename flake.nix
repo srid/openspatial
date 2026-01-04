@@ -10,7 +10,12 @@
     flake-parts.lib.mkFlake { inherit inputs; } {
       systems = [ "x86_64-linux" "aarch64-linux" "x86_64-darwin" "aarch64-darwin" ];
 
-      perSystem = { pkgs, ... }: {
+      perSystem = { pkgs, system, ... }: {
+        packages = rec {
+          default = openspatial;
+          openspatial = pkgs.callPackage ./nix/package.nix { };
+        };
+
         devShells.default = pkgs.mkShell {
           packages = with pkgs; [
             nodejs_22
@@ -21,6 +26,10 @@
             echo "🚀 OpenSpatial - run 'just dev' to start"
           '';
         };
+      };
+
+      flake = {
+        nixosModules.default = import ./nix/module.nix;
       };
     };
 }

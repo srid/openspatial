@@ -27,3 +27,6 @@ Thumbs.db
 
 # Vite
 *.local
+
+# Nix
+/result
