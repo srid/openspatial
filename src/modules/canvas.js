@@ -5,11 +5,13 @@ export class CanvasManager {
         this.isDragging = false;
         this.startX = 0;
         this.startY = 0;
-        this.scrollLeft = 0;
-        this.scrollTop = 0;
         this.scale = 1;
         this.offsetX = 0;
         this.offsetY = 0;
+        
+        // Canvas bounds (matches CSS #space dimensions)
+        this.spaceWidth = 4000;
+        this.spaceHeight = 4000;
     }
     
     init() {
@@ -18,6 +20,9 @@ export class CanvasManager {
         
         this.setupPanning();
         this.setupZoom();
+        
+        // Center the view initially
+        this.centerOn(this.spaceWidth / 2, this.spaceHeight / 2);
     }
     
     setupPanning() {
@@ -41,6 +46,7 @@ export class CanvasManager {
             this.offsetX += deltaX;
             this.offsetY += deltaY;
             
+            this.clampOffset();
             this.updateTransform();
             
             this.startX = e.pageX;
@@ -72,8 +78,26 @@ export class CanvasManager {
             this.offsetY = mouseY - (mouseY - this.offsetY) * (newScale / this.scale);
             
             this.scale = newScale;
+            this.clampOffset();
             this.updateTransform();
         }, { passive: false });
+    }
+    
+    clampOffset() {
+        // Prevent panning beyond the canvas bounds
+        const containerRect = this.container.getBoundingClientRect();
+        const scaledWidth = this.spaceWidth * this.scale;
+        const scaledHeight = this.spaceHeight * this.scale;
+        
+        // Max offset: don't allow panning so far right that left edge is visible
+        // Min offset: don't allow panning so far left that right edge goes off screen
+        const maxOffsetX = 0;
+        const minOffsetX = Math.min(0, containerRect.width - scaledWidth);
+        const maxOffsetY = 0;
+        const minOffsetY = Math.min(0, containerRect.height - scaledHeight);
+        
+        this.offsetX = Math.max(minOffsetX, Math.min(maxOffsetX, this.offsetX));
+        this.offsetY = Math.max(minOffsetY, Math.min(maxOffsetY, this.offsetY));
     }
     
     updateTransform() {
@@ -84,6 +108,7 @@ export class CanvasManager {
         const containerRect = this.container.getBoundingClientRect();
         this.offsetX = containerRect.width / 2 - x * this.scale;
         this.offsetY = containerRect.height / 2 - y * this.scale;
+        this.clampOffset();
         this.updateTransform();
     }
     

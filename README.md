@@ -32,7 +32,8 @@ Share the network URL (e.g., `https://192.168.2.12:5173/s/MySpace`) with others.
 | `webrtc.js` | Peer connection management, track handling, glare resolution |
 | `avatar.js` | Webcam video circles with drag support |
 | `screenshare.js` | Screen share windows with synced position |
-| `canvas.js` | Pan/zoom for the infinite canvas |
+| `canvas.js` | Pan/zoom for the canvas |
+| `minimap.js` | Navigation minimap with element indicators |
 | `spatial-audio.js` | Distance-based audio via Web Audio API |
 
 ### Signaling Events

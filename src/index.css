@@ -553,3 +553,64 @@ body {
         height: 44px;
     }
 }
+
+/* ===== Minimap ===== */
+.minimap {
+    position: fixed;
+    bottom: var(--space-6);
+    right: var(--space-6);
+    z-index: 100;
+    padding: var(--space-3);
+    background: var(--color-bg-elevated);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-2xl);
+    backdrop-filter: blur(12px);
+    box-shadow: var(--shadow-xl);
+}
+
+.minimap-content {
+    position: relative;
+    width: 180px;
+    height: 180px;
+    background: var(--color-surface);
+    border-radius: var(--radius-lg);
+    cursor: pointer;
+    overflow: hidden;
+}
+
+.minimap-viewport {
+    position: absolute;
+    border: 2px solid var(--color-accent);
+    background: rgba(99, 102, 241, 0.1);
+    border-radius: 2px;
+    pointer-events: none;
+}
+
+.minimap-dots {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+}
+
+.minimap-dot {
+    position: absolute;
+    transform: translate(-50%, -50%);
+}
+
+.minimap-dot-avatar {
+    width: 6px;
+    height: 6px;
+    background: #3b82f6;
+    border-radius: 50%;
+    box-shadow: 0 0 4px rgba(59, 130, 246, 0.6);
+}
+
+.minimap-dot-screen {
+    background: #22c55e;
+    border-radius: 1px;
+    box-shadow: 0 0 4px rgba(34, 197, 94, 0.6);
+    transform: none;
+}

@@ -6,6 +6,7 @@ import { AvatarManager } from './modules/avatar.js';
 import { ScreenShareManager } from './modules/screenshare.js';
 import { SpatialAudio } from './modules/spatial-audio.js';
 import { UIController } from './modules/ui.js';
+import { MinimapManager } from './modules/minimap.js';
 
 // Application state
 const state = {
@@ -42,6 +43,10 @@ const spaceIdInput = document.getElementById('space-id');
 function init() {
     setupEventListeners();
     canvas.init();
+    
+    // Initialize minimap after canvas
+    const minimap = new MinimapManager(canvas, canvas.spaceWidth, canvas.spaceHeight);
+    minimap.init();
     
     // Check for space in URL path (permalink: /s/spacename)
     const pathMatch = window.location.pathname.match(/^\/s\/(.+)$/);
