@@ -316,8 +316,8 @@ async function startScreenShare() {
             audio: true
         });
         
-        // Generate unique share ID
-        const shareId = `${state.peerId}-${Date.now()}`;
+        // Use stream.id for shareId - this ID is sent in WebRTC and matches on remote
+        const shareId = `${state.peerId}-${stream.id}`;
         state.screenStreams.set(shareId, stream);
         
         // Create local screen share element
