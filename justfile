@@ -28,6 +28,14 @@ test:
 test-watch:
     npm test
 
+# Run E2E tests (multi-user browser tests)
+e2e:
+    npm run e2e
+
+# Run E2E tests with UI (interactive debugging)
+e2e-ui:
+    npm run e2e:ui
+
 # Clean node_modules
 clean:
     rm -rf node_modules
