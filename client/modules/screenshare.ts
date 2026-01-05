@@ -75,12 +75,20 @@ export class ScreenShareManager {
           </svg>
           <span>${isLocal ? 'Your Screen' : `${username}'s Screen`}</span>
         </div>
-        <button class="screen-share-close" title="Stop Sharing">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <line x1="18" y1="6" x2="6" y2="18"/>
-            <line x1="6" y1="6" x2="18" y2="18"/>
-          </svg>
-        </button>
+        <div style="display: flex; gap: 4px;">
+          <button class="screen-share-copy" title="Copy Snapshot">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+              <circle cx="12" cy="13" r="4"></circle>
+            </svg>
+          </button>
+          <button class="screen-share-close" title="Stop Sharing">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="18" y1="6" x2="6" y2="18"/>
+              <line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          </button>
+        </div>
       </div>
     `;
 
@@ -94,6 +102,8 @@ export class ScreenShareManager {
     this.setupDrag(element, shareId);
 
     const closeBtn = element.querySelector('.screen-share-close') as HTMLButtonElement;
+    const copyBtn = element.querySelector('.screen-share-copy') as HTMLButtonElement;
+
     if (isLocal && this.onClose) {
       closeBtn.addEventListener('click', () => {
         this.onClose!(shareId);
@@ -101,6 +111,44 @@ export class ScreenShareManager {
     } else {
       closeBtn.style.display = 'none';
     }
+
+    const copyIconHTML = copyBtn.innerHTML;
+    copyBtn.addEventListener('click', async (e) => {
+      e.stopPropagation(); // Prevent drag
+
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+
+        ctx.drawImage(video, 0, 0);
+
+        const blob = await new Promise<Blob | null>(resolve =>
+          canvas.toBlob(resolve, 'image/png')
+        );
+
+        if (blob) {
+          await navigator.clipboard.write([
+            new ClipboardItem({ 'image/png': blob })
+          ]);
+
+          // Visual feedback
+          copyBtn.innerHTML = `
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+          `;
+          setTimeout(() => {
+            copyBtn.innerHTML = copyIconHTML;
+          }, 2000);
+        }
+      } catch (err) {
+        console.error('Failed to copy snapshot:', err);
+      }
+    });
 
     this.space!.appendChild(element);
     this.screenShares.set(shareId, element);
