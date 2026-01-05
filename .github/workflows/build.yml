@@ -7,17 +7,37 @@ on:
     branches: [master]
 
 jobs:
-  build:
+  nix-build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: nixbuild/nix-quick-install-action@v33
       - name: Build
         run: nix build
+
+  unit-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
       - name: Install dependencies
         run: npm ci
       - name: Run tests
         run: npm run test:run
+
+  e2e-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - name: Install dependencies
+        run: npm ci
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
       - name: Run E2E tests
