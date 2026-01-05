@@ -4,6 +4,14 @@ A spatial video chat application where participants share a virtual canvas with 
 
 ## Quick Start
 
+**Run instantly with Nix:**
+```bash
+nix run github:srid/openspatial
+# Or with custom port:
+PORT=8080 nix run github:srid/openspatial
+```
+
+**Or develop locally:**
 ```bash
 npm install
 npm run dev        # Development server
