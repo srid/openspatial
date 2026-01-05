@@ -20,6 +20,14 @@ build:
 preview:
     npm run preview
 
+# Run tests once
+test:
+    npm run test:run
+
+# Run tests in watch mode
+test-watch:
+    npm test
+
 # Clean node_modules
 clean:
     rm -rf node_modules
