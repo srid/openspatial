@@ -156,5 +156,59 @@ test.describe('Multi-User Scenarios', () => {
     // This test will FAIL if the screen share is not cleaned up when user leaves
     await expect(userB.page.locator('.screen-share:has-text("Alice")')).not.toBeVisible({ timeout: 10000 });
   });
+
+  test('screen share resize is synced between users', async () => {
+    // Both users join
+    await joinSpace(userA.page, 'Alice', 'screenshare-resize-test');
+    await joinSpace(userB.page, 'Bob', 'screenshare-resize-test');
+
+    // Wait for both to see each other
+    await expect(userA.page.locator('.avatar:has-text("Bob")')).toBeVisible({ timeout: 10000 });
+    await expect(userB.page.locator('.avatar:has-text("Alice")')).toBeVisible({ timeout: 10000 });
+
+    // User A starts a screen share with mock
+    await userA.page.evaluate(() => {
+      const canvas = document.createElement('canvas');
+      canvas.width = 640;
+      canvas.height = 480;
+      const ctx = canvas.getContext('2d')!;
+      ctx.fillStyle = 'green';
+      ctx.fillRect(0, 0, 640, 480);
+      const stream = canvas.captureStream(30);
+      (navigator.mediaDevices as any).getDisplayMedia = async () => stream;
+    });
+
+    await userA.page.click('#btn-screen');
+    await userA.page.waitForTimeout(1000);
+
+    // User B should see the screen share
+    const screenShareOnB = userB.page.locator('.screen-share:has-text("Alice")');
+    await expect(screenShareOnB).toBeVisible({ timeout: 10000 });
+
+    // Get initial size on User B
+    const initialWidth = await screenShareOnB.evaluate((el: HTMLElement) => el.style.width);
+
+    // User A resizes by dragging the bottom-right corner
+    const screenShareOnA = userA.page.locator('.screen-share:has-text("Your Screen")');
+    const box = await screenShareOnA.boundingBox();
+    if (box) {
+      // Simulate resize by dragging from bottom-right corner
+      const resizeHandleX = box.x + box.width - 5;
+      const resizeHandleY = box.y + box.height - 5;
+      
+      await userA.page.mouse.move(resizeHandleX, resizeHandleY);
+      await userA.page.mouse.down();
+      await userA.page.mouse.move(resizeHandleX + 100, resizeHandleY + 100, { steps: 5 });
+      await userA.page.mouse.up();
+    }
+
+    // Wait for sync
+    await userB.page.waitForTimeout(500);
+
+    // BUG REPRODUCTION: User B should see the new size
+    // This test will FAIL if resize is not synced
+    const newWidth = await screenShareOnB.evaluate((el: HTMLElement) => el.style.width);
+    expect(newWidth).not.toBe(initialWidth);
+  });
 });
 
