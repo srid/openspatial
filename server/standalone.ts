@@ -4,7 +4,7 @@ import { createServer as createHttpsServer, Server as HttpsServer } from 'https'
 import { Server } from 'socket.io';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
-import { attachSignaling } from '../lib/signaling.js';
+import { attachSignaling } from './signaling.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);

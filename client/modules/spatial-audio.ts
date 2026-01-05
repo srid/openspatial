@@ -1,5 +1,5 @@
 import type { AvatarManager } from './avatar.js';
-import type { Position } from '../types/events.js';
+import type { Position } from '../../shared/types/events.js';
 
 declare global {
   interface Window {

@@ -22,7 +22,7 @@ buildNpmPackage {
     mkdir -p $out/{bin,lib/openspatial}
     cp -r dist $out/lib/openspatial/
     cp -r server $out/lib/openspatial/
-    cp -r lib $out/lib/openspatial/
+    cp -r shared $out/lib/openspatial/
     cp -r node_modules $out/lib/openspatial/
     cp package.json $out/lib/openspatial/
 

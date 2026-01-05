@@ -13,7 +13,7 @@ import type {
   PeerLeftEvent,
   ScreenShareStartedBroadcast,
   ScreenShareStoppedBroadcast,
-} from '../types/events.js';
+} from '../../shared/types/events.js';
 
 // Union type of all possible client events
 type ClientEventMap = {

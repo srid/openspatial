@@ -5,56 +5,37 @@ A spatial video chat application where participants share a virtual canvas with 
 ## Quick Start
 
 ```bash
-# Install dependencies
 npm install
-
-# Run development server
-npm run dev
-
-# Type check
-npm run typecheck
-
-# Build for production
-npm run build
+npm run dev        # Development server
+npm run build      # Type check + production build
+npm run typecheck  # Type check only
 ```
 
-Open `https://localhost:5173` and accept the self-signed certificate.  
-Share the network URL (e.g., `https://192.168.2.12:5173/s/MySpace`) with others.
+Open `https://localhost:5173` and accept the self-signed certificate.
 
 ---
 
-## Architecture (for LLM reference)
+## Project Structure
 
-### Tech Stack
-- **Frontend**: TypeScript + Vite
-- **Signaling**: Socket.io (shared module for dev and prod)
-- **Media**: WebRTC peer-to-peer connections
-- **Deployment**: NixOS module with systemd service
+```
+shared/           # Shared code (client + server)
+  types/events.ts   # Socket event types (the type safety contract)
 
-### Type Safety
-All socket events are typed in `src/types/events.ts`. Both client and server import from this file, ensuring contract mismatches are caught at compile time.
+client/           # Browser code (bundled by Vite)
+  main.ts           # Entry point
+  modules/          # UI components and handlers
 
-### Key Modules (`src/modules/`)
+server/           # Node.js server
+  signaling.ts      # Socket.io signaling (shared between dev & prod)
+  standalone.ts     # Production entry point
+```
 
-| Module | Purpose |
-|--------|---------|
-| `socket.ts` | Typed Socket.io client with `emit<K>()` and `on<K>()` |
-| `webrtc.ts` | Peer connection management, track handling, glare resolution |
-| `avatar.ts` | Webcam video circles with drag support |
-| `screenshare.ts` | Screen share windows with synced position |
-| `canvas.ts` | Pan/zoom for the canvas |
-| `minimap.ts` | Navigation minimap with element indicators |
-| `spatial-audio.ts` | Distance-based audio via Web Audio API |
+## Type Safety
 
-### Signaling Events
-- `join-space` / `space-state` - Space membership
-- `signal` - WebRTC offer/answer/ICE (routed to specific peer via `peerSockets` map)
-- `position-update` - Avatar position sync
-- `screen-share-position-update` - Screen share position sync
-- `screen-share-started/stopped` - Screen share lifecycle
+All socket events are typed in `shared/types/events.ts`. Both client and server import from this file, so contract mismatches are caught at compile time.
 
-### State Flow
-1. User joins space → server assigns `peerId`, broadcasts to peers
-2. Peers establish WebRTC connections (polite peer pattern for glare)
-3. Tracks received via `ontrack` → classified by stream ID (webcam vs screen share)
-4. Position changes emit via socket → broadcast to space → `setPosition()` on remote elements
+## Architecture
+
+- **Dev**: `npm run dev` runs Vite with signaling attached via plugin
+- **Prod**: `npm start` runs `server/standalone.ts` which serves static files + signaling
+- **Both** import signaling from `server/signaling.ts` and types from `shared/types/events.ts`

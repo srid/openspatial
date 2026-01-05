@@ -15,7 +15,7 @@ import type {
   ConnectedEvent,
   ScreenShareStartedBroadcast,
   ScreenShareStoppedBroadcast,
-} from '../src/types/events.js';
+} from '../shared/types/events.js';
 
 interface Space {
   peers: Map<string, PeerData>;

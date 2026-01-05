@@ -1,4 +1,4 @@
-import type { Position } from '../types/events.js';
+import type { Position } from '../../shared/types/events.js';
 
 type PositionChangeCallback = (peerId: string, x: number, y: number) => void;
 
