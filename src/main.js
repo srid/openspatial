@@ -211,6 +211,23 @@ function handleSpaceState(spaceState) {
         }
     }
     
+    // Queue existing screen shares - they'll be created when WebRTC tracks arrive
+    if (spaceState.screenShares) {
+        for (const [shareId, shareData] of Object.entries(spaceState.screenShares)) {
+            if (shareData.peerId !== state.peerId) {
+                // Queue the shareId and position for when track arrives
+                if (!state.pendingShareIds.has(shareData.peerId)) {
+                    state.pendingShareIds.set(shareData.peerId, []);
+                }
+                state.pendingShareIds.get(shareData.peerId).push({
+                    shareId,
+                    x: shareData.x,
+                    y: shareData.y
+                });
+            }
+        }
+    }
+    
     updateParticipantCount();
 }
 
@@ -340,8 +357,10 @@ async function startScreenShare() {
         // Add screen track to all peer connections
         webrtc?.addScreenTrack(shareId, stream);
         
-        // Notify peers
-        socket.emit('screen-share-started', { peerId: state.peerId, shareId });
+        // Notify peers with initial position
+        const x = localAvatar.x + offsetX;
+        const y = localAvatar.y;
+        socket.emit('screen-share-started', { peerId: state.peerId, shareId, x, y });
         
         // Handle stream end (user clicks "Stop sharing" in browser)
         stream.getVideoTracks()[0].onended = () => {
