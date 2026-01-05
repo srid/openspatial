@@ -10,6 +10,12 @@ npm install
 
 # Run development server
 npm run dev
+
+# Type check
+npm run typecheck
+
+# Build for production
+npm run build
 ```
 
 Open `https://localhost:5173` and accept the self-signed certificate.  
@@ -20,21 +26,25 @@ Share the network URL (e.g., `https://192.168.2.12:5173/s/MySpace`) with others.
 ## Architecture (for LLM reference)
 
 ### Tech Stack
-- **Frontend**: Vanilla JS + Vite
-- **Signaling**: Socket.io integrated into Vite dev server
+- **Frontend**: TypeScript + Vite
+- **Signaling**: Socket.io (shared module for dev and prod)
 - **Media**: WebRTC peer-to-peer connections
+- **Deployment**: NixOS module with systemd service
+
+### Type Safety
+All socket events are typed in `src/types/events.ts`. Both client and server import from this file, ensuring contract mismatches are caught at compile time.
 
 ### Key Modules (`src/modules/`)
 
 | Module | Purpose |
 |--------|---------|
-| `socket.js` | Socket.io client wrapper |
-| `webrtc.js` | Peer connection management, track handling, glare resolution |
-| `avatar.js` | Webcam video circles with drag support |
-| `screenshare.js` | Screen share windows with synced position |
-| `canvas.js` | Pan/zoom for the canvas |
-| `minimap.js` | Navigation minimap with element indicators |
-| `spatial-audio.js` | Distance-based audio via Web Audio API |
+| `socket.ts` | Typed Socket.io client with `emit<K>()` and `on<K>()` |
+| `webrtc.ts` | Peer connection management, track handling, glare resolution |
+| `avatar.ts` | Webcam video circles with drag support |
+| `screenshare.ts` | Screen share windows with synced position |
+| `canvas.ts` | Pan/zoom for the canvas |
+| `minimap.ts` | Navigation minimap with element indicators |
+| `spatial-audio.ts` | Distance-based audio via Web Audio API |
 
 ### Signaling Events
 - `join-space` / `space-state` - Space membership
