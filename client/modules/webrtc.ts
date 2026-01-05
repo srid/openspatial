@@ -2,7 +2,7 @@ import type { SocketHandler } from './socket.js';
 import type { AvatarManager } from './avatar.js';
 import type { ScreenShareManager } from './screenshare.js';
 import type { SpatialAudio } from './spatial-audio.js';
-import type { PeerData, Position, SignalEvent } from '../types/events.js';
+import type { PeerData, Position, SignalEvent } from '../../shared/types/events.js';
 
 const ICE_SERVERS = [
   { urls: 'stun:stun.l.google.com:19302' },

@@ -20,7 +20,7 @@ import type {
   ScreenSharePositionUpdateEvent,
   PeerData,
   ScreenShareData,
-} from './types/events.js';
+} from '../shared/types/events.js';
 
 // Pending share info for late-joining peers
 interface PendingShareInfo {
