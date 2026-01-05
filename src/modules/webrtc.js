@@ -238,14 +238,37 @@ export class WebRTCManager {
     handleScreenTrack(peerId, stream) {
         const peer = this.state.peers.get(peerId);
         const username = peer?.username || 'Unknown';
-        const position = avatars.getPosition(peerId);
+        const avatarPos = avatars.getPosition(peerId);
+        
+        // Use shareId and position from signaling (queued in pendingShareIds)
+        let shareId;
+        let x = avatarPos.x + 150;
+        let y = avatarPos.y;
+        
+        const pendingIds = this.state.pendingShareIds?.get(peerId);
+        if (pendingIds && pendingIds.length > 0) {
+            const pending = pendingIds.shift();
+            // Handle both formats: object { shareId, x, y } or just string shareId
+            if (typeof pending === 'object') {
+                shareId = pending.shareId;
+                x = pending.x || x;
+                y = pending.y || y;
+            } else {
+                shareId = pending;
+            }
+        } else {
+            // Fallback if signaling arrived after track
+            shareId = `${peerId}-${stream.id}`;
+            console.warn('No pending shareId for screen track, using fallback');
+        }
         
         screenShare.createScreenShare(
+            shareId,
             peerId,
             username,
             stream,
-            position.x + 150,
-            position.y
+            x,
+            y
         );
     }
     

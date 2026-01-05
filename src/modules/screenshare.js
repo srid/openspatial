@@ -66,6 +66,7 @@ export class ScreenShareManager {
         
         this.space.appendChild(element);
         this.screenShares.set(shareId, element);
+        console.log('[ScreenShare] Created with shareId:', shareId, 'Map size:', this.screenShares.size);
     }
     
     setupDrag(element, shareId) {
@@ -113,10 +114,15 @@ export class ScreenShareManager {
     }
     
     setPosition(shareId, x, y) {
+        console.log('[ScreenShare] setPosition called with shareId:', shareId);
+        console.log('[ScreenShare] Current keys:', [...this.screenShares.keys()]);
         const element = this.screenShares.get(shareId);
         if (element) {
             element.style.left = `${x}px`;
             element.style.top = `${y}px`;
+            console.log('[ScreenShare] Position updated successfully');
+        } else {
+            console.warn('[ScreenShare] Element NOT FOUND for shareId:', shareId);
         }
     }
     

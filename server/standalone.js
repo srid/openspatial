@@ -11,7 +11,8 @@ const __dirname = dirname(__filename);
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const USE_HTTPS = process.env.HTTPS === '1' || process.env.HTTPS === 'true';
+// HTTPS enabled by default, set HTTPS=0 to disable
+const USE_HTTPS = process.env.HTTPS !== '0' && process.env.HTTPS !== 'false';
 
 // Serve static files from Vite build
 app.use(express.static(join(__dirname, '../dist')));

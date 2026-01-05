@@ -16,6 +16,7 @@ const state = {
     peers: new Map(),
     localStream: null,
     screenStreams: new Map(), // shareId -> stream
+    pendingShareIds: new Map(), // peerId -> [shareId] - queued shareIds from signaling, waiting for WebRTC track
     isMuted: false,
     isVideoOff: false
 };
@@ -210,6 +211,23 @@ function handleSpaceState(spaceState) {
         }
     }
     
+    // Queue existing screen shares - they'll be created when WebRTC tracks arrive
+    if (spaceState.screenShares) {
+        for (const [shareId, shareData] of Object.entries(spaceState.screenShares)) {
+            if (shareData.peerId !== state.peerId) {
+                // Queue the shareId and position for when track arrives
+                if (!state.pendingShareIds.has(shareData.peerId)) {
+                    state.pendingShareIds.set(shareData.peerId, []);
+                }
+                state.pendingShareIds.get(shareData.peerId).push({
+                    shareId,
+                    x: shareData.x,
+                    y: shareData.y
+                });
+            }
+        }
+    }
+    
     updateParticipantCount();
 }
 
@@ -257,8 +275,12 @@ function handleMediaStateUpdate(data) {
 }
 
 function handleScreenShareStarted(data) {
-    const { peerId, shareId, username } = data;
-    // Remote screen share will be handled via WebRTC track
+    const { peerId, shareId } = data;
+    // Queue the shareId - when WebRTC track arrives, we'll use this ID
+    if (!state.pendingShareIds.has(peerId)) {
+        state.pendingShareIds.set(peerId, []);
+    }
+    state.pendingShareIds.get(peerId).push(shareId);
 }
 
 function handleScreenShareStopped(data) {
@@ -316,8 +338,8 @@ async function startScreenShare() {
             audio: true
         });
         
-        // Generate unique share ID
-        const shareId = `${state.peerId}-${Date.now()}`;
+        // Use stream.id for shareId - this ID is sent in WebRTC and matches on remote
+        const shareId = `${state.peerId}-${stream.id}`;
         state.screenStreams.set(shareId, stream);
         
         // Create local screen share element
@@ -335,8 +357,10 @@ async function startScreenShare() {
         // Add screen track to all peer connections
         webrtc?.addScreenTrack(shareId, stream);
         
-        // Notify peers
-        socket.emit('screen-share-started', { peerId: state.peerId, shareId });
+        // Notify peers with initial position
+        const x = localAvatar.x + offsetX;
+        const y = localAvatar.y;
+        socket.emit('screen-share-started', { peerId: state.peerId, shareId, x, y });
         
         // Handle stream end (user clicks "Stop sharing" in browser)
         stream.getVideoTracks()[0].onended = () => {

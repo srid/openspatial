@@ -16,8 +16,8 @@ in
 
     https = lib.mkOption {
       type = lib.types.bool;
-      default = false;
-      description = "Enable HTTPS with self-signed certificate (for testing without reverse proxy)";
+      default = true;
+      description = "Enable HTTPS with self-signed certificate (disable with false when using reverse proxy)";
     };
 
     openFirewall = lib.mkOption {
