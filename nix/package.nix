@@ -10,7 +10,7 @@ buildNpmPackage {
 
   src = ./..;
 
-  npmDepsHash = "sha256-freL62jCRYUeUDntBmf8duCallTYNkHirmSoQLbyA5k=";
+  npmDepsHash = "sha256-ffYZp5/tJ+FD/TNIxcRDz5CufVcf/D3HJCv75pUO89M=";
 
   nodejs = nodejs_22;
 
@@ -29,7 +29,7 @@ buildNpmPackage {
     cat > $out/bin/openspatial <<EOF
 #!/usr/bin/env bash
 cd $out/lib/openspatial
-exec ${nodejs_22}/bin/node server/standalone.js "\$@"
+exec ${nodejs_22}/bin/npx tsx $out/lib/openspatial/server/standalone.ts "\$@"
 EOF
     chmod +x $out/bin/openspatial
   '';

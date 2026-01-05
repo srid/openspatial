@@ -2,7 +2,7 @@ import { defineConfig } from 'vite';
 import basicSsl from '@vitejs/plugin-basic-ssl';
 import { Server } from 'socket.io';
 import os from 'os';
-import { attachSignaling } from './lib/signaling.js';
+import { attachSignaling } from './lib/signaling.ts';
 
 const hostname = os.hostname();
 

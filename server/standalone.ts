@@ -1,6 +1,6 @@
-import express from 'express';
-import { createServer as createHttpServer } from 'http';
-import { createServer as createHttpsServer } from 'https';
+import express, { Request, Response } from 'express';
+import { createServer as createHttpServer, Server as HttpServer } from 'http';
+import { createServer as createHttpsServer, Server as HttpsServer } from 'https';
 import { Server } from 'socket.io';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
@@ -10,7 +10,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = Number(process.env.PORT) || 3000;
 // HTTPS enabled by default, set HTTPS=0 to disable
 const USE_HTTPS = process.env.HTTPS !== '0' && process.env.HTTPS !== 'false';
 
@@ -18,15 +18,16 @@ const USE_HTTPS = process.env.HTTPS !== '0' && process.env.HTTPS !== 'false';
 app.use(express.static(join(__dirname, '../dist')));
 
 // SPA fallback for /s/* routes
-app.get('/s/*', (req, res) => {
+app.get('/s/*', (_req: Request, res: Response) => {
     res.sendFile(join(__dirname, '../dist/index.html'));
 });
 
-let server;
+let server: HttpServer | HttpsServer;
 
 if (USE_HTTPS) {
     // Generate self-signed certificate for local HTTPS testing
-    const selfsigned = await import('selfsigned');
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const selfsigned = await import('selfsigned') as any;
     const attrs = [{ name: 'commonName', value: 'localhost' }];
     const pems = selfsigned.generate(attrs, {
         days: 365,

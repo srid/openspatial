@@ -1,0 +1,22 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "declaration": true,
+    "declarationDir": "./types",
+    "baseUrl": ".",
+    "paths": {
+      "@/types/*": ["src/types/*"]
+    }
+  },
+  "include": ["src/**/*", "lib/**/*", "server/**/*"],
+  "exclude": ["node_modules", "dist"]
+}
