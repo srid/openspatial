@@ -245,7 +245,7 @@ function handlePeerLeft(data: PeerLeftEvent): void {
 
   state.peers.delete(peerId);
   avatars.removeAvatar(peerId);
-  screenShare.removeScreenShare(peerId);
+  screenShare.removeScreenSharesByPeerId(peerId);
   spatialAudio.removePeer(peerId);
   webrtc?.closePeerConnection(peerId);
 
