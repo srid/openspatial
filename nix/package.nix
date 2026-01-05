@@ -10,7 +10,7 @@ buildNpmPackage {
 
   src = ./..;
 
-  npmDepsHash = "sha256-Lnr64AhbVKjtDuU44tG+gwLOkLwhDlrQl3XdtNZOiT0=";
+  npmDepsHash = "sha256-S7X8OclIWGvPCNwzaNFz7m7L8b7gRtMpBdyo1o+8CYE=";
 
   nodejs = nodejs_22;
 
