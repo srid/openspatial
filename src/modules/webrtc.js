@@ -40,16 +40,20 @@ export class WebRTCManager {
             });
         }
         
-        // Add screen share track if sharing
-        if (this.state.screenStream) {
-            this.state.screenStream.getTracks().forEach(track => {
-                const sender = pc.addTrack(track, this.state.screenStream);
-                if (!this.screenSenders.has(peerId)) {
-                    this.screenSenders.set(peerId, []);
+        // Add all active screen share tracks
+        this.state.screenStreams.forEach((stream, shareId) => {
+            stream.getTracks().forEach(track => {
+                const sender = pc.addTrack(track, stream);
+                if (!this.screenSenders.has(shareId)) {
+                    this.screenSenders.set(shareId, new Map());
                 }
-                this.screenSenders.get(peerId).push(sender);
+                const shareSenders = this.screenSenders.get(shareId);
+                if (!shareSenders.has(peerId)) {
+                    shareSenders.set(peerId, []);
+                }
+                shareSenders.get(peerId).push(sender);
             });
-        }
+        });
         
         // Handle ICE candidates
         pc.onicecandidate = (event) => {
@@ -245,30 +249,41 @@ export class WebRTCManager {
         );
     }
     
-    addScreenTrack(screenStream) {
+    addScreenTrack(shareId, screenStream) {
+        // Track senders per shareId per peer
+        const shareSenders = new Map();
+        
         screenStream.getTracks().forEach(track => {
             this.peerConnections.forEach((pc, peerId) => {
                 const sender = pc.addTrack(track, screenStream);
-                if (!this.screenSenders.has(peerId)) {
-                    this.screenSenders.set(peerId, []);
+                if (!shareSenders.has(peerId)) {
+                    shareSenders.set(peerId, []);
                 }
-                this.screenSenders.get(peerId).push(sender);
+                shareSenders.get(peerId).push(sender);
             });
         });
         
+        this.screenSenders.set(shareId, shareSenders);
         // onnegotiationneeded will fire and trigger renegotiation
     }
     
-    removeScreenTrack() {
-        this.screenSenders.forEach((senders, peerId) => {
-            const pc = this.peerConnections.get(peerId);
-            if (pc) {
-                senders.forEach(sender => {
-                    pc.removeTrack(sender);
-                });
-            }
-        });
-        this.screenSenders.clear();
+    removeScreenTrack(shareId) {
+        const shareSenders = this.screenSenders.get(shareId);
+        if (shareSenders) {
+            shareSenders.forEach((senders, peerId) => {
+                const pc = this.peerConnections.get(peerId);
+                if (pc) {
+                    senders.forEach(sender => {
+                        try {
+                            pc.removeTrack(sender);
+                        } catch (e) {
+                            // Track may already be removed
+                        }
+                    });
+                }
+            });
+            this.screenSenders.delete(shareId);
+        }
     }
     
     closePeerConnection(peerId) {

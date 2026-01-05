@@ -1,22 +1,23 @@
 export class ScreenShareManager {
-    constructor(state, onPositionUpdate) {
+    constructor(state, onPositionUpdate, onClose) {
         this.state = state;
-        this.screenShares = new Map();
+        this.screenShares = new Map(); // shareId -> element
         this.space = null;
-        // Callback to emit position updates via socket
         this.onPositionUpdate = onPositionUpdate;
+        this.onClose = onClose;
     }
     
-    createScreenShare(peerId, username, stream, x, y) {
+    createScreenShare(shareId, peerId, username, stream, x, y) {
         this.space = document.getElementById('space');
         
-        // Remove existing screen share from this peer
-        this.removeScreenShare(peerId);
+        // Remove existing screen share with same ID (shouldn't happen but safety)
+        this.removeScreenShare(shareId);
         
         const isLocal = peerId === this.state.peerId;
         
         const element = document.createElement('div');
         element.className = 'screen-share';
+        element.dataset.shareId = shareId;
         element.dataset.peerId = peerId;
         element.style.left = `${x}px`;
         element.style.top = `${y}px`;
@@ -33,14 +34,12 @@ export class ScreenShareManager {
                     </svg>
                     <span>${isLocal ? 'Your Screen' : `${username}'s Screen`}</span>
                 </div>
-                ${isLocal ? `
-                    <button class="screen-share-close" title="Stop Sharing">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <line x1="18" y1="6" x2="6" y2="18"/>
-                            <line x1="6" y1="6" x2="18" y2="18"/>
-                        </svg>
-                    </button>
-                ` : ''}
+                <button class="screen-share-close" title="Stop Sharing">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"/>
+                        <line x1="6" y1="6" x2="18" y2="18"/>
+                    </svg>
+                </button>
             </div>
         `;
         
@@ -49,26 +48,27 @@ export class ScreenShareManager {
         video.srcObject = stream;
         video.autoplay = true;
         video.playsInline = true;
-        video.muted = isLocal; // Mute local screen share
+        video.muted = isLocal;
         element.appendChild(video);
         
         // Setup drag with position sync
-        this.setupDrag(element, peerId, isLocal);
+        this.setupDrag(element, shareId);
         
-        // Setup close button for local screen share
-        if (isLocal) {
-            const closeBtn = element.querySelector('.screen-share-close');
+        // Setup close button - calls onClose callback if local, or does nothing for remote
+        const closeBtn = element.querySelector('.screen-share-close');
+        if (isLocal && this.onClose) {
             closeBtn.addEventListener('click', () => {
-                // This will trigger the stop in main.js
-                document.getElementById('btn-screen').click();
+                this.onClose(shareId);
             });
+        } else {
+            closeBtn.style.display = 'none';
         }
         
         this.space.appendChild(element);
-        this.screenShares.set(peerId, element);
+        this.screenShares.set(shareId, element);
     }
     
-    setupDrag(element, peerId, isLocal) {
+    setupDrag(element, shareId) {
         const header = element.querySelector('.screen-share-header');
         let isDragging = false;
         let startX, startY;
@@ -93,11 +93,8 @@ export class ScreenShareManager {
             const deltaX = e.clientX - startX;
             const deltaY = e.clientY - startY;
             
-            const newX = initialLeft + deltaX;
-            const newY = initialTop + deltaY;
-            
-            element.style.left = `${newX}px`;
-            element.style.top = `${newY}px`;
+            element.style.left = `${initialLeft + deltaX}px`;
+            element.style.top = `${initialTop + deltaY}px`;
         });
         
         document.addEventListener('mouseup', () => {
@@ -106,30 +103,28 @@ export class ScreenShareManager {
                 header.style.cursor = 'grab';
                 element.style.zIndex = '5';
                 
-                // Emit position update for any screen share (all participants can move)
                 if (this.onPositionUpdate) {
                     const x = parseInt(element.style.left) || 0;
                     const y = parseInt(element.style.top) || 0;
-                    this.onPositionUpdate(peerId, x, y);
+                    this.onPositionUpdate(shareId, x, y);
                 }
             }
         });
     }
     
-    // Set position from remote peer
-    setPosition(peerId, x, y) {
-        const element = this.screenShares.get(peerId);
+    setPosition(shareId, x, y) {
+        const element = this.screenShares.get(shareId);
         if (element) {
             element.style.left = `${x}px`;
             element.style.top = `${y}px`;
         }
     }
     
-    removeScreenShare(peerId) {
-        const element = this.screenShares.get(peerId);
+    removeScreenShare(shareId) {
+        const element = this.screenShares.get(shareId);
         if (element) {
             element.remove();
-            this.screenShares.delete(peerId);
+            this.screenShares.delete(shareId);
         }
     }
     

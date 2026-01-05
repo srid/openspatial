@@ -15,19 +15,20 @@ const state = {
     peerId: null,
     peers: new Map(),
     localStream: null,
-    screenStream: null,
+    screenStreams: new Map(), // shareId -> stream
     isMuted: false,
-    isVideoOff: false,
-    isScreenSharing: false
+    isVideoOff: false
 };
 
 // Initialize modules
 const socket = new SocketHandler();
 const canvas = new CanvasManager();
 const avatars = new AvatarManager(state);
-const screenShare = new ScreenShareManager(state, (peerId, x, y) => {
-    socket.emit('screen-share-position-update', { peerId, x, y });
-});
+const screenShare = new ScreenShareManager(
+    state,
+    (shareId, x, y) => socket.emit('screen-share-position-update', { shareId, x, y }),
+    (shareId) => stopScreenShare(shareId)
+);
 const spatialAudio = new SpatialAudio();
 const ui = new UIController(state);
 let webrtc;
@@ -66,7 +67,7 @@ function setupEventListeners() {
     // Control buttons
     document.getElementById('btn-mic').addEventListener('click', toggleMic);
     document.getElementById('btn-camera').addEventListener('click', toggleCamera);
-    document.getElementById('btn-screen').addEventListener('click', toggleScreenShare);
+    document.getElementById('btn-screen').addEventListener('click', startScreenShare);
     document.getElementById('btn-leave').addEventListener('click', leaveSpace);
     
     // Socket events
@@ -219,8 +220,8 @@ function handlePeerJoined(data) {
     avatars.createRemoteAvatar(peerId, username, position.x, position.y);
     
     // If we're screen sharing, we need to initiate the connection
-    // so our offer includes the screen track
-    if (state.isScreenSharing && webrtc) {
+    // so our offer includes the screen tracks
+    if (state.screenStreams.size > 0 && webrtc) {
         webrtc.createPeerConnection(peerId, true);
     }
     // Otherwise wait for offer from the new peer
@@ -256,18 +257,18 @@ function handleMediaStateUpdate(data) {
 }
 
 function handleScreenShareStarted(data) {
-    const { peerId, username } = data;
+    const { peerId, shareId, username } = data;
     // Remote screen share will be handled via WebRTC track
 }
 
 function handleScreenShareStopped(data) {
-    const { peerId } = data;
-    screenShare.removeScreenShare(peerId);
+    const { shareId } = data;
+    screenShare.removeScreenShare(shareId);
 }
 
 function handleScreenSharePositionUpdate(data) {
-    const { peerId, x, y } = data;
-    screenShare.setPosition(peerId, x, y);
+    const { shareId, x, y } = data;
+    screenShare.setPosition(shareId, x, y);
 }
 
 function toggleMic() {
@@ -308,58 +309,58 @@ function toggleCamera() {
     });
 }
 
-async function toggleScreenShare() {
-    if (!state.isScreenSharing) {
-        try {
-            state.screenStream = await navigator.mediaDevices.getDisplayMedia({
-                video: true,
-                audio: true
-            });
-            
-            state.isScreenSharing = true;
-            ui.updateScreenButton(true);
-            
-            // Create local screen share element
-            const localAvatar = avatars.getPosition(state.peerId);
-            screenShare.createScreenShare(
-                state.peerId, 
-                state.username, 
-                state.screenStream,
-                localAvatar.x + 150,
-                localAvatar.y
-            );
-            
-            // Add screen track to all peer connections
-            webrtc?.addScreenTrack(state.screenStream);
-            
-            // Notify peers
-            socket.emit('screen-share-started', { peerId: state.peerId });
-            
-            // Handle stream end
-            state.screenStream.getVideoTracks()[0].onended = () => {
-                stopScreenShare();
-            };
-            
-        } catch (error) {
+async function startScreenShare() {
+    try {
+        const stream = await navigator.mediaDevices.getDisplayMedia({
+            video: true,
+            audio: true
+        });
+        
+        // Generate unique share ID
+        const shareId = `${state.peerId}-${Date.now()}`;
+        state.screenStreams.set(shareId, stream);
+        
+        // Create local screen share element
+        const localAvatar = avatars.getPosition(state.peerId);
+        const offsetX = 150 + (state.screenStreams.size - 1) * 50; // Offset each share
+        screenShare.createScreenShare(
+            shareId,
+            state.peerId,
+            state.username, 
+            stream,
+            localAvatar.x + offsetX,
+            localAvatar.y
+        );
+        
+        // Add screen track to all peer connections
+        webrtc?.addScreenTrack(shareId, stream);
+        
+        // Notify peers
+        socket.emit('screen-share-started', { peerId: state.peerId, shareId });
+        
+        // Handle stream end (user clicks "Stop sharing" in browser)
+        stream.getVideoTracks()[0].onended = () => {
+            stopScreenShare(shareId);
+        };
+        
+    } catch (error) {
+        if (error.name !== 'NotAllowedError') {
             console.error('Screen share failed:', error);
         }
-    } else {
-        stopScreenShare();
     }
 }
 
-function stopScreenShare() {
-    if (state.screenStream) {
-        state.screenStream.getTracks().forEach(track => track.stop());
-        state.screenStream = null;
+function stopScreenShare(shareId) {
+    const stream = state.screenStreams.get(shareId);
+    if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+        state.screenStreams.delete(shareId);
     }
     
-    state.isScreenSharing = false;
-    ui.updateScreenButton(false);
-    screenShare.removeScreenShare(state.peerId);
-    webrtc?.removeScreenTrack();
+    screenShare.removeScreenShare(shareId);
+    webrtc?.removeScreenTrack(shareId);
     
-    socket.emit('screen-share-stopped', { peerId: state.peerId });
+    socket.emit('screen-share-stopped', { peerId: state.peerId, shareId });
 }
 
 function leaveSpace() {
@@ -367,9 +368,9 @@ function leaveSpace() {
     if (state.localStream) {
         state.localStream.getTracks().forEach(track => track.stop());
     }
-    if (state.screenStream) {
-        state.screenStream.getTracks().forEach(track => track.stop());
-    }
+    state.screenStreams.forEach(stream => {
+        stream.getTracks().forEach(track => track.stop());
+    });
     
     // Close WebRTC connections
     webrtc?.closeAllConnections();
@@ -384,11 +385,10 @@ function leaveSpace() {
     // Reset state
     state.peers.clear();
     state.localStream = null;
-    state.screenStream = null;
+    state.screenStreams.clear();
     state.peerId = null;
     state.isMuted = false;
     state.isVideoOff = false;
-    state.isScreenSharing = false;
     
     // Reset URL to root (clear space permalink)
     history.replaceState(null, '', '/');
