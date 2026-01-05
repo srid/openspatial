@@ -72,6 +72,12 @@ export interface ScreenSharePositionUpdateEvent {
   y: number;
 }
 
+export interface ScreenShareResizeUpdateEvent {
+  shareId: string;
+  width: number;
+  height: number;
+}
+
 // ==================== Socket Events (Server -> Client) ====================
 
 export interface ConnectedEvent {

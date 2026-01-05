@@ -8,6 +8,7 @@ import type {
   ScreenShareStartedEvent,
   ScreenShareStoppedEvent,
   ScreenSharePositionUpdateEvent,
+  ScreenShareResizeUpdateEvent,
   PeerData,
   ScreenShareData,
   SpaceStateEvent,
@@ -116,6 +117,11 @@ export function attachSignaling(io: Server): void {
         share.y = y;
       }
       socket.to(currentSpace).emit('screen-share-position-update', { shareId, x, y });
+    });
+
+    socket.on('screen-share-resize-update', ({ shareId, width, height }: ScreenShareResizeUpdateEvent) => {
+      if (!currentSpace) return;
+      socket.to(currentSpace).emit('screen-share-resize-update', { shareId, width, height });
     });
 
     socket.on('media-state-update', ({ peerId: pid, isMuted, isVideoOff }: MediaStateUpdateEvent) => {

@@ -1,4 +1,5 @@
 type PositionUpdateCallback = (shareId: string, x: number, y: number) => void;
+type ResizeUpdateCallback = (shareId: string, width: number, height: number) => void;
 type CloseCallback = (shareId: string) => void;
 
 interface AppState {
@@ -10,12 +11,36 @@ export class ScreenShareManager {
   private screenShares = new Map<string, HTMLDivElement>();
   private space: HTMLElement | null = null;
   private onPositionUpdate: PositionUpdateCallback | null;
+  private onResizeUpdate: ResizeUpdateCallback | null;
   private onClose: CloseCallback | null;
+  private resizeObserver: ResizeObserver | null = null;
 
-  constructor(state: AppState, onPositionUpdate: PositionUpdateCallback | null, onClose: CloseCallback | null) {
+  constructor(
+    state: AppState,
+    onPositionUpdate: PositionUpdateCallback | null,
+    onResizeUpdate: ResizeUpdateCallback | null,
+    onClose: CloseCallback | null
+  ) {
     this.state = state;
     this.onPositionUpdate = onPositionUpdate;
+    this.onResizeUpdate = onResizeUpdate;
     this.onClose = onClose;
+
+    // Create resize observer for local screen shares
+    this.resizeObserver = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const element = entry.target as HTMLDivElement;
+        const shareId = element.dataset.shareId;
+        const peerId = element.dataset.peerId;
+        
+        // Only emit resize for local screen shares
+        if (shareId && peerId === this.state.peerId && this.onResizeUpdate) {
+          const width = element.offsetWidth;
+          const height = element.offsetHeight;
+          this.onResizeUpdate(shareId, width, height);
+        }
+      }
+    });
   }
 
   createScreenShare(shareId: string, peerId: string, username: string, stream: MediaStream, x: number, y: number): void {
@@ -33,6 +58,12 @@ export class ScreenShareManager {
     element.style.top = `${y}px`;
     element.style.width = '480px';
     element.style.height = '320px';
+    
+    // Enable CSS resize for local screen shares only
+    if (isLocal) {
+      element.style.resize = 'both';
+      element.style.overflow = 'hidden';
+    }
 
     element.innerHTML = `
       <div class="screen-share-header">
@@ -73,6 +104,12 @@ export class ScreenShareManager {
 
     this.space!.appendChild(element);
     this.screenShares.set(shareId, element);
+    
+    // Observe resize for local screen shares
+    if (isLocal && this.resizeObserver) {
+      this.resizeObserver.observe(element);
+    }
+    
     console.log('[ScreenShare] Created with shareId:', shareId, 'Map size:', this.screenShares.size);
   }
 
@@ -130,6 +167,14 @@ export class ScreenShareManager {
       console.log('[ScreenShare] Position updated successfully');
     } else {
       console.warn('[ScreenShare] Element NOT FOUND for shareId:', shareId);
+    }
+  }
+
+  setSize(shareId: string, width: number, height: number): void {
+    const element = this.screenShares.get(shareId);
+    if (element) {
+      element.style.width = `${width}px`;
+      element.style.height = `${height}px`;
     }
   }
 

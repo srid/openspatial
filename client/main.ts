@@ -18,6 +18,7 @@ import type {
   ScreenShareStartedBroadcast,
   ScreenShareStoppedBroadcast,
   ScreenSharePositionUpdateEvent,
+  ScreenShareResizeUpdateEvent,
   PeerData,
   ScreenShareData,
 } from '../shared/types/events.js';
@@ -49,6 +50,7 @@ const avatars = new AvatarManager(state);
 const screenShare = new ScreenShareManager(
   state,
   (shareId, x, y) => socket.emit('screen-share-position-update', { shareId, x, y }),
+  (shareId, width, height) => socket.emit('screen-share-resize-update', { shareId, width, height }),
   (shareId) => stopScreenShare(shareId)
 );
 const spatialAudio = new SpatialAudio();
@@ -97,6 +99,7 @@ function setupEventListeners(): void {
   socket.on('screen-share-started', handleScreenShareStarted);
   socket.on('screen-share-stopped', handleScreenShareStopped);
   socket.on('screen-share-position-update', handleScreenSharePositionUpdate);
+  socket.on('screen-share-resize-update', handleScreenShareResizeUpdate);
   socket.on('space-state', handleSpaceState);
 }
 
@@ -283,6 +286,11 @@ function handleScreenShareStopped(data: ScreenShareStoppedBroadcast): void {
 function handleScreenSharePositionUpdate(data: ScreenSharePositionUpdateEvent): void {
   const { shareId, x, y } = data;
   screenShare.setPosition(shareId, x, y);
+}
+
+function handleScreenShareResizeUpdate(data: ScreenShareResizeUpdateEvent): void {
+  const { shareId, width, height } = data;
+  screenShare.setSize(shareId, width, height);
 }
 
 function toggleMic(): void {
