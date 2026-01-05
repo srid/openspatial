@@ -10,13 +10,8 @@
     "resolveJsonModule": true,
     "isolatedModules": true,
     "noEmit": true,
-    "declaration": true,
-    "declarationDir": "./types",
-    "baseUrl": ".",
-    "paths": {
-      "@/types/*": ["src/types/*"]
-    }
+    "baseUrl": "."
   },
-  "include": ["src/**/*", "lib/**/*", "server/**/*"],
+  "include": ["client/**/*", "shared/**/*", "server/**/*"],
   "exclude": ["node_modules", "dist"]
 }
