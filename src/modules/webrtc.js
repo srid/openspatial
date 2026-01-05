@@ -240,7 +240,11 @@ export class WebRTCManager {
         const username = peer?.username || 'Unknown';
         const position = avatars.getPosition(peerId);
         
+        // Generate shareId from stream ID for remote screen shares
+        const shareId = `${peerId}-${stream.id}`;
+        
         screenShare.createScreenShare(
+            shareId,
             peerId,
             username,
             stream,
