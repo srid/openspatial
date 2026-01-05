@@ -36,6 +36,10 @@ e2e:
 e2e-ui:
     npm run e2e:ui
 
+# Run E2E tests with line reporter (no interactive server)
+e2e-quick pattern="":
+    npx playwright test --reporter=line {{ if pattern != "" { "--grep=" + pattern } else { "" } }}
+
 # Clean node_modules
 clean:
     rm -rf node_modules
