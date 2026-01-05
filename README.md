@@ -6,10 +6,11 @@ A spatial video chat application where participants share a virtual canvas with 
 
 **Run instantly with Nix:**
 ```bash
-nix run github:srid/openspatial
-# Or with custom port:
-PORT=8080 nix run github:srid/openspatial
+# Use HTTPS=0 to disable https.
+PORT=443 nix run github:srid/openspatial
 ```
+
+Open `https://<your-ip>` and accept the self-signed certificate. We also provide a NixOS module.
 
 **Or develop locally:**
 ```bash
