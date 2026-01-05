@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { Server } from 'socket.io';
 import { createServer } from 'http';
 import { io as ioc, Socket } from 'socket.io-client';
+import { AddressInfo } from 'net';
 import { attachSignaling } from './signaling.js';
 
 /**
@@ -14,7 +15,7 @@ describe('Signaling Server', () => {
   let ioServer: Server;
   let clientSocket1: Socket;
   let clientSocket2: Socket;
-  const PORT = 3999;
+  let serverUrl: string;
 
   beforeEach(async () => {
     httpServer = createServer();
@@ -22,7 +23,11 @@ describe('Signaling Server', () => {
     attachSignaling(ioServer);
 
     await new Promise<void>((resolve) => {
-      httpServer.listen(PORT, resolve);
+      httpServer.listen(0, () => {
+        const address = httpServer.address() as AddressInfo;
+        serverUrl = `http://localhost:${address.port}`;
+        resolve();
+      });
     });
   });
 
@@ -37,7 +42,7 @@ describe('Signaling Server', () => {
 
   function connectClient(): Promise<Socket> {
     return new Promise((resolve) => {
-      const socket = ioc(`http://localhost:${PORT}`, {
+      const socket = ioc(serverUrl, {
         transports: ['websocket'],
       });
       socket.on('connect', () => resolve(socket));
