@@ -16,6 +16,7 @@ const state = {
     peers: new Map(),
     localStream: null,
     screenStreams: new Map(), // shareId -> stream
+    pendingShareIds: new Map(), // peerId -> [shareId] - queued shareIds from signaling, waiting for WebRTC track
     isMuted: false,
     isVideoOff: false
 };
@@ -257,8 +258,12 @@ function handleMediaStateUpdate(data) {
 }
 
 function handleScreenShareStarted(data) {
-    const { peerId, shareId, username } = data;
-    // Remote screen share will be handled via WebRTC track
+    const { peerId, shareId } = data;
+    // Queue the shareId - when WebRTC track arrives, we'll use this ID
+    if (!state.pendingShareIds.has(peerId)) {
+        state.pendingShareIds.set(peerId, []);
+    }
+    state.pendingShareIds.get(peerId).push(shareId);
 }
 
 function handleScreenShareStopped(data) {

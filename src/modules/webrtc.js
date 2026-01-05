@@ -240,8 +240,16 @@ export class WebRTCManager {
         const username = peer?.username || 'Unknown';
         const position = avatars.getPosition(peerId);
         
-        // Generate shareId from stream ID for remote screen shares
-        const shareId = `${peerId}-${stream.id}`;
+        // Use shareId from signaling (queued in pendingShareIds), or fallback to stream.id
+        let shareId;
+        const pendingIds = this.state.pendingShareIds?.get(peerId);
+        if (pendingIds && pendingIds.length > 0) {
+            shareId = pendingIds.shift(); // Use the queued ID from signaling
+        } else {
+            // Fallback if signaling arrived after track (shouldn't happen normally)
+            shareId = `${peerId}-${stream.id}`;
+            console.warn('No pending shareId for screen track, using fallback');
+        }
         
         screenShare.createScreenShare(
             shareId,
