@@ -141,6 +141,17 @@ export class ScreenShareManager {
     }
   }
 
+  removeScreenSharesByPeerId(peerId: string): void {
+    // Find all screen shares belonging to this peer and remove them
+    const sharesToRemove: string[] = [];
+    this.screenShares.forEach((element, shareId) => {
+      if (element.dataset.peerId === peerId) {
+        sharesToRemove.push(shareId);
+      }
+    });
+    sharesToRemove.forEach((shareId) => this.removeScreenShare(shareId));
+  }
+
   clear(): void {
     this.screenShares.forEach((element) => element.remove());
     this.screenShares.clear();

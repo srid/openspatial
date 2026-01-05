@@ -114,5 +114,47 @@ test.describe('Multi-User Scenarios', () => {
     await expect(userA.page.locator('#participant-count')).toContainText('2', { timeout: 10000 });
     await expect(userB.page.locator('#participant-count')).toContainText('2');
   });
+
+  test('user leaving removes their screen shares from other users view', async () => {
+    // Both users join
+    await joinSpace(userA.page, 'Alice', 'screenshare-leave-test');
+    await joinSpace(userB.page, 'Bob', 'screenshare-leave-test');
+
+    // Wait for both to see each other
+    await expect(userA.page.locator('.avatar:has-text("Bob")')).toBeVisible({ timeout: 10000 });
+    await expect(userB.page.locator('.avatar:has-text("Alice")')).toBeVisible({ timeout: 10000 });
+
+    // User A starts a screen share
+    // We need to mock getDisplayMedia since Playwright can't actually share screens
+    await userA.page.evaluate(() => {
+      // Create a fake MediaStream with a video track
+      const canvas = document.createElement('canvas');
+      canvas.width = 640;
+      canvas.height = 480;
+      const ctx = canvas.getContext('2d')!;
+      ctx.fillStyle = 'blue';
+      ctx.fillRect(0, 0, 640, 480);
+      const stream = canvas.captureStream(30);
+      
+      // Override getDisplayMedia to return our fake stream
+      (navigator.mediaDevices as any).getDisplayMedia = async () => stream;
+    });
+
+    // Click the screen share button
+    await userA.page.click('#btn-screen');
+
+    // Wait a moment for the share to be established
+    await userA.page.waitForTimeout(1000);
+
+    // User B should see a screen share window from Alice
+    await expect(userB.page.locator('.screen-share:has-text("Alice")')).toBeVisible({ timeout: 10000 });
+
+    // Alice leaves (click the leave button)
+    await userA.page.click('#btn-leave');
+
+    // BUG REPRODUCTION: Bob should NO LONGER see Alice's screen share
+    // This test will FAIL if the screen share is not cleaned up when user leaves
+    await expect(userB.page.locator('.screen-share:has-text("Alice")')).not.toBeVisible({ timeout: 10000 });
+  });
 });
 
