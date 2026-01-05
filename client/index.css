@@ -522,9 +522,28 @@ body {
     transition: all var(--transition-fast);
 }
 
+.screen-share-copy {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    background: transparent;
+    border: none;
+    border-radius: var(--radius-sm);
+    color: var(--color-text-muted);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
 .screen-share-close:hover {
     background: var(--color-surface-hover);
     color: var(--color-danger);
+}
+
+.screen-share-copy:hover {
+    background: var(--color-surface-hover);
+    color: var(--color-accent);
 }
 
 .screen-share video {
