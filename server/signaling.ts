@@ -121,6 +121,12 @@ export function attachSignaling(io: Server): void {
 
     socket.on('screen-share-resize-update', ({ shareId, width, height }: ScreenShareResizeUpdateEvent) => {
       if (!currentSpace) return;
+      const space = spaces.get(currentSpace);
+      const share = space?.screenShares.get(shareId);
+      if (share) {
+        share.width = width;
+        share.height = height;
+      }
       socket.to(currentSpace).emit('screen-share-resize-update', { shareId, width, height });
     });
 

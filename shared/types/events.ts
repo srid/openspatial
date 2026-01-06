@@ -23,6 +23,8 @@ export interface ScreenShareData {
   username: string;
   x: number;
   y: number;
+  width?: number;
+  height?: number;
 }
 
 // ==================== Socket Events (Client -> Server) ====================
