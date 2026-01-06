@@ -115,6 +115,39 @@ test.describe('Multi-User Scenarios', () => {
     await expect(userB.page.locator('#participant-count')).toContainText('2');
   });
 
+  test('user status updates are synced between users', async () => {
+    // Both users join
+    await joinSpace(userA.page, 'Alice', 'status-test');
+    await joinSpace(userB.page, 'Bob', 'status-test');
+
+    // Wait for both to see each other
+    await expect(userA.page.locator('.avatar:has-text("Bob")')).toBeVisible({ timeout: 10000 });
+    await expect(userB.page.locator('.avatar:has-text("Alice")')).toBeVisible({ timeout: 10000 });
+
+    // User A sets their status
+    await userA.page.fill('#status-input', 'BRB ~10 mins');
+    await userA.page.click('#btn-set-status');
+
+    // User A should see their own status
+    const aliceAvatarOnA = userA.page.locator('.avatar.self .avatar-status');
+    await expect(aliceAvatarOnA).toBeVisible({ timeout: 5000 });
+    await expect(aliceAvatarOnA).toContainText('BRB ~10 mins');
+
+    // User B should see Alice's status
+    const aliceAvatarOnB = userB.page.locator('.avatar:has-text("Alice") .avatar-status');
+    await expect(aliceAvatarOnB).toBeVisible({ timeout: 5000 });
+    await expect(aliceAvatarOnB).toContainText('BRB ~10 mins');
+
+    // User A clears their status
+    await userA.page.click('#btn-clear-status');
+
+    // User A's status should be hidden
+    await expect(aliceAvatarOnA).not.toBeVisible({ timeout: 5000 });
+
+    // User B should no longer see Alice's status
+    await expect(aliceAvatarOnB).not.toBeVisible({ timeout: 5000 });
+  });
+
   test('user leaving removes their screen shares from other users view', async () => {
     // Both users join
     await joinSpace(userA.page, 'Alice', 'screenshare-leave-test');
