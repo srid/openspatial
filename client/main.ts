@@ -207,8 +207,29 @@ async function handleJoin(e: Event): Promise<void> {
 }
 
 function handleConnected(data: ConnectedEvent): void {
+  const previousPeerId = state.peerId;
+  const isReconnection = previousPeerId !== null;
+  
   state.peerId = data.peerId;
 
+  if (isReconnection) {
+    // Reconnection: Clean up stale state
+    console.log(`Reconnected with new peerId: ${data.peerId} (was: ${previousPeerId})`);
+    
+    // Update local avatar's peerId reference
+    avatars.updateLocalPeerId(previousPeerId, data.peerId);
+    
+    // Clear stale remote peers (they may have left while we were disconnected)
+    state.peers.clear();
+    
+    // Close old peer connections - they're invalid now
+    webrtc?.closeAllConnections();
+    
+    updateParticipantCount();
+    return;
+  }
+
+  // First-time join: Show UI and create local avatar
   joinModal.classList.add('hidden');
   canvasContainer.classList.remove('hidden');
 

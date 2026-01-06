@@ -115,6 +115,27 @@ export class AvatarManager {
     return this.positions;
   }
 
+  /**
+   * Update the local avatar's peerId after reconnection.
+   * The server assigns a new peerId on each connection.
+   */
+  updateLocalPeerId(oldPeerId: string, newPeerId: string): void {
+    // Re-key the avatar
+    const avatar = this.avatars.get(oldPeerId);
+    if (avatar) {
+      this.avatars.delete(oldPeerId);
+      this.avatars.set(newPeerId, avatar);
+      avatar.dataset.peerId = newPeerId;
+    }
+
+    // Re-key the position
+    const position = this.positions.get(oldPeerId);
+    if (position) {
+      this.positions.delete(oldPeerId);
+      this.positions.set(newPeerId, position);
+    }
+  }
+
   private setupDrag(avatar: HTMLDivElement, peerId: string): void {
     let isDragging = false;
     let startX = 0, startY = 0;
