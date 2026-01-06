@@ -15,6 +15,7 @@ import type {
   SignalEvent,
   PositionUpdateEvent,
   MediaStateUpdateEvent,
+  StatusUpdateEvent,
   ScreenShareStartedBroadcast,
   ScreenShareStoppedBroadcast,
   ScreenSharePositionUpdateEvent,
@@ -41,6 +42,7 @@ const state = {
   pendingShareIds: new Map<string, (string | PendingShareInfo)[]>(),
   isMuted: false,
   isVideoOff: false,
+  status: '',
 };
 
 // Initialize modules
@@ -89,6 +91,13 @@ function setupEventListeners(): void {
   document.getElementById('btn-camera')!.addEventListener('click', toggleCamera);
   document.getElementById('btn-screen')!.addEventListener('click', startScreenShare);
   document.getElementById('btn-leave')!.addEventListener('click', leaveSpace);
+  document.getElementById('btn-set-status')!.addEventListener('click', setStatus);
+  document.getElementById('btn-clear-status')!.addEventListener('click', clearStatus);
+  document.getElementById('status-input')!.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      setStatus();
+    }
+  });
 
   socket.on('connected', handleConnected);
   socket.on('peer-joined', handlePeerJoined);
@@ -102,6 +111,7 @@ function setupEventListeners(): void {
   socket.on('screen-share-resize-update', handleScreenShareResizeUpdate);
   socket.on('space-state', handleSpaceState);
   socket.on('reconnected', handleReconnected);
+  socket.on('status-update', handleStatusUpdate);
 
   // Set up connection state handler for UI feedback
   socket.onConnectionStateChange(handleConnectionStateChange);
@@ -335,6 +345,11 @@ function handleMediaStateUpdate(data: MediaStateUpdateEvent): void {
   avatars.updateMediaState(peerId, isMuted, isVideoOff);
 }
 
+function handleStatusUpdate(data: StatusUpdateEvent): void {
+  const { peerId, status } = data;
+  avatars.updateStatus(peerId, status);
+}
+
 function handleScreenShareStarted(data: ScreenShareStartedBroadcast): void {
   const { peerId, shareId } = data;
   if (!state.pendingShareIds.has(peerId)) {
@@ -393,6 +408,32 @@ function toggleCamera(): void {
     peerId: state.peerId!,
     isMuted: state.isMuted,
     isVideoOff: state.isVideoOff,
+  });
+}
+
+function setStatus(): void {
+  const statusInput = document.getElementById('status-input') as HTMLInputElement;
+  const newStatus = statusInput.value.trim();
+  
+  state.status = newStatus;
+  avatars.updateStatus(state.peerId!, newStatus);
+  
+  socket.emit('status-update', {
+    peerId: state.peerId!,
+    status: newStatus,
+  });
+}
+
+function clearStatus(): void {
+  const statusInput = document.getElementById('status-input') as HTMLInputElement;
+  statusInput.value = '';
+  
+  state.status = '';
+  avatars.updateStatus(state.peerId!, '');
+  
+  socket.emit('status-update', {
+    peerId: state.peerId!,
+    status: '',
   });
 }
 

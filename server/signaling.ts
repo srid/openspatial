@@ -5,6 +5,7 @@ import type {
   SignalEvent,
   PositionUpdateEvent,
   MediaStateUpdateEvent,
+  StatusUpdateEvent,
   ScreenShareStartedEvent,
   ScreenShareStoppedEvent,
   ScreenSharePositionUpdateEvent,
@@ -136,6 +137,16 @@ export function attachSignaling(io: Server): void {
         peer.isMuted = isMuted;
         peer.isVideoOff = isVideoOff;
         socket.to(currentSpace).emit('media-state-update', { peerId: pid, isMuted, isVideoOff });
+      }
+    });
+
+    socket.on('status-update', ({ peerId: pid, status }: StatusUpdateEvent) => {
+      if (!currentSpace) return;
+      const space = spaces.get(currentSpace);
+      const peer = space?.peers.get(pid);
+      if (peer) {
+        peer.status = status;
+        socket.to(currentSpace).emit('status-update', { peerId: pid, status });
       }
     });
 

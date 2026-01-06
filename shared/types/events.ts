@@ -16,6 +16,7 @@ export interface PeerData {
   isMuted: boolean;
   isVideoOff: boolean;
   isScreenSharing: boolean;
+  status?: string;
 }
 
 export interface ScreenShareData {
@@ -54,6 +55,11 @@ export interface MediaStateUpdateEvent {
   peerId: string;
   isMuted: boolean;
   isVideoOff: boolean;
+}
+
+export interface StatusUpdateEvent {
+  peerId: string;
+  status: string;
 }
 
 export interface ScreenShareStartedEvent {

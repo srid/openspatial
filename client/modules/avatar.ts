@@ -65,6 +65,7 @@ export class AvatarManager {
     avatar.innerHTML = `
       <div class="avatar-video-container"></div>
       <div class="avatar-name">${isLocal ? `${username} (You)` : username}</div>
+      <div class="avatar-status"></div>
       <div class="avatar-indicators"></div>
     `;
 
@@ -229,6 +230,17 @@ export class AvatarManager {
     const avatar = this.avatars.get(peerId);
     if (avatar) {
       avatar.classList.toggle('speaking', isSpeaking);
+    }
+  }
+
+  updateStatus(peerId: string, status: string): void {
+    const avatar = this.avatars.get(peerId);
+    if (!avatar) return;
+
+    const statusEl = avatar.querySelector('.avatar-status') as HTMLElement;
+    if (statusEl) {
+      statusEl.textContent = status;
+      statusEl.style.display = status ? 'block' : 'none';
     }
   }
 

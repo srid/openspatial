@@ -4,6 +4,7 @@ import type {
   SignalEvent,
   PositionUpdateEvent,
   MediaStateUpdateEvent,
+  StatusUpdateEvent,
   ScreenShareStartedEvent,
   ScreenShareStoppedEvent,
   ScreenSharePositionUpdateEvent,
@@ -22,6 +23,7 @@ type ClientEventMap = {
   'signal': SignalEvent;
   'position-update': PositionUpdateEvent;
   'media-state-update': MediaStateUpdateEvent;
+  'status-update': StatusUpdateEvent;
   'screen-share-started': ScreenShareStartedEvent;
   'screen-share-stopped': ScreenShareStoppedEvent;
   'screen-share-position-update': ScreenSharePositionUpdateEvent;
@@ -37,6 +39,7 @@ type ServerEventMap = {
   'signal': SignalEvent;
   'position-update': PositionUpdateEvent;
   'media-state-update': MediaStateUpdateEvent;
+  'status-update': StatusUpdateEvent;
   'screen-share-started': ScreenShareStartedBroadcast;
   'screen-share-stopped': ScreenShareStoppedBroadcast;
   'screen-share-position-update': ScreenSharePositionUpdateEvent;
@@ -133,6 +136,7 @@ export class SocketHandler {
       this.socket.on('signal', (data: SignalEvent) => this.trigger('signal', data));
       this.socket.on('position-update', (data: PositionUpdateEvent) => this.trigger('position-update', data));
       this.socket.on('media-state-update', (data: MediaStateUpdateEvent) => this.trigger('media-state-update', data));
+      this.socket.on('status-update', (data: StatusUpdateEvent) => this.trigger('status-update', data));
       this.socket.on('screen-share-started', (data: ScreenShareStartedBroadcast) => this.trigger('screen-share-started', data));
       this.socket.on('screen-share-stopped', (data: ScreenShareStoppedBroadcast) => this.trigger('screen-share-stopped', data));
       this.socket.on('screen-share-position-update', (data: ScreenSharePositionUpdateEvent) => this.trigger('screen-share-position-update', data));

@@ -92,6 +92,21 @@
                 </svg>
             </button>
             <div class="control-divider"></div>
+            <div id="status-input-group" class="status-input-group">
+                <input type="text" id="status-input" placeholder="Set status (e.g., BRB ~10 mins)" maxlength="50">
+                <button id="btn-set-status" class="control-btn control-btn-sm" title="Set Status">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="20 6 9 17 4 12"/>
+                    </svg>
+                </button>
+                <button id="btn-clear-status" class="control-btn control-btn-sm control-btn-muted" title="Clear Status">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"/>
+                        <line x1="6" y1="6" x2="18" y2="18"/>
+                    </svg>
+                </button>
+            </div>
+            <div class="control-divider"></div>
             <button id="btn-leave" class="control-btn control-btn-danger" title="Leave Space">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
