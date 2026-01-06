@@ -3,6 +3,14 @@ import { test, expect, Browser, BrowserContext, Page } from '@playwright/test';
 /**
  * E2E integration tests for multi-user scenarios.
  * Uses multiple browser contexts to simulate different users.
+ *
+ * IMPORTANT: When adding new features that involve synced state (status, media state,
+ * screen shares, positions, etc.), always add TWO tests:
+ * 1. Real-time sync test - User A changes state, User B (already in space) sees the change
+ * 2. Late-joiner test - User A sets state, THEN User B joins and sees the pre-existing state
+ *
+ * The late-joiner scenario tests that state is properly stored server-side and included
+ * in the space-state sent to new users. This is a common source of bugs!
  */
 
 test.describe('Multi-User Scenarios', () => {
@@ -171,6 +179,28 @@ test.describe('Multi-User Scenarios', () => {
     const aliceStatusOnB = userB.page.locator('.avatar:has-text("Alice") .avatar-status');
     await expect(aliceStatusOnB).toBeVisible({ timeout: 5000 });
     await expect(aliceStatusOnB).toContainText('In a meeting');
+  });
+
+  test('late-joining user sees existing users muted state', async () => {
+    // User A joins first
+    await joinSpace(userA.page, 'Alice', 'muted-late-join-test');
+
+    // User A mutes themselves BEFORE User B joins
+    await userA.page.click('#btn-mic');
+
+    // Verify Alice sees her own muted indicator
+    const aliceMutedOnA = userA.page.locator('.avatar.self .avatar-indicator.muted');
+    await expect(aliceMutedOnA).toBeVisible({ timeout: 5000 });
+
+    // Now User B joins (after mute was set)
+    await joinSpace(userB.page, 'Bob', 'muted-late-join-test');
+
+    // User B should see Alice's avatar
+    await expect(userB.page.locator('.avatar:has-text("Alice")')).toBeVisible({ timeout: 10000 });
+
+    // User B should see Alice's muted indicator that was set before they joined
+    const aliceMutedOnB = userB.page.locator('.avatar:has-text("Alice") .avatar-indicator.muted');
+    await expect(aliceMutedOnB).toBeVisible({ timeout: 5000 });
   });
 
   test('user leaving removes their screen shares from other users view', async () => {

@@ -288,6 +288,11 @@ function handleSpaceState(spaceState: SpaceStateEvent): void {
         avatars.updateStatus(peerId, peerData.status);
       }
 
+      // Apply existing peer media state (muted/video off)
+      if (peerData.isMuted || peerData.isVideoOff) {
+        avatars.updateMediaState(peerId, peerData.isMuted, peerData.isVideoOff);
+      }
+
       webrtc!.createPeerConnection(peerId, true);
     }
   }
