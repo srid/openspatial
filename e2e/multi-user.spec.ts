@@ -210,5 +210,79 @@ test.describe('Multi-User Scenarios', () => {
     const newWidth = await screenShareOnB.evaluate((el: HTMLElement) => el.style.width);
     expect(newWidth).not.toBe(initialWidth);
   });
+
+  test('connection status banner responds to offline/online events', async () => {
+    // User A joins
+    await joinSpace(userA.page, 'Alice', 'connection-test');
+
+    // Verify initial connected state - banner should have 'connected' class
+    const connectionStatus = userA.page.locator('#connection-status');
+    await expect(connectionStatus).toHaveClass(/connected/, { timeout: 5000 });
+
+    // Simulate going offline
+    await userA.page.evaluate(() => {
+      window.dispatchEvent(new Event('offline'));
+    });
+
+    // Banner should change to disconnected state
+    await expect(connectionStatus).toHaveClass(/disconnected/, { timeout: 2000 });
+
+    // Simulate coming back online
+    await userA.page.evaluate(() => {
+      window.dispatchEvent(new Event('online'));
+    });
+
+    // Banner should change back to connected state
+    await expect(connectionStatus).toHaveClass(/connected/, { timeout: 2000 });
+  });
+
+  test('user can reconnect and share screen after disconnection', async () => {
+    // User A joins first
+    await joinSpace(userA.page, 'Alice', 'reconnect-test');
+
+    // User B joins same space
+    await joinSpace(userB.page, 'Bob', 'reconnect-test');
+
+    // Both users should see each other
+    await expect(userA.page.locator('.avatar:has-text("Bob")')).toBeVisible({ timeout: 10000 });
+    await expect(userB.page.locator('.avatar:has-text("Alice")')).toBeVisible({ timeout: 10000 });
+
+    // User A goes offline
+    await userA.page.evaluate(() => {
+      window.dispatchEvent(new Event('offline'));
+    });
+
+    // Verify Alice sees disconnected status
+    await expect(userA.page.locator('#connection-status')).toHaveClass(/disconnected/, { timeout: 2000 });
+
+    // User A comes back online
+    await userA.page.evaluate(() => {
+      window.dispatchEvent(new Event('online'));
+    });
+
+    // Verify Alice sees connected status
+    await expect(userA.page.locator('#connection-status')).toHaveClass(/connected/, { timeout: 2000 });
+
+    // Wait a moment for reconnection to stabilize
+    await userA.page.waitForTimeout(500);
+
+    // User A starts a screen share (with mock)
+    await userA.page.evaluate(() => {
+      const canvas = document.createElement('canvas');
+      canvas.width = 640;
+      canvas.height = 480;
+      const ctx = canvas.getContext('2d')!;
+      ctx.fillStyle = 'purple';
+      ctx.fillRect(0, 0, 640, 480);
+      const stream = canvas.captureStream(30);
+      (navigator.mediaDevices as any).getDisplayMedia = async () => stream;
+    });
+
+    await userA.page.click('#btn-screen');
+    await userA.page.waitForTimeout(1000);
+
+    // User B should see Alice's screen share after reconnection
+    await expect(userB.page.locator('.screen-share:has-text("Alice")')).toBeVisible({ timeout: 10000 });
+  });
 });
 
