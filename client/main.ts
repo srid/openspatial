@@ -10,6 +10,7 @@ import { MinimapManager } from './modules/minimap.js';
 import type {
   ConnectedEvent,
   SpaceStateEvent,
+  SpaceInfoEvent,
   PeerJoinedEvent,
   PeerLeftEvent,
   SignalEvent,
@@ -66,6 +67,10 @@ const joinForm = document.getElementById('join-form') as HTMLFormElement;
 const canvasContainer = document.getElementById('canvas-container') as HTMLElement;
 const usernameInput = document.getElementById('username') as HTMLInputElement;
 const spaceIdInput = document.getElementById('space-id') as HTMLInputElement;
+const spaceParticipants = document.getElementById('space-participants') as HTMLElement;
+
+// Preview socket for pre-join space info
+let previewSocket: SocketHandler | null = null;
 
 // Initialize
 function init(): void {
@@ -77,11 +82,51 @@ function init(): void {
 
   const pathMatch = window.location.pathname.match(/^\/s\/(.+)$/);
   if (pathMatch) {
-    spaceIdInput.value = decodeURIComponent(pathMatch[1]);
+    const spaceId = decodeURIComponent(pathMatch[1]);
+    spaceIdInput.value = spaceId;
+    spaceIdInput.readOnly = true;
     usernameInput.focus();
+
+    // Query space info for preview
+    querySpaceInfo(spaceId);
   } else {
     usernameInput.focus();
   }
+}
+
+async function querySpaceInfo(spaceId: string): Promise<void> {
+  previewSocket = new SocketHandler();
+  
+  previewSocket.on('space-info', (data: SpaceInfoEvent) => {
+    displaySpaceParticipants(data.participants);
+    // Disconnect preview socket after getting info
+    previewSocket?.disconnect();
+    previewSocket = null;
+  });
+
+  try {
+    await previewSocket.connect();
+    previewSocket.emit('get-space-info', { spaceId });
+  } catch (error) {
+    console.error('Failed to query space info:', error);
+  }
+}
+
+function displaySpaceParticipants(participants: string[]): void {
+  if (participants.length === 0) {
+    spaceParticipants.classList.add('empty');
+    spaceParticipants.textContent = 'No one here yet — be the first to join!';
+  } else {
+    spaceParticipants.classList.remove('empty');
+    const label = participants.length === 1 ? 'Currently here:' : `${participants.length} people here:`;
+    spaceParticipants.innerHTML = `
+      ${label}
+      <div class="participant-list">
+        ${participants.map(name => `<span class="participant-name">${name}</span>`).join('')}
+      </div>
+    `;
+  }
+  spaceParticipants.classList.remove('hidden');
 }
 
 function setupEventListeners(): void {

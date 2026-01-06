@@ -10,6 +10,7 @@ import type {
   ScreenShareStoppedEvent,
   ScreenSharePositionUpdateEvent,
   ScreenShareResizeUpdateEvent,
+  GetSpaceInfoEvent,
   PeerData,
   ScreenShareData,
   SpaceStateEvent,
@@ -50,6 +51,17 @@ export function attachSignaling(io: Server): void {
     let currentUsername: string | null = null;
 
     peerSockets.set(peerId, socket.id);
+
+    // Query space info without joining (for pre-join preview)
+    socket.on('get-space-info', ({ spaceId }: GetSpaceInfoEvent) => {
+      const space = spaces.get(spaceId);
+      if (space) {
+        const participants = Array.from(space.peers.values()).map(p => p.username);
+        socket.emit('space-info', { spaceId, participants });
+      } else {
+        socket.emit('space-info', { spaceId, participants: [] });
+      }
+    });
 
     socket.on('join-space', ({ spaceId, username }: JoinSpaceEvent) => {
       currentSpace = spaceId;

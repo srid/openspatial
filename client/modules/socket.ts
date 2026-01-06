@@ -9,6 +9,8 @@ import type {
   ScreenShareStoppedEvent,
   ScreenSharePositionUpdateEvent,
   ScreenShareResizeUpdateEvent,
+  GetSpaceInfoEvent,
+  SpaceInfoEvent,
   ConnectedEvent,
   SpaceStateEvent,
   PeerJoinedEvent,
@@ -28,12 +30,14 @@ type ClientEventMap = {
   'screen-share-stopped': ScreenShareStoppedEvent;
   'screen-share-position-update': ScreenSharePositionUpdateEvent;
   'screen-share-resize-update': ScreenShareResizeUpdateEvent;
+  'get-space-info': GetSpaceInfoEvent;
 };
 
 // Union type of all possible server events
 type ServerEventMap = {
   'connected': ConnectedEvent;
   'space-state': SpaceStateEvent;
+  'space-info': SpaceInfoEvent;
   'peer-joined': PeerJoinedEvent;
   'peer-left': PeerLeftEvent;
   'signal': SignalEvent;
@@ -141,6 +145,7 @@ export class SocketHandler {
       this.socket.on('screen-share-stopped', (data: ScreenShareStoppedBroadcast) => this.trigger('screen-share-stopped', data));
       this.socket.on('screen-share-position-update', (data: ScreenSharePositionUpdateEvent) => this.trigger('screen-share-position-update', data));
       this.socket.on('screen-share-resize-update', (data: ScreenShareResizeUpdateEvent) => this.trigger('screen-share-resize-update', data));
+      this.socket.on('space-info', (data: SpaceInfoEvent) => this.trigger('space-info', data));
     });
   }
 

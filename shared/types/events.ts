@@ -117,3 +117,14 @@ export interface ScreenShareStoppedBroadcast {
   peerId: string;
   shareId: string;
 }
+
+// ==================== Space Info Events ====================
+
+export interface GetSpaceInfoEvent {
+  spaceId: string;
+}
+
+export interface SpaceInfoEvent {
+  spaceId: string;
+  participants: string[];
+}

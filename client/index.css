@@ -214,6 +214,43 @@ body {
     box-shadow: 0 0 0 3px var(--color-accent-glow);
 }
 
+.form-group input:read-only {
+    background: rgba(255, 255, 255, 0.02);
+    color: var(--color-text-secondary);
+    cursor: not-allowed;
+}
+
+.space-participants {
+    margin-top: var(--space-2);
+    padding: var(--space-2) var(--space-3);
+    background: rgba(99, 102, 241, 0.1);
+    border: 1px solid rgba(99, 102, 241, 0.3);
+    border-radius: var(--radius-md);
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+}
+
+.space-participants .participant-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-1);
+    margin-top: var(--space-1);
+}
+
+.space-participants .participant-name {
+    padding: var(--space-1) var(--space-2);
+    background: var(--color-accent);
+    border-radius: var(--radius-sm);
+    font-size: var(--font-size-xs);
+    font-weight: 500;
+    color: white;
+}
+
+.space-participants.empty {
+    color: var(--color-text-muted);
+    font-style: italic;
+}
+
 /* ===== Buttons ===== */
 .btn {
     display: inline-flex;
