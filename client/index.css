@@ -346,6 +346,8 @@ body {
     color: var(--color-success);
     padding: var(--space-2);
     opacity: 0.7;
+    justify-content: center;
+    gap: 0;
 }
 
 .connection-status.connected span {
