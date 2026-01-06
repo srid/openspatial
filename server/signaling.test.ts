@@ -204,4 +204,60 @@ describe('Signaling Server', () => {
       expect(signal.signal.type).toBe('offer');
     });
   });
+
+  describe('screen share events', () => {
+    it('broadcasts screen-share-started and screen-share-stopped events', async () => {
+      clientSocket1 = await connectClient();
+      clientSocket2 = await connectClient();
+
+      let client1PeerId: string;
+
+      // Both join
+      await Promise.all([
+        new Promise<void>((resolve) => {
+          clientSocket1.on('connected', (data: { peerId: string }) => {
+            client1PeerId = data.peerId;
+            resolve();
+          });
+          clientSocket1.emit('join-space', { spaceId: 'shared-room', username: 'Alice' });
+        }),
+        new Promise<void>((resolve) => {
+          clientSocket2.on('connected', () => resolve());
+          clientSocket2.emit('join-space', { spaceId: 'shared-room', username: 'Bob' });
+        }),
+      ]);
+
+      // Test screen share started
+      const startPromise = new Promise<{ peerId: string; shareId: string; username: string }>((resolve) => {
+        clientSocket2.on('screen-share-started', resolve);
+      });
+
+      const shareId = 'test-share-id';
+      clientSocket1.emit('screen-share-started', {
+        peerId: client1PeerId!,
+        shareId: shareId,
+        x: 0,
+        y: 0
+      });
+
+      const startedEvent = await startPromise;
+      expect(startedEvent.peerId).toBe(client1PeerId!);
+      expect(startedEvent.shareId).toBe(shareId);
+      expect(startedEvent.username).toBe('Alice');
+
+      // Test screen share stopped
+      const stopPromise = new Promise<{ peerId: string; shareId: string }>((resolve) => {
+        clientSocket2.on('screen-share-stopped', resolve);
+      });
+
+      clientSocket1.emit('screen-share-stopped', {
+        peerId: client1PeerId!,
+        shareId: shareId
+      });
+
+      const stoppedEvent = await stopPromise;
+      expect(stoppedEvent.peerId).toBe(client1PeerId!);
+      expect(stoppedEvent.shareId).toBe(shareId);
+    });
+  });
 });

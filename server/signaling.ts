@@ -92,7 +92,6 @@ export function attachSignaling(io: Server): void {
       const targetSocketId = peerSockets.get(to);
       if (targetSocketId) {
         io.to(targetSocketId).emit('signal', data);
-        console.log(`[Signaling] Signal ${signal.type} from ${from} to ${to}`);
       } else {
         console.log(`[Signaling] Target peer ${to} not found for signal`);
       }
@@ -155,6 +154,7 @@ export function attachSignaling(io: Server): void {
           username: currentUsername,
         };
         socket.to(currentSpace).emit('screen-share-started', broadcast);
+        console.log(`[Signaling] Screen share started: ${shareId} by ${currentUsername}`);
       }
     });
 
@@ -162,12 +162,13 @@ export function attachSignaling(io: Server): void {
       if (!currentSpace) return;
       const space = spaces.get(currentSpace);
       const peer = space?.peers.get(pid);
-      if (peer) {
+      if (peer && currentUsername) {
         peer.isScreenSharing = false;
         space?.screenShares.delete(shareId);
         
         const broadcast: ScreenShareStoppedBroadcast = { peerId: pid, shareId };
         socket.to(currentSpace).emit('screen-share-stopped', broadcast);
+        console.log(`[Signaling] Screen share stopped: ${shareId} by ${currentUsername}`);
       }
     });
 
