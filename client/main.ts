@@ -1,5 +1,5 @@
 import './index.css';
-import { SocketHandler } from './modules/socket.js';
+import { SocketHandler, ConnectionState, ReconnectInfo } from './modules/socket.js';
 import { WebRTCManager } from './modules/webrtc.js';
 import { CanvasManager } from './modules/canvas.js';
 import { AvatarManager } from './modules/avatar.js';
@@ -101,6 +101,50 @@ function setupEventListeners(): void {
   socket.on('screen-share-position-update', handleScreenSharePositionUpdate);
   socket.on('screen-share-resize-update', handleScreenShareResizeUpdate);
   socket.on('space-state', handleSpaceState);
+  socket.on('reconnected', handleReconnected);
+
+  // Set up connection state handler for UI feedback
+  socket.onConnectionStateChange(handleConnectionStateChange);
+
+  // Browser offline/online detection for immediate feedback
+  window.addEventListener('offline', () => {
+    console.log('Browser went offline');
+    ui.showDisconnected();
+  });
+
+  window.addEventListener('online', () => {
+    console.log('Browser came back online');
+    ui.showConnected();
+  });
+}
+
+function handleConnectionStateChange(state: ConnectionState, info?: ReconnectInfo): void {
+  switch (state) {
+    case 'disconnected':
+      ui.showDisconnected();
+      break;
+    case 'reconnecting':
+      if (info) {
+        ui.showReconnecting(info.attempt, info.maxAttempts);
+      }
+      break;
+    case 'connected':
+      ui.showConnected();
+      break;
+  }
+}
+
+function handleReconnected(): void {
+  console.log('Reconnected - rejoining space');
+  ui.showConnected();
+
+  // Re-emit join-space to rejoin the room after reconnection
+  if (state.spaceId && state.username) {
+    socket.emit('join-space', {
+      spaceId: state.spaceId,
+      username: state.username,
+    });
+  }
 }
 
 async function handleJoin(e: Event): Promise<void> {

@@ -46,27 +46,83 @@ type ServerEventMap = {
 type EventHandler<T> = (data: T) => void;
 type AnyHandler = EventHandler<unknown>;
 
+// Connection state for UI feedback
+export type ConnectionState = 'connecting' | 'connected' | 'disconnected' | 'reconnecting';
+
+export interface ReconnectInfo {
+  attempt: number;
+  maxAttempts: number;
+}
+
+export type ConnectionStateCallback = (state: ConnectionState, info?: ReconnectInfo) => void;
+
 export class SocketHandler {
   private socket: Socket | null = null;
   private handlers = new Map<string, AnyHandler[]>();
+  private connectionStateCallback: ConnectionStateCallback | null = null;
+
+  private static readonly RECONNECTION_ATTEMPTS = 5;
+  private static readonly RECONNECTION_DELAY = 1000;
+  private static readonly RECONNECTION_DELAY_MAX = 10000;
+
+  onConnectionStateChange(callback: ConnectionStateCallback): void {
+    this.connectionStateCallback = callback;
+  }
+
+  private notifyConnectionState(state: ConnectionState, info?: ReconnectInfo): void {
+    if (this.connectionStateCallback) {
+      this.connectionStateCallback(state, info);
+    }
+  }
 
   connect(): Promise<void> {
     return new Promise((resolve, reject) => {
+      this.notifyConnectionState('connecting');
+
       this.socket = io(window.location.origin, {
         transports: ['websocket'],
         upgrade: false,
-        reconnection: false,
+        reconnection: true,
+        reconnectionAttempts: SocketHandler.RECONNECTION_ATTEMPTS,
+        reconnectionDelay: SocketHandler.RECONNECTION_DELAY,
+        reconnectionDelayMax: SocketHandler.RECONNECTION_DELAY_MAX,
         forceNew: true,
       });
 
       this.socket.on('connect', () => {
         console.log('Connected to signaling server');
+        this.notifyConnectionState('connected');
         resolve();
       });
 
       this.socket.on('connect_error', (error: Error) => {
         console.error('Connection error:', error);
         reject(error);
+      });
+
+      // Connection state events
+      this.socket.on('disconnect', (reason: string) => {
+        console.log('Disconnected from signaling server:', reason);
+        this.notifyConnectionState('disconnected');
+      });
+
+      this.socket.io.on('reconnect_attempt', (attempt: number) => {
+        console.log(`Reconnection attempt ${attempt}/${SocketHandler.RECONNECTION_ATTEMPTS}`);
+        this.notifyConnectionState('reconnecting', {
+          attempt,
+          maxAttempts: SocketHandler.RECONNECTION_ATTEMPTS,
+        });
+      });
+
+      this.socket.io.on('reconnect', () => {
+        console.log('Reconnected to signaling server');
+        this.notifyConnectionState('connected');
+        this.trigger('reconnected', undefined);
+      });
+
+      this.socket.io.on('reconnect_failed', () => {
+        console.error('Failed to reconnect after maximum attempts');
+        this.notifyConnectionState('disconnected');
       });
 
       // Setup event handlers for server events
@@ -84,11 +140,13 @@ export class SocketHandler {
     });
   }
 
-  on<K extends keyof ServerEventMap>(event: K, handler: EventHandler<ServerEventMap[K]>): void {
+  on<K extends keyof ServerEventMap>(event: K, handler: EventHandler<ServerEventMap[K]>): void;
+  on(event: 'reconnected', handler: () => void): void;
+  on(event: string, handler: AnyHandler): void {
     if (!this.handlers.has(event)) {
       this.handlers.set(event, []);
     }
-    this.handlers.get(event)!.push(handler as AnyHandler);
+    this.handlers.get(event)!.push(handler);
   }
 
   off<K extends keyof ServerEventMap>(event: K, handler: EventHandler<ServerEventMap[K]>): void {
@@ -101,7 +159,7 @@ export class SocketHandler {
     }
   }
 
-  private trigger<K extends keyof ServerEventMap>(event: K, data: ServerEventMap[K]): void {
+  private trigger(event: string, data: unknown): void {
     if (this.handlers.has(event)) {
       this.handlers.get(event)!.forEach((handler) => handler(data));
     }
