@@ -15,6 +15,7 @@ import type {
   ScreenShareStartedBroadcast,
   ScreenShareStoppedBroadcast,
 } from '../../shared/types/events.js';
+import type { GetHistoryEvent, HistoryEvent } from '../../shared/types/session.js';
 
 // Union type of all possible client events
 type ClientEventMap = {
@@ -26,6 +27,7 @@ type ClientEventMap = {
   'screen-share-stopped': ScreenShareStoppedEvent;
   'screen-share-position-update': ScreenSharePositionUpdateEvent;
   'screen-share-resize-update': ScreenShareResizeUpdateEvent;
+  'get-history': GetHistoryEvent;
 };
 
 // Union type of all possible server events
@@ -41,6 +43,7 @@ type ServerEventMap = {
   'screen-share-stopped': ScreenShareStoppedBroadcast;
   'screen-share-position-update': ScreenSharePositionUpdateEvent;
   'screen-share-resize-update': ScreenShareResizeUpdateEvent;
+  'history': HistoryEvent;
 };
 
 type EventHandler<T> = (data: T) => void;
@@ -81,6 +84,7 @@ export class SocketHandler {
       this.socket.on('screen-share-stopped', (data: ScreenShareStoppedBroadcast) => this.trigger('screen-share-stopped', data));
       this.socket.on('screen-share-position-update', (data: ScreenSharePositionUpdateEvent) => this.trigger('screen-share-position-update', data));
       this.socket.on('screen-share-resize-update', (data: ScreenShareResizeUpdateEvent) => this.trigger('screen-share-resize-update', data));
+      this.socket.on('history', (data: HistoryEvent) => this.trigger('history', data));
     });
   }
 

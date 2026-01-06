@@ -1,0 +1,75 @@
+/* Add to client/index.css */
+
+.history-list {
+    margin-top: var(--space-4);
+    max-height: 400px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+}
+
+.history-item {
+    padding: var(--space-4);
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    transition: all var(--transition-fast);
+}
+
+.history-item:hover {
+    background: var(--color-surface-hover);
+    border-color: var(--color-accent);
+}
+
+.history-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--space-2);
+}
+
+.history-time {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+}
+
+.history-duration {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-muted);
+    background: rgba(255, 255, 255, 0.1);
+    padding: 2px 6px;
+    border-radius: var(--radius-sm);
+}
+
+.history-participants {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+}
+
+.participant-badge {
+    font-size: var(--font-size-xs);
+    padding: 2px 8px;
+    background: var(--color-bg-tertiary);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-full);
+    color: var(--color-text-secondary);
+}
+
+.close-btn {
+    background: none;
+    border: none;
+    color: var(--color-text-muted);
+    font-size: var(--font-size-2xl);
+    cursor: pointer;
+    line-height: 1;
+}
+
+.close-btn:hover {
+    color: var(--color-text-primary);
+}
+
+.modal-large {
+    max-width: 600px;
+}

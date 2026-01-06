@@ -22,6 +22,7 @@ import type {
   PeerData,
   ScreenShareData,
 } from '../shared/types/events.js';
+import type { HistoryEvent } from '../shared/types/session.js';
 
 // Pending share info for late-joining peers
 interface PendingShareInfo {
@@ -89,6 +90,7 @@ function setupEventListeners(): void {
   document.getElementById('btn-camera')!.addEventListener('click', toggleCamera);
   document.getElementById('btn-screen')!.addEventListener('click', startScreenShare);
   document.getElementById('btn-leave')!.addEventListener('click', leaveSpace);
+  document.getElementById('btn-history')!.addEventListener('click', showHistory);
 
   socket.on('connected', handleConnected);
   socket.on('peer-joined', handlePeerJoined);
@@ -101,6 +103,21 @@ function setupEventListeners(): void {
   socket.on('screen-share-position-update', handleScreenSharePositionUpdate);
   socket.on('screen-share-resize-update', handleScreenShareResizeUpdate);
   socket.on('space-state', handleSpaceState);
+  socket.on('history', handleHistory);
+}
+
+function showHistory(): void {
+    if (state.spaceId) {
+        ui.toggleHistoryModal(true);
+        // Request history from server
+        socket.emit('get-history', { spaceId: state.spaceId });
+    }
+}
+
+function handleHistory(data: HistoryEvent): void {
+    if (data.spaceId === state.spaceId) {
+        ui.updateHistoryList(data.sessions);
+    }
 }
 
 async function handleJoin(e: Event): Promise<void> {

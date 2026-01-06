@@ -17,10 +17,13 @@ import type {
   ScreenShareStartedBroadcast,
   ScreenShareStoppedBroadcast,
 } from '../shared/types/events.js';
+import type { SessionRecord, GetHistoryEvent, HistoryEvent } from '../shared/types/session.js';
+import { SessionStorage } from './storage.js';
 
 interface Space {
   peers: Map<string, PeerData>;
   screenShares: Map<string, ScreenShareData>;
+  currentSession: SessionRecord | null;
 }
 
 /**
@@ -38,6 +41,7 @@ export function attachSignaling(io: Server): void {
       spaces.set(spaceId, {
         peers: new Map(),
         screenShares: new Map(),
+        currentSession: null,
       });
     }
     return spaces.get(spaceId)!;
@@ -51,12 +55,42 @@ export function attachSignaling(io: Server): void {
     peerSockets.set(peerId, socket.id);
     console.log(`[Signaling] Peer connected: ${peerId}`);
 
+    socket.on('get-history', async ({ spaceId }: GetHistoryEvent) => {
+      const sessions = await SessionStorage.getSessions(spaceId);
+      const historyEvent: HistoryEvent = { spaceId, sessions };
+      socket.emit('history', historyEvent);
+    });
+
     socket.on('join-space', ({ spaceId, username }: JoinSpaceEvent) => {
       currentSpace = spaceId;
       currentUsername = username;
       socket.join(spaceId);
 
       const space = getSpace(spaceId);
+
+      // Start session if this is the first peer
+      if (space.peers.size === 0) {
+        if (!space.currentSession) {
+            space.currentSession = {
+                sessionId: uuidv4(),
+                spaceId: spaceId,
+                startTime: Date.now(),
+                endTime: null,
+                visits: [],
+            };
+            console.log(`[Signaling] Started new session ${space.currentSession.sessionId} for space ${spaceId}`);
+        }
+      }
+
+      // Add visit record
+      if (space.currentSession) {
+          space.currentSession.visits.push({
+              username: username,
+              joinTime: Date.now(),
+              leaveTime: null
+          });
+      }
+
       const position = {
         x: 1800 + Math.random() * 400,
         y: 1800 + Math.random() * 400,
@@ -177,6 +211,21 @@ export function attachSignaling(io: Server): void {
       if (currentSpace) {
         const space = spaces.get(currentSpace);
         if (space) {
+          // Record leave time
+          if (space.currentSession && currentUsername) {
+              // Find the last visit for this user that hasn't ended (or just match by username and null leaveTime)
+              // Since username isn't unique, this is imperfect but acceptable for this scope.
+              // Better would be to track visit index in peerData or similar.
+              // For now, we take the last visit with matching username and null leaveTime.
+              for (let i = space.currentSession.visits.length - 1; i >= 0; i--) {
+                  const visit = space.currentSession.visits[i];
+                  if (visit.username === currentUsername && visit.leaveTime === null) {
+                      visit.leaveTime = Date.now();
+                      break;
+                  }
+              }
+          }
+
           space.peers.delete(peerId);
           // Remove all screen shares from this peer
           for (const [shareId, share] of space.screenShares) {
@@ -187,6 +236,17 @@ export function attachSignaling(io: Server): void {
           socket.to(currentSpace).emit('peer-left', { peerId });
           console.log(`[Signaling] ${currentUsername} left space ${currentSpace} (${space.peers.size} peers)`);
           if (space.peers.size === 0) {
+            // End session
+            if (space.currentSession) {
+                space.currentSession.endTime = Date.now();
+                const sessionId = space.currentSession.sessionId;
+                SessionStorage.saveSession(space.currentSession).then(() => {
+                    console.log(`[Signaling] Session ${sessionId} ended and saved.`);
+                }).catch(err => {
+                    console.error('[Signaling] Failed to save session:', err);
+                });
+                space.currentSession = null;
+            }
             spaces.delete(currentSpace);
             console.log(`[Signaling] Space ${currentSpace} deleted (empty)`);
           }
