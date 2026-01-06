@@ -148,6 +148,31 @@ test.describe('Multi-User Scenarios', () => {
     await expect(aliceAvatarOnB).not.toBeVisible({ timeout: 5000 });
   });
 
+  test('late-joining user sees existing users status', async () => {
+    // User A joins first
+    await joinSpace(userA.page, 'Alice', 'status-late-join-test');
+
+    // User A sets their status BEFORE User B joins
+    await userA.page.fill('#status-input', 'In a meeting');
+    await userA.page.click('#btn-set-status');
+
+    // Verify Alice sees her own status
+    const aliceStatusOnA = userA.page.locator('.avatar.self .avatar-status');
+    await expect(aliceStatusOnA).toBeVisible({ timeout: 5000 });
+    await expect(aliceStatusOnA).toContainText('In a meeting');
+
+    // Now User B joins (after status was set)
+    await joinSpace(userB.page, 'Bob', 'status-late-join-test');
+
+    // User B should see Alice's avatar
+    await expect(userB.page.locator('.avatar:has-text("Alice")')).toBeVisible({ timeout: 10000 });
+
+    // User B should see Alice's status that was set before they joined
+    const aliceStatusOnB = userB.page.locator('.avatar:has-text("Alice") .avatar-status');
+    await expect(aliceStatusOnB).toBeVisible({ timeout: 5000 });
+    await expect(aliceStatusOnB).toContainText('In a meeting');
+  });
+
   test('user leaving removes their screen shares from other users view', async () => {
     // Both users join
     await joinSpace(userA.page, 'Alice', 'screenshare-leave-test');

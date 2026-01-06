@@ -283,6 +283,11 @@ function handleSpaceState(spaceState: SpaceStateEvent): void {
       state.peers.set(peerId, peerData);
       avatars.createRemoteAvatar(peerId, peerData.username, peerData.position.x, peerData.position.y);
 
+      // Apply existing peer status if set
+      if (peerData.status) {
+        avatars.updateStatus(peerId, peerData.status);
+      }
+
       webrtc!.createPeerConnection(peerId, true);
     }
   }
