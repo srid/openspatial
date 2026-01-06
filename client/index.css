@@ -156,7 +156,8 @@ body {
 }
 
 .logo-icon {
-    font-size: var(--font-size-3xl);
+    width: 48px;
+    height: 48px;
     animation: float 3s ease-in-out infinite;
 }
 

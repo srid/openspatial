@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="./client/assets/logo.svg" alt="OpenSpatial" width="80">
+</p>
+
 # OpenSpatial
 
 A spatial video chat application where participants share a virtual canvas with draggable avatars and screen shares.
