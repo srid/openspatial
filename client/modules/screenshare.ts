@@ -249,4 +249,14 @@ export class ScreenShareManager {
     this.screenShares.forEach((element) => element.remove());
     this.screenShares.clear();
   }
+
+  hasScreenShare(shareId: string): boolean {
+    return this.screenShares.has(shareId);
+  }
+
+  forEachShare(callback: (shareId: string, element: HTMLDivElement) => void): void {
+    this.screenShares.forEach((element, shareId) => {
+      callback(shareId, element);
+    });
+  }
 }

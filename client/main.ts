@@ -7,22 +7,12 @@ import { ScreenShareManager } from './modules/screenshare.js';
 import { SpatialAudio } from './modules/spatial-audio.js';
 import { UIController } from './modules/ui.js';
 import { MinimapManager } from './modules/minimap.js';
+import { CRDTManager } from './modules/crdt.js';
 import type {
-  ConnectedEvent,
-  SpaceStateEvent,
   SpaceInfoEvent,
-  PeerJoinedEvent,
   PeerLeftEvent,
   SignalEvent,
-  PositionUpdateEvent,
-  MediaStateUpdateEvent,
-  StatusUpdateEvent,
-  ScreenShareStartedBroadcast,
-  ScreenShareStoppedBroadcast,
-  ScreenSharePositionUpdateEvent,
-  ScreenShareResizeUpdateEvent,
   PeerData,
-  ScreenShareData,
 } from '../shared/types/events.js';
 
 // Pending share info for late-joining peers
@@ -50,10 +40,12 @@ const state = {
 const socket = new SocketHandler();
 const canvas = new CanvasManager();
 const avatars = new AvatarManager(state);
+const crdt = new CRDTManager();
 const screenShare = new ScreenShareManager(
   state,
-  (shareId, x, y) => socket.emit('screen-share-position-update', { shareId, x, y }),
-  (shareId, width, height) => socket.emit('screen-share-resize-update', { shareId, width, height }),
+  // Use CRDT for position/resize sync instead of socket
+  (shareId, x, y) => crdt.updateScreenSharePosition(shareId, x, y),
+  (shareId, width, height) => crdt.updateScreenShareSize(shareId, width, height),
   (shareId) => stopScreenShare(shareId)
 );
 const spatialAudio = new SpatialAudio();
@@ -144,22 +136,104 @@ function setupEventListeners(): void {
     }
   });
 
-  socket.on('connected', handleConnected);
-  socket.on('peer-joined', handlePeerJoined);
-  socket.on('peer-left', handlePeerLeft);
+  // Socket events: only WebRTC signaling
   socket.on('signal', handleSignal);
-  socket.on('position-update', handlePositionUpdate);
-  socket.on('media-state-update', handleMediaStateUpdate);
-  socket.on('screen-share-started', handleScreenShareStarted);
-  socket.on('screen-share-stopped', handleScreenShareStopped);
-  socket.on('screen-share-position-update', handleScreenSharePositionUpdate);
-  socket.on('screen-share-resize-update', handleScreenShareResizeUpdate);
-  socket.on('space-state', handleSpaceState);
+  socket.on('peer-left', handlePeerLeft);
   socket.on('reconnected', handleReconnected);
-  socket.on('status-update', handleStatusUpdate);
 
   // Set up connection state handler for UI feedback
   socket.onConnectionStateChange(handleConnectionStateChange);
+
+  // CRDT observers for state sync (replaces socket-based sync)
+  crdt.observePeers((peers) => {
+    for (const [peerId, peerState] of peers) {
+      if (peerId === state.peerId) continue; // Skip self
+      
+      // Update or create remote avatar
+      if (!avatars.hasAvatar(peerId)) {
+        avatars.createRemoteAvatar(peerId, peerState.username, peerState.x, peerState.y);
+        state.peers.set(peerId, {
+          username: peerState.username,
+          position: { x: peerState.x, y: peerState.y },
+          isMuted: peerState.isMuted,
+          isVideoOff: peerState.isVideoOff,
+          isScreenSharing: peerState.isScreenSharing,
+          status: peerState.status,
+        });
+        
+        // Apply media state
+        if (peerState.isMuted || peerState.isVideoOff) {
+          avatars.updateMediaState(peerId, peerState.isMuted, peerState.isVideoOff);
+        }
+        
+        // Apply status
+        if (peerState.status) {
+          avatars.updateStatus(peerId, peerState.status);
+        }
+        
+        // Create WebRTC connection for new peer
+        if (webrtc) {
+          webrtc.createPeerConnection(peerId, true);
+        }
+        
+        updateParticipantCount();
+      } else {
+        // Update existing avatar
+        avatars.updatePosition(peerId, peerState.x, peerState.y);
+        avatars.updateMediaState(peerId, peerState.isMuted, peerState.isVideoOff);
+        if (peerState.status !== undefined) {
+          avatars.updateStatus(peerId, peerState.status);
+        }
+      }
+    }
+    
+    // Handle peer removal (peer left)
+    for (const peerId of state.peers.keys()) {
+      if (!peers.has(peerId)) {
+        state.peers.delete(peerId);
+        avatars.removeAvatar(peerId);
+        screenShare.removeScreenSharesByPeerId(peerId);
+        spatialAudio.removePeer(peerId);
+        webrtc?.closePeerConnection(peerId);
+        updateParticipantCount();
+      }
+    }
+    
+    spatialAudio.updatePositions(avatars.getPositions(), state.peerId!);
+  });
+
+  crdt.observeScreenShares((shares) => {
+    for (const [shareId, shareState] of shares) {
+      if (shareState.peerId === state.peerId) continue; // Skip own shares
+      
+      // Update or create screen share
+      if (!screenShare.hasScreenShare(shareId)) {
+        // Screen share will be created when WebRTC track arrives
+        // Just queue the position info
+        if (!state.pendingShareIds.has(shareState.peerId)) {
+          state.pendingShareIds.set(shareState.peerId, []);
+        }
+        state.pendingShareIds.get(shareState.peerId)!.push({
+          shareId,
+          x: shareState.x,
+          y: shareState.y,
+        });
+      } else {
+        // Update existing screen share position/size
+        screenShare.setPosition(shareId, shareState.x, shareState.y);
+        if (shareState.width && shareState.height) {
+          screenShare.setSize(shareId, shareState.width, shareState.height);
+        }
+      }
+    }
+    
+    // Handle screen share removal
+    screenShare.forEachShare((shareId, _element) => {
+      if (!shares.has(shareId)) {
+        screenShare.removeScreenShare(shareId);
+      }
+    });
+  });
 
   // Browser offline/online detection for immediate feedback
   window.addEventListener('offline', () => {
@@ -248,12 +322,62 @@ async function handleJoin(e: Event): Promise<void> {
     webrtc = new WebRTCManager(socket, state);
     webrtc.setManagers(avatars, screenShare, spatialAudio);
 
+    // Connect socket for WebRTC signaling
     await socket.connect();
 
+    // Emit join-space and wait for connected event with peerId
     socket.emit('join-space', {
       spaceId: state.spaceId,
       username: state.username,
     });
+
+    // Wait for connected event to get server-assigned peerId
+    const connectedData = await new Promise<{ peerId: string }>((resolve) => {
+      socket.once('connected', (data: { peerId: string }) => {
+        resolve(data);
+      });
+    });
+
+    state.peerId = connectedData.peerId;
+
+    // Connect CRDT for state sync using the socket peerId
+    const { position } = await crdt.connect(state.spaceId, state.peerId, state.username);
+
+    // Show UI
+    joinModal.classList.add('hidden');
+    canvasContainer.classList.remove('hidden');
+
+    const spaceNameEl = document.getElementById('space-name') as HTMLElement;
+    spaceNameEl.textContent = state.spaceId;
+    history.replaceState(null, '', `/s/${encodeURIComponent(state.spaceId)}`);
+    document.title = `${state.spaceId} - OpenSpatial`;
+
+    spaceNameEl.style.cursor = 'pointer';
+    spaceNameEl.title = 'Click to copy invite link';
+    spaceNameEl.addEventListener('click', () => {
+      const permalink = `${window.location.origin}/s/${encodeURIComponent(state.spaceId)}`;
+      navigator.clipboard.writeText(permalink).then(() => {
+        const original = spaceNameEl.textContent;
+        spaceNameEl.textContent = 'Link copied!';
+        setTimeout(() => (spaceNameEl.textContent = original), 1500);
+      });
+    });
+
+    // Create local avatar at the position assigned by CRDT
+    avatars.createLocalAvatar(state.peerId, state.username, state.localStream!, position.x, position.y);
+
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        canvas.centerOn(position.x, position.y);
+      });
+    });
+
+    avatars.onPositionChange((peerId, x, y) => {
+      crdt.updatePosition(peerId, x, y);
+      spatialAudio.updatePositions(avatars.getPositions(), state.peerId!);
+    });
+
+    updateParticipantCount();
   } catch (error) {
     const err = error as Error;
     console.error('Failed to join:', err);
@@ -261,117 +385,11 @@ async function handleJoin(e: Event): Promise<void> {
   }
 }
 
-function handleConnected(data: ConnectedEvent): void {
-  const previousPeerId = state.peerId;
-  const isReconnection = previousPeerId !== null;
-  
-  state.peerId = data.peerId;
 
-  if (isReconnection) {
-    // Reconnection: Clean up stale state
-    console.log(`Reconnected with new peerId: ${data.peerId} (was: ${previousPeerId})`);
-    
-    // Update local avatar's peerId reference
-    avatars.updateLocalPeerId(previousPeerId, data.peerId);
-    
-    // Clear stale remote peers (they may have left while we were disconnected)
-    state.peers.clear();
-    
-    // Close old peer connections - they're invalid now
-    webrtc?.closeAllConnections();
-    
-    updateParticipantCount();
-    return;
-  }
 
-  // First-time join: Show UI and create local avatar
-  joinModal.classList.add('hidden');
-  canvasContainer.classList.remove('hidden');
 
-  const spaceNameEl = document.getElementById('space-name') as HTMLElement;
-  spaceNameEl.textContent = state.spaceId;
-  history.replaceState(null, '', `/s/${encodeURIComponent(state.spaceId)}`);
-  document.title = `${state.spaceId} - OpenSpatial`;
 
-  spaceNameEl.style.cursor = 'pointer';
-  spaceNameEl.title = 'Click to copy invite link';
-  spaceNameEl.addEventListener('click', () => {
-    const permalink = `${window.location.origin}/s/${encodeURIComponent(state.spaceId)}`;
-    navigator.clipboard.writeText(permalink).then(() => {
-      const original = spaceNameEl.textContent;
-      spaceNameEl.textContent = 'Link copied!';
-      setTimeout(() => (spaceNameEl.textContent = original), 1500);
-    });
-  });
 
-  const centerX = 2000;
-  const centerY = 2000;
-  avatars.createLocalAvatar(state.peerId, state.username, state.localStream!, centerX, centerY);
-
-  requestAnimationFrame(() => {
-    requestAnimationFrame(() => {
-      canvas.centerOn(centerX, centerY);
-    });
-  });
-
-  avatars.onPositionChange((peerId, x, y) => {
-    socket.emit('position-update', { peerId, x, y });
-    spatialAudio.updatePositions(avatars.getPositions(), state.peerId!);
-  });
-
-  updateParticipantCount();
-}
-
-function handleSpaceState(spaceState: SpaceStateEvent): void {
-  for (const [peerId, peerData] of Object.entries(spaceState.peers)) {
-    if (peerId !== state.peerId) {
-      state.peers.set(peerId, peerData);
-      avatars.createRemoteAvatar(peerId, peerData.username, peerData.position.x, peerData.position.y);
-
-      // Apply existing peer status if set
-      if (peerData.status) {
-        avatars.updateStatus(peerId, peerData.status);
-      }
-
-      // Apply existing peer media state (muted/video off)
-      if (peerData.isMuted || peerData.isVideoOff) {
-        avatars.updateMediaState(peerId, peerData.isMuted, peerData.isVideoOff);
-      }
-
-      webrtc!.createPeerConnection(peerId, true);
-    }
-  }
-
-  if (spaceState.screenShares) {
-    for (const [shareId, shareData] of Object.entries(spaceState.screenShares)) {
-      if (shareData.peerId !== state.peerId) {
-        if (!state.pendingShareIds.has(shareData.peerId)) {
-          state.pendingShareIds.set(shareData.peerId, []);
-        }
-        state.pendingShareIds.get(shareData.peerId)!.push({
-          shareId,
-          x: shareData.x,
-          y: shareData.y,
-        });
-      }
-    }
-  }
-
-  updateParticipantCount();
-}
-
-function handlePeerJoined(data: PeerJoinedEvent): void {
-  const { peerId, username, position } = data;
-
-  state.peers.set(peerId, { username, position, isMuted: false, isVideoOff: false, isScreenSharing: false });
-  avatars.createRemoteAvatar(peerId, username, position.x, position.y);
-
-  if (state.screenStreams.size > 0 && webrtc) {
-    webrtc.createPeerConnection(peerId, true);
-  }
-
-  updateParticipantCount();
-}
 
 function handlePeerLeft(data: PeerLeftEvent): void {
   const { peerId } = data;
@@ -389,45 +407,6 @@ function handleSignal(data: SignalEvent): void {
   webrtc?.handleSignal(data);
 }
 
-function handlePositionUpdate(data: PositionUpdateEvent): void {
-  const { peerId, x, y } = data;
-  avatars.updatePosition(peerId, x, y);
-  spatialAudio.updatePositions(avatars.getPositions(), state.peerId!);
-}
-
-function handleMediaStateUpdate(data: MediaStateUpdateEvent): void {
-  const { peerId, isMuted, isVideoOff } = data;
-  avatars.updateMediaState(peerId, isMuted, isVideoOff);
-}
-
-function handleStatusUpdate(data: StatusUpdateEvent): void {
-  const { peerId, status } = data;
-  avatars.updateStatus(peerId, status);
-}
-
-function handleScreenShareStarted(data: ScreenShareStartedBroadcast): void {
-  const { peerId, shareId } = data;
-  if (!state.pendingShareIds.has(peerId)) {
-    state.pendingShareIds.set(peerId, []);
-  }
-  state.pendingShareIds.get(peerId)!.push(shareId);
-}
-
-function handleScreenShareStopped(data: ScreenShareStoppedBroadcast): void {
-  const { shareId } = data;
-  screenShare.removeScreenShare(shareId);
-}
-
-function handleScreenSharePositionUpdate(data: ScreenSharePositionUpdateEvent): void {
-  const { shareId, x, y } = data;
-  screenShare.setPosition(shareId, x, y);
-}
-
-function handleScreenShareResizeUpdate(data: ScreenShareResizeUpdateEvent): void {
-  const { shareId, width, height } = data;
-  screenShare.setSize(shareId, width, height);
-}
-
 function toggleMic(): void {
   state.isMuted = !state.isMuted;
 
@@ -439,12 +418,7 @@ function toggleMic(): void {
 
   ui.updateMicButton(state.isMuted);
   avatars.updateMediaState(state.peerId!, state.isMuted, state.isVideoOff);
-
-  socket.emit('media-state-update', {
-    peerId: state.peerId!,
-    isMuted: state.isMuted,
-    isVideoOff: state.isVideoOff,
-  });
+  crdt.updateMediaState(state.peerId!, state.isMuted, state.isVideoOff);
 }
 
 function toggleCamera(): void {
@@ -458,12 +432,7 @@ function toggleCamera(): void {
 
   ui.updateCameraButton(state.isVideoOff);
   avatars.updateMediaState(state.peerId!, state.isMuted, state.isVideoOff);
-
-  socket.emit('media-state-update', {
-    peerId: state.peerId!,
-    isMuted: state.isMuted,
-    isVideoOff: state.isVideoOff,
-  });
+  crdt.updateMediaState(state.peerId!, state.isMuted, state.isVideoOff);
 }
 
 function setStatus(): void {
@@ -472,11 +441,7 @@ function setStatus(): void {
   
   state.status = newStatus;
   avatars.updateStatus(state.peerId!, newStatus);
-  
-  socket.emit('status-update', {
-    peerId: state.peerId!,
-    status: newStatus,
-  });
+  crdt.updateStatus(state.peerId!, newStatus);
 }
 
 function clearStatus(): void {
@@ -485,11 +450,7 @@ function clearStatus(): void {
   
   state.status = '';
   avatars.updateStatus(state.peerId!, '');
-  
-  socket.emit('status-update', {
-    peerId: state.peerId!,
-    status: '',
-  });
+  crdt.updateStatus(state.peerId!, '');
 }
 
 async function startScreenShare(): Promise<void> {
@@ -510,6 +471,14 @@ async function startScreenShare(): Promise<void> {
 
     const x = localAvatar.x + offsetX;
     const y = localAvatar.y;
+    // Add to CRDT for state sync (also notifies other clients about screen share)
+    crdt.addScreenShare(shareId, {
+      peerId: state.peerId!,
+      username: state.username,
+      x,
+      y,
+    });
+    // Also emit via socket for WebRTC track coordination
     socket.emit('screen-share-started', { peerId: state.peerId!, shareId, x, y });
 
     stream.getVideoTracks()[0].onended = () => {
@@ -533,6 +502,9 @@ function stopScreenShare(shareId: string): void {
   screenShare.removeScreenShare(shareId);
   webrtc?.removeScreenTrack(shareId);
 
+  // Remove from CRDT
+  crdt.removeScreenShare(shareId);
+  // Also emit via socket for WebRTC cleanup
   socket.emit('screen-share-stopped', { peerId: state.peerId!, shareId });
 }
 
@@ -545,6 +517,7 @@ function leaveSpace(): void {
   });
 
   webrtc?.closeAllConnections();
+  crdt.disconnect();
   socket.disconnect();
 
   avatars.clear();

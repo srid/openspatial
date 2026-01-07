@@ -240,8 +240,6 @@ test.describe('Multi-User Scenarios', () => {
     // Alice leaves (click the leave button)
     await userA.page.click('#btn-leave');
 
-    // BUG REPRODUCTION: Bob should NO LONGER see Alice's screen share
-    // This test will FAIL if the screen share is not cleaned up when user leaves
     await expect(userB.page.locator('.screen-share:has-text("Alice")')).not.toBeVisible({ timeout: 10000 });
   });
 
@@ -293,8 +291,7 @@ test.describe('Multi-User Scenarios', () => {
     // Wait for sync
     await userB.page.waitForTimeout(500);
 
-    // BUG REPRODUCTION: User B should see the new size
-    // This test will FAIL if resize is not synced
+    // User B should see the new size
     const newWidth = await screenShareOnB.evaluate((el: HTMLElement) => el.style.width);
     expect(newWidth).not.toBe(initialWidth);
   });

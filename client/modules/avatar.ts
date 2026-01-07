@@ -116,6 +116,10 @@ export class AvatarManager {
     return this.positions;
   }
 
+  hasAvatar(peerId: string): boolean {
+    return this.avatars.has(peerId);
+  }
+
   /**
    * Update the local avatar's peerId after reconnection.
    * The server assigns a new peerId on each connection.

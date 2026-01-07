@@ -5,6 +5,7 @@ import { Server } from 'socket.io';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { attachSignaling } from './signaling.js';
+import { initializeYjsSync } from './yjs-provider.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -60,6 +61,10 @@ const io = new Server(server, {
     }
 });
 
+// Initialize Yjs CRDT sync (uses /yjs|* namespace)
+initializeYjsSync(io);
+
+// Keep existing signaling for WebRTC (will be deprecated in cleanup phase)
 attachSignaling(io);
 
 const protocol = USE_HTTPS ? 'https' : 'http';
