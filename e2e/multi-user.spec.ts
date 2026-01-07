@@ -296,6 +296,108 @@ test.describe('Multi-User Scenarios', () => {
     expect(newWidth).not.toBe(initialWidth);
   });
 
+  test('late-joiner sees screen share at current position and size', async () => {
+    // User A joins first
+    await joinSpace(userA.page, 'Alice', 'screenshare-late-join-test');
+
+    // User A starts a screen share
+    await userA.page.evaluate(() => {
+      const canvas = document.createElement('canvas');
+      canvas.width = 640;
+      canvas.height = 480;
+      const ctx = canvas.getContext('2d')!;
+      ctx.fillStyle = 'red';
+      ctx.fillRect(0, 0, 640, 480);
+      const stream = canvas.captureStream(30);
+      (navigator.mediaDevices as any).getDisplayMedia = async () => stream;
+    });
+
+    await userA.page.click('#btn-screen');
+    await userA.page.waitForTimeout(500);
+
+    // Alice resizes the screen share BEFORE Bob joins
+    const screenShareOnA = userA.page.locator('.screen-share:has-text("Your Screen")');
+    const box = await screenShareOnA.boundingBox();
+    if (box) {
+      const resizeHandleX = box.x + box.width - 5;
+      const resizeHandleY = box.y + box.height - 5;
+      
+      await userA.page.mouse.move(resizeHandleX, resizeHandleY);
+      await userA.page.mouse.down();
+      await userA.page.mouse.move(resizeHandleX + 150, resizeHandleY + 150, { steps: 5 });
+      await userA.page.mouse.up();
+    }
+
+    // Get Alice's screen share size after resize
+    const aliceWidth = await screenShareOnA.evaluate((el: HTMLElement) => el.style.width);
+    const aliceHeight = await screenShareOnA.evaluate((el: HTMLElement) => el.style.height);
+
+    // Now Bob joins AFTER the resize
+    await joinSpace(userB.page, 'Bob', 'screenshare-late-join-test');
+
+    // Wait for Bob to see Alice's screen share
+    const screenShareOnB = userB.page.locator('.screen-share:has-text("Alice")');
+    await expect(screenShareOnB).toBeVisible({ timeout: 10000 });
+
+    // Bob should see the RESIZED dimensions, not the default 480x320
+    const bobWidth = await screenShareOnB.evaluate((el: HTMLElement) => el.style.width);
+    const bobHeight = await screenShareOnB.evaluate((el: HTMLElement) => el.style.height);
+
+    expect(bobWidth).toBe(aliceWidth);
+    expect(bobHeight).toBe(aliceHeight);
+  });
+
+  test('non-owner cannot resize or move screen share', async () => {
+    // Both users join
+    await joinSpace(userA.page, 'Alice', 'screenshare-owner-only-test');
+    await joinSpace(userB.page, 'Bob', 'screenshare-owner-only-test');
+
+    // Wait for both to see each other
+    await expect(userA.page.locator('.avatar:has-text("Bob")')).toBeVisible({ timeout: 10000 });
+    await expect(userB.page.locator('.avatar:has-text("Alice")')).toBeVisible({ timeout: 10000 });
+
+    // Alice starts a screen share
+    await userA.page.evaluate(() => {
+      const canvas = document.createElement('canvas');
+      canvas.width = 640;
+      canvas.height = 480;
+      const ctx = canvas.getContext('2d')!;
+      ctx.fillStyle = 'cyan';
+      ctx.fillRect(0, 0, 640, 480);
+      const stream = canvas.captureStream(30);
+      (navigator.mediaDevices as any).getDisplayMedia = async () => stream;
+    });
+
+    await userA.page.click('#btn-screen');
+    await userA.page.waitForTimeout(1000);
+
+    // Bob should see Alice's screen share
+    const screenShareOnB = userB.page.locator('.screen-share:has-text("Alice")');
+    await expect(screenShareOnB).toBeVisible({ timeout: 10000 });
+
+    // Get initial size on Bob's view
+    const initialWidth = await screenShareOnB.evaluate((el: HTMLElement) => el.style.width);
+
+    // Bob tries to resize Alice's screen share by dragging the corner
+    const boxOnB = await screenShareOnB.boundingBox();
+    if (boxOnB) {
+      const resizeHandleX = boxOnB.x + boxOnB.width - 5;
+      const resizeHandleY = boxOnB.y + boxOnB.height - 5;
+      
+      await userB.page.mouse.move(resizeHandleX, resizeHandleY);
+      await userB.page.mouse.down();
+      await userB.page.mouse.move(resizeHandleX + 100, resizeHandleY + 100, { steps: 5 });
+      await userB.page.mouse.up();
+    }
+
+    // Wait for any potential sync
+    await userB.page.waitForTimeout(500);
+
+    // Bob should NOT have been able to resize - width should be unchanged
+    const newWidth = await screenShareOnB.evaluate((el: HTMLElement) => el.style.width);
+    expect(newWidth).toBe(initialWidth);
+  });
+
   test('connection status banner responds to offline/online events', async () => {
     // User A joins
     await joinSpace(userA.page, 'Alice', 'connection-test');

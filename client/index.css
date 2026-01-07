@@ -665,7 +665,7 @@ body {
     overflow: hidden;
     box-shadow: var(--shadow-xl);
     z-index: 5;
-    resize: both;
+    /* Note: resize is set via JS only for owner shares */
 }
 
 .screen-share-header {
@@ -675,10 +675,15 @@ body {
     padding: var(--space-2) var(--space-3);
     background: var(--color-bg-tertiary);
     border-bottom: 1px solid var(--color-border);
+    cursor: default;
+}
+
+/* Only owner shares can be dragged */
+.screen-share.owner .screen-share-header {
     cursor: grab;
 }
 
-.screen-share-header:active {
+.screen-share.owner .screen-share-header:active {
     cursor: grabbing;
 }
 

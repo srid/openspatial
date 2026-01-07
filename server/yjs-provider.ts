@@ -41,10 +41,7 @@ export function initializeYjsSync(io: Server): YSocketIO {
     console.log(`[Yjs] Document loaded: ${doc.name}`);
   });
 
-  ysocketio.on('document-update', (doc: unknown, _update: Uint8Array) => {
-    // @ts-expect-error doc has name property
-    console.log(`[Yjs] Document updated: ${doc.name}`);
-  });
+
 
   ysocketio.on('all-document-connections-closed', (doc: unknown) => {
     // @ts-expect-error doc has name property

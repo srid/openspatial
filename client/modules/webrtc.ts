@@ -13,6 +13,8 @@ interface PendingShareInfo {
   shareId: string;
   x?: number;
   y?: number;
+  width?: number;
+  height?: number;
 }
 
 interface AppState {
@@ -250,6 +252,8 @@ export class WebRTCManager {
     let shareId: string;
     let x = avatarPos.x + 150;
     let y = avatarPos.y;
+    let width: number | undefined;
+    let height: number | undefined;
 
     const pendingIds = this.state.pendingShareIds?.get(peerId);
     if (pendingIds && pendingIds.length > 0) {
@@ -258,6 +262,8 @@ export class WebRTCManager {
         shareId = pending.shareId;
         x = pending.x || x;
         y = pending.y || y;
+        width = pending.width;
+        height = pending.height;
       } else {
         shareId = pending;
       }
@@ -267,6 +273,11 @@ export class WebRTCManager {
     }
 
     this.screenShare?.createScreenShare(shareId, peerId, username, stream, x, y);
+    
+    // Apply size if provided (for late-joiners seeing existing screen share)
+    if (width && height) {
+      this.screenShare?.setSize(shareId, width, height);
+    }
   }
 
   addScreenTrack(shareId: string, screenStream: MediaStream): void {

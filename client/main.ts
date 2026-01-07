@@ -20,6 +20,8 @@ interface PendingShareInfo {
   shareId: string;
   x?: number;
   y?: number;
+  width?: number;
+  height?: number;
 }
 
 // Application state
@@ -217,6 +219,8 @@ function setupEventListeners(): void {
           shareId,
           x: shareState.x,
           y: shareState.y,
+          width: shareState.width,
+          height: shareState.height,
         });
       } else {
         // Update existing screen share position/size
