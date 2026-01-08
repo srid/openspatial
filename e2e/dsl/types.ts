@@ -1,0 +1,88 @@
+/**
+ * E2E Test DSL - Core Type Definitions
+ */
+
+export interface Position {
+  x: number;
+  y: number;
+}
+
+export interface Size {
+  width: number;
+  height: number;
+}
+
+export interface Rect {
+  position: Position;
+  size: Size;
+}
+
+export type ConnectionStatus = 'connected' | 'disconnected';
+
+export interface AvatarState {
+  isMuted: boolean;
+  isWebcamOn: boolean;
+  isWebcamMuted: boolean;
+  status: string | null;
+  position: Position;
+}
+
+export interface ScreenShareInfo {
+  id: string;
+  owner: string;
+  rect: Rect;
+}
+
+export type ScenarioFn = (ctx: ScenarioContext) => Promise<void>;
+
+export interface ScenarioContext {
+  createUser: (name: string) => UserBuilder;
+}
+
+export interface UserBuilder {
+  join(): Promise<User>;
+}
+
+export interface User {
+  readonly name: string;
+
+  // Actions
+  leave(): Promise<void>;
+  mute(): Promise<void>;
+  unmute(): Promise<void>;
+  toggleWebcam(): Promise<void>;
+  muteWebcam(): Promise<void>;
+  unmuteWebcam(): Promise<void>;
+  setStatus(text: string): Promise<void>;
+  clearStatus(): Promise<void>;
+  startScreenShare(opts?: { color?: string }): Promise<ScreenShareInfo>;
+  stopScreenShare(): Promise<void>;
+  resizeScreenShare(rect: Rect): Promise<void>;
+  dragAvatar(delta: { dx: number; dy: number }): Promise<void>;
+  goOffline(): Promise<void>;
+  goOnline(): Promise<void>;
+
+  // Queries
+  waitForUser(name: string): Promise<void>;
+  visibleUsers(): Promise<string[]>;
+  screenShares(): Promise<ScreenShareInfo[]>;
+  screenShareOf(owner: string): ScreenShareView;
+  avatarOf(name: string): AvatarView;
+  participantCount(): Promise<number>;
+  connectionStatus(): Promise<ConnectionStatus>;
+}
+
+export interface AvatarView {
+  position(): Promise<Position>;
+  state(): Promise<AvatarState>;
+  isMuted(): Promise<boolean>;
+  isWebcamOn(): Promise<boolean>;
+  isWebcamMuted(): Promise<boolean>;
+  status(): Promise<string | null>;
+}
+
+export interface ScreenShareView {
+  rect(): Promise<Rect>;
+  size(): Promise<Size>;
+  position(): Promise<Position>;
+}
