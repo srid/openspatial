@@ -52,3 +52,18 @@ All socket events are typed in `shared/types/events.ts`. Both client and server 
 - **Dev**: `npm run dev` runs Vite with signaling attached via plugin
 - **Prod**: `npm start` runs `server/standalone.ts` which serves static files + signaling
 - **Both** import signaling from `server/signaling.ts` and types from `shared/types/events.ts`
+
+### Communication Methods
+
+| Action | Method | Description |
+|--------|--------|-------------|
+| **Join/Leave Space** | WebSocket | Server assigns peer UUID, broadcasts `peer-joined`/`peer-left` |
+| **WebRTC Signaling** (offer/answer/ICE) | WebSocket | Server routes signals to specific target peer |
+| **Avatar Position** | WebSocket | Broadcasts `position-update` to room |
+| **Mute/Video Toggle** | WebSocket | Broadcasts `media-state-update` to room |
+| **Status Update** | WebSocket | Broadcasts `status-update` to room |
+| **Screen Share Start/Stop** | WebSocket | Broadcasts `screen-share-started`/`stopped` to room |
+| **Screen Share Position** | WebSocket | Broadcasts `screen-share-position-update` to room |
+| **Screen Share Resize** | WebSocket | Broadcasts `screen-share-resize-update` to room |
+| **Audio/Video Streams** | WebRTC (P2P) | Direct peer-to-peer mesh, spatial audio panning |
+| **Screen Share Video** | WebRTC (P2P) | Video frames sent directly between browsers |
