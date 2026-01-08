@@ -103,6 +103,7 @@ export class AvatarManager {
     if (!video) {
       video = document.createElement('video');
       video.autoplay = true;
+      video.muted = true;  // Audio handled by SpatialAudio pipeline for distance-based attenuation
       video.playsInline = true;
       container.appendChild(video);
     }
