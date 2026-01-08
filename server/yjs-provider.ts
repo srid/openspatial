@@ -45,7 +45,18 @@ export function initializeYjsSync(io: Server): YSocketIO {
 
   ysocketio.on('all-document-connections-closed', (doc: unknown) => {
     // @ts-expect-error doc has name property
-    console.log(`[Yjs] All connections closed for: ${doc.name}`);
+    const docName = doc.name;
+    console.log(`[Yjs] All connections closed for: ${docName}, clearing document data`);
+    
+    // Clear all peers and screen shares when room is empty
+    // This prevents stale data from persisting between sessions
+    // @ts-expect-error doc is Y.Doc
+    const peers = getPeersMap(doc);
+    // @ts-expect-error doc is Y.Doc
+    const screenShares = getScreenSharesMap(doc);
+    
+    peers.forEach((_, key) => peers.delete(key));
+    screenShares.forEach((_, key) => screenShares.delete(key));
   });
 
   ysocketio.on('document-destroy', (doc: unknown) => {

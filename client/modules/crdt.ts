@@ -49,20 +49,30 @@ export class CRDTManager {
     const screenShares = getScreenSharesMap(this.doc);
 
     peers.observe(() => {
-      const peersMap = new Map<string, PeerState>();
-      peers.forEach((value, key) => {
-        peersMap.set(key, value);
-      });
-      this.peersObservers.forEach((cb) => cb(peersMap));
+      this.notifyPeersObservers();
     });
 
     screenShares.observe(() => {
-      const sharesMap = new Map<string, ScreenShareState>();
-      screenShares.forEach((value, key) => {
-        sharesMap.set(key, value);
-      });
-      this.screensharesObservers.forEach((cb) => cb(sharesMap));
+      this.notifyScreenSharesObservers();
     });
+  }
+
+  private notifyPeersObservers(): void {
+    const peers = getPeersMap(this.doc);
+    const peersMap = new Map<string, PeerState>();
+    peers.forEach((value, key) => {
+      peersMap.set(key, value);
+    });
+    this.peersObservers.forEach((cb) => cb(peersMap));
+  }
+
+  private notifyScreenSharesObservers(): void {
+    const screenShares = getScreenSharesMap(this.doc);
+    const sharesMap = new Map<string, ScreenShareState>();
+    screenShares.forEach((value, key) => {
+      sharesMap.set(key, value);
+    });
+    this.screensharesObservers.forEach((cb) => cb(sharesMap));
   }
 
   /**
@@ -117,6 +127,11 @@ export class CRDTManager {
 
         this.provider.on('sync', (synced: boolean) => {
           console.log(`[CRDT] Synced: ${synced}`);
+          if (synced) {
+            // Re-invoke observers with current state to handle late-joiner sync
+            this.notifyPeersObservers();
+            this.notifyScreenSharesObservers();
+          }
         });
 
         this.provider.on('connection-error' as string, (error: Error) => {
@@ -133,11 +148,21 @@ export class CRDTManager {
 
   /**
    * Disconnect from the space and clean up.
+   * Returns a promise that resolves after cleanup is synced.
    */
-  disconnect(): void {
+  async disconnect(): Promise<void> {
     if (this._peerId) {
       // Remove ourselves from the document
       getPeersMap(this.doc).delete(this._peerId);
+      // Remove any screen shares we own
+      const shares = getScreenSharesMap(this.doc);
+      shares.forEach((share, shareId) => {
+        if (share.peerId === this._peerId) {
+          shares.delete(shareId);
+        }
+      });
+      // Allow time for the removal to sync to other clients
+      await new Promise(resolve => setTimeout(resolve, 100));
     }
 
     if (this.provider) {
