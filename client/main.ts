@@ -383,6 +383,12 @@ async function handleJoin(e: Event): Promise<void> {
       spatialAudio.updatePositions(avatars.getPositions(), state.peerId!);
     });
 
+    avatars.onStatusChange((newStatus) => {
+      state.status = newStatus;
+      avatars.updateStatus(state.peerId!, newStatus);
+      crdt.updateStatus(state.peerId!, newStatus);
+    });
+
     updateParticipantCount();
   } catch (error) {
     const err = error as Error;
