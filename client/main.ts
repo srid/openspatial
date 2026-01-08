@@ -130,13 +130,6 @@ function setupEventListeners(): void {
   document.getElementById('btn-camera')!.addEventListener('click', toggleCamera);
   document.getElementById('btn-screen')!.addEventListener('click', startScreenShare);
   document.getElementById('btn-leave')!.addEventListener('click', leaveSpace);
-  document.getElementById('btn-set-status')!.addEventListener('click', setStatus);
-  document.getElementById('btn-clear-status')!.addEventListener('click', clearStatus);
-  document.getElementById('status-input')!.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') {
-      setStatus();
-    }
-  });
 
   // Socket events: only WebRTC signaling
   socket.on('signal', handleSignal);
@@ -397,6 +390,7 @@ async function handleJoin(e: Event): Promise<void> {
     alert(`Failed to join: ${err.message}`);
   }
 }
+
 
 
 

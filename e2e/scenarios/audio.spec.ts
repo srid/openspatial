@@ -45,3 +45,17 @@ scenario('mute toggle is bidirectional', 'mute-bidirectional', async ({ createUs
   expect(await alice.avatarOf('Bob').isMuted()).toBe(false);
   expect(await bob.avatarOf('Alice').isMuted()).toBe(false);
 });
+
+scenario('late-joiner sees mute state', 'audio-late', async ({ createUser }) => {
+  const alice = await createUser('Alice').join();
+  await alice.mute();
+  await alice.wait(500);
+  
+  // Bob joins later
+  const bob = await createUser('Bob').join();
+  await bob.waitForUser('Alice');
+  await bob.wait(500);
+  
+  // Bob should see Alice as muted
+  expect(await bob.avatarOf('Alice').isMuted()).toBe(true);
+});

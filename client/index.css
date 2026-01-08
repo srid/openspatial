@@ -487,48 +487,6 @@ body {
     margin: 0 var(--space-2);
 }
 
-/* Status input group */
-.status-input-group {
-    display: flex;
-    align-items: center;
-    gap: var(--space-2);
-}
-
-.status-input-group input {
-    width: 180px;
-    padding: var(--space-2) var(--space-3);
-    background: var(--color-surface);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-lg);
-    color: var(--color-text-primary);
-    font-size: var(--font-size-sm);
-    font-family: inherit;
-    transition: all var(--transition-fast);
-}
-
-.status-input-group input::placeholder {
-    color: var(--color-text-muted);
-}
-
-.status-input-group input:focus {
-    outline: none;
-    border-color: var(--color-accent);
-    box-shadow: 0 0 0 2px var(--color-accent-glow);
-}
-
-.control-btn-sm {
-    width: 36px;
-    height: 36px;
-}
-
-.control-btn-muted {
-    opacity: 0.6;
-}
-
-.control-btn-muted:hover {
-    opacity: 1;
-}
-
 /* ===== Avatar ===== */
 .avatar {
     position: absolute;
@@ -622,6 +580,133 @@ body {
     text-overflow: ellipsis;
     backdrop-filter: blur(8px);
     box-shadow: 0 0 10px var(--color-accent-glow);
+}
+
+/* Make status clickable for local avatar */
+.avatar.self .avatar-status {
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.avatar.self .avatar-status:hover {
+    background: rgba(99, 102, 241, 1);
+    transform: translateX(-50%) scale(1.05);
+}
+
+/* Status trigger button (+ icon) for local avatar */
+.avatar-status-trigger {
+    display: flex;
+    position: absolute;
+    top: -20px;
+    left: 50%;
+    transform: translateX(-50%);
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    background: var(--color-bg-elevated);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-full);
+    color: var(--color-text-muted);
+    cursor: pointer;
+    backdrop-filter: blur(8px);
+    transition: all var(--transition-fast);
+    z-index: 15;
+}
+
+.avatar-status-trigger:hover {
+    background: var(--color-accent);
+    border-color: var(--color-accent);
+    color: white;
+    transform: translateX(-50%) scale(1.1);
+    box-shadow: 0 0 12px var(--color-accent-glow);
+}
+
+/* Status popover editor */
+.status-popover {
+    position: absolute;
+    top: -60px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-2);
+    background: var(--color-bg-elevated);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    backdrop-filter: blur(12px);
+    box-shadow: var(--shadow-xl), 0 0 20px var(--color-accent-glow);
+    z-index: 100;
+    animation: popoverIn var(--transition-fast) ease-out;
+}
+
+@keyframes popoverIn {
+    from {
+        opacity: 0;
+        transform: translateX(-50%) translateY(8px) scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0) scale(1);
+    }
+}
+
+.status-popover-input {
+    width: 160px;
+    padding: var(--space-2) var(--space-3);
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    color: var(--color-text-primary);
+    font-size: var(--font-size-sm);
+    font-family: inherit;
+    transition: all var(--transition-fast);
+}
+
+.status-popover-input::placeholder {
+    color: var(--color-text-muted);
+}
+
+.status-popover-input:focus {
+    outline: none;
+    border-color: var(--color-accent);
+    box-shadow: 0 0 0 2px var(--color-accent-glow);
+}
+
+.status-popover-actions {
+    display: flex;
+    gap: var(--space-1);
+}
+
+.status-popover-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.status-popover-btn:hover {
+    background: var(--color-surface-hover);
+}
+
+.status-popover-save:hover {
+    background: var(--color-accent);
+    border-color: var(--color-accent);
+    color: white;
+}
+
+.status-popover-clear:hover {
+    background: rgba(239, 68, 68, 0.2);
+    border-color: var(--color-danger);
+    color: var(--color-danger);
 }
 
 .avatar-indicators {

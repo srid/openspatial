@@ -56,8 +56,16 @@ scenario('position syncs across three users', 'mesh-position', async ({ createUs
   const bob = await createUser('Bob').join();
   const charlie = await createUser('Charlie').join();
 
+  // Wait for full mesh - everyone sees everyone
+  await alice.waitForUser('Bob');
+  await alice.waitForUser('Charlie');
   await bob.waitForUser('Alice');
+  await bob.waitForUser('Charlie');
   await charlie.waitForUser('Alice');
+  await charlie.waitForUser('Bob');
+  
+  // Wait for WebRTC mesh to fully stabilize
+  await alice.wait(1000);
 
   // Alice drags her avatar
   await alice.dragAvatar({ dx: 75, dy: 50 });
@@ -91,4 +99,20 @@ scenario('screen share visible to all mesh peers', 'mesh-screenshare', async ({ 
   expect(bobShares[0].owner).toBe('Alice');
   expect(charlieShares.length).toBe(1);
   expect(charlieShares[0].owner).toBe('Alice');
+});
+
+scenario('late-joiner sees existing mesh', 'mesh-late', async ({ createUser }) => {
+  const alice = await createUser('Alice').join();
+  const bob = await createUser('Bob').join();
+  await alice.waitForUser('Bob');
+  await bob.waitForUser('Alice');
+  
+  // Charlie joins later
+  const charlie = await createUser('Charlie').join();
+  await charlie.waitForUser('Alice');
+  await charlie.waitForUser('Bob');
+  
+  // Charlie should see both existing users
+  expect(await charlie.visibleUsers()).toEqual(['Alice', 'Bob']);
+  expect(await charlie.participantCount()).toBe(3);
 });

@@ -55,12 +55,32 @@ export class UserImpl implements User {
   }
 
   async setStatus(text: string): Promise<void> {
-    await this.page.fill('#status-input', text);
-    await this.page.click('#btn-set-status');
+    // Click on the status trigger (+ button) or existing status badge on our avatar
+    const avatar = this.page.locator('.avatar.self');
+    const statusTrigger = avatar.locator('.avatar-status-trigger');
+    const statusBadge = avatar.locator('.avatar-status');
+    
+    // Click whichever is visible (trigger if no status, badge if has status)
+    if (await statusTrigger.isVisible()) {
+      await statusTrigger.click();
+    } else {
+      await statusBadge.click();
+    }
+    
+    // Fill in the popover input and save
+    await this.page.fill('.status-popover-input', text);
+    await this.page.click('.status-popover-save');
   }
 
   async clearStatus(): Promise<void> {
-    await this.page.click('#btn-clear-status');
+    // Click on the existing status badge to open the popover
+    const avatar = this.page.locator('.avatar.self');
+    const statusBadge = avatar.locator('.avatar-status');
+    
+    if (await statusBadge.isVisible()) {
+      await statusBadge.click();
+      await this.page.click('.status-popover-clear');
+    }
   }
 
   async startScreenShare(opts?: { color?: string }): Promise<ScreenShareInfo> {
@@ -86,19 +106,13 @@ export class UserImpl implements User {
 
   async resizeScreenShare(rect: Rect): Promise<void> {
     const screenShare = this.page.locator('.screen-share:has-text("Your Screen")');
-    const box = await screenShare.boundingBox();
-    if (box) {
-      // Drag from current bottom-right to new size
-      const resizeHandleX = box.x + box.width - 5;
-      const resizeHandleY = box.y + box.height - 5;
-      const targetX = box.x + rect.size.width - 5;
-      const targetY = box.y + rect.size.height - 5;
-
-      await this.page.mouse.move(resizeHandleX, resizeHandleY);
-      await this.page.mouse.down();
-      await this.page.mouse.move(targetX, targetY, { steps: 5 });
-      await this.page.mouse.up();
-    }
+    
+    // Set width/height directly in style and trigger resize by updating the element
+    await screenShare.evaluate((el: HTMLElement, size: { width: number; height: number }) => {
+      el.style.width = `${size.width}px`;
+      el.style.height = `${size.height}px`;
+    }, { width: rect.size.width, height: rect.size.height });
+    
     await this.page.waitForTimeout(SYNC_WAIT);
   }
 
