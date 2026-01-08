@@ -11,10 +11,10 @@ const ICE_SERVERS = [
 
 interface PendingShareInfo {
   shareId: string;
-  x: number;
-  y: number;
-  width: number;
-  height: number;
+  x?: number;
+  y?: number;
+  width?: number;
+  height?: number;
 }
 
 interface AppState {
@@ -47,6 +47,10 @@ export class WebRTCManager {
     this.avatars = avatars;
     this.screenShare = screenShare;
     this.spatialAudio = spatialAudio;
+  }
+
+  hasPeerConnection(peerId: string): boolean {
+    return this.peerConnections.has(peerId);
   }
 
   createPeerConnection(peerId: string, initiator = false): RTCPeerConnection {
@@ -95,6 +99,12 @@ export class WebRTCManager {
     };
 
     pc.onnegotiationneeded = async () => {
+      // Prevent race conditions: don't create offer if we're not stable
+      // (e.g., if we're in the middle of handling an incoming offer)
+      if (pc.signalingState !== 'stable') {
+        return;
+      }
+
       try {
         this.makingOffer.set(peerId, true);
         await pc.setLocalDescription();
@@ -148,10 +158,6 @@ export class WebRTCManager {
         this.closePeerConnection(peerId);
       }
     };
-
-    if (initiator) {
-      this.createOffer(peerId, pc);
-    }
 
     return pc;
   }
@@ -259,16 +265,16 @@ export class WebRTCManager {
     let shareId: string;
     let x = avatarPos.x + 150;
     let y = avatarPos.y;
-    let width = 480;  // Default size
-    let height = 320;
+    let width: number | undefined;
+    let height: number | undefined;
 
     const pendingIds = this.state.pendingShareIds?.get(peerId);
     if (pendingIds && pendingIds.length > 0) {
       const pending = pendingIds.shift()!;
       if (typeof pending === 'object') {
         shareId = pending.shareId;
-        x = pending.x;
-        y = pending.y;
+        x = pending.x || x;
+        y = pending.y || y;
         width = pending.width;
         height = pending.height;
       } else {
@@ -281,9 +287,9 @@ export class WebRTCManager {
 
     this.screenShare?.createScreenShare(shareId, peerId, username, stream, x, y);
     
-    // Always apply size for late-joiners
-    if (this.screenShare) {
-      this.screenShare.setSize(shareId, width, height);
+    // Apply size if provided (for late-joiners seeing existing screen share)
+    if (width && height) {
+      this.screenShare?.setSize(shareId, width, height);
     }
   }
 

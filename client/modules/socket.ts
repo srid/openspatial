@@ -168,6 +168,14 @@ export class SocketHandler {
     }
   }
 
+  once<K extends keyof ServerEventMap>(event: K, handler: EventHandler<ServerEventMap[K]>): void {
+    const onceHandler: AnyHandler = (data: unknown) => {
+      this.off(event, onceHandler as EventHandler<ServerEventMap[K]>);
+      (handler as AnyHandler)(data);
+    };
+    this.on(event, onceHandler as EventHandler<ServerEventMap[K]>);
+  }
+
   private trigger(event: string, data: unknown): void {
     if (this.handlers.has(event)) {
       this.handlers.get(event)!.forEach((handler) => handler(data));

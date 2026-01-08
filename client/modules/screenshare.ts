@@ -51,7 +51,7 @@ export class ScreenShareManager {
     const isLocal = peerId === this.state.peerId;
 
     const element = document.createElement('div') as HTMLDivElement;
-    element.className = 'screen-share';
+    element.className = `screen-share${isLocal ? ' owner' : ''}`;
     element.dataset.shareId = shareId;
     element.dataset.peerId = peerId;
     element.style.left = `${x}px`;
@@ -99,7 +99,7 @@ export class ScreenShareManager {
     video.muted = isLocal;
     element.appendChild(video);
 
-    // Only allow drag for local screen shares (owner only)
+    // Only allow dragging for local (owner) screen shares
     if (isLocal) {
       this.setupDrag(element, shareId);
     }
@@ -251,5 +251,15 @@ export class ScreenShareManager {
   clear(): void {
     this.screenShares.forEach((element) => element.remove());
     this.screenShares.clear();
+  }
+
+  hasScreenShare(shareId: string): boolean {
+    return this.screenShares.has(shareId);
+  }
+
+  forEachShare(callback: (shareId: string, element: HTMLDivElement) => void): void {
+    this.screenShares.forEach((element, shareId) => {
+      callback(shareId, element);
+    });
   }
 }

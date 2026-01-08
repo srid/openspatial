@@ -3,6 +3,7 @@ import basicSsl from '@vitejs/plugin-basic-ssl';
 import { Server } from 'socket.io';
 import os from 'os';
 import { attachSignaling } from './server/signaling.ts';
+import { initializeYjsSync } from './server/yjs-provider.ts';
 
 const hostname = os.hostname();
 
@@ -18,6 +19,10 @@ function socketPlugin() {
         }
       });
 
+      // Initialize Yjs CRDT sync (uses /yjs|* namespace)
+      initializeYjsSync(io);
+
+      // Keep existing signaling for WebRTC (will be deprecated in cleanup phase)
       attachSignaling(io);
     }
   };

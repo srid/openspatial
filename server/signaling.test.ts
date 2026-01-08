@@ -61,18 +61,7 @@ describe('Signaling Server', () => {
       expect(connectedEvent.peerId).toBeDefined();
       expect(typeof connectedEvent.peerId).toBe('string');
     });
-
-    it('provides space state on join', async () => {
-      clientSocket1 = await connectClient();
-
-      const spaceState = await new Promise<{ peers: Record<string, unknown> }>((resolve) => {
-        clientSocket1.on('space-state', resolve);
-        clientSocket1.emit('join-space', { spaceId: 'test-room', username: 'Alice' });
-      });
-
-      expect(spaceState.peers).toBeDefined();
-      expect(Object.keys(spaceState.peers).length).toBe(1); // Self included
-    });
+    // Note: space-state test removed - state is now synced via CRDT
   });
 
   describe('peer events', () => {
@@ -129,38 +118,7 @@ describe('Signaling Server', () => {
     });
   });
 
-  describe('position updates', () => {
-    it('broadcasts position-update to other peers', async () => {
-      clientSocket1 = await connectClient();
-      clientSocket2 = await connectClient();
-
-      // Both join
-      let client1PeerId: string;
-      await Promise.all([
-        new Promise<void>((resolve) => {
-          clientSocket1.on('connected', (data: { peerId: string }) => {
-            client1PeerId = data.peerId;
-            resolve();
-          });
-          clientSocket1.emit('join-space', { spaceId: 'shared-room', username: 'Alice' });
-        }),
-        new Promise<void>((resolve) => {
-          clientSocket2.on('connected', () => resolve());
-          clientSocket2.emit('join-space', { spaceId: 'shared-room', username: 'Bob' });
-        }),
-      ]);
-
-      const positionUpdatePromise = new Promise<{ peerId: string; x: number; y: number }>((resolve) => {
-        clientSocket2.on('position-update', resolve);
-      });
-
-      clientSocket1.emit('position-update', { peerId: client1PeerId!, x: 500, y: 600 });
-
-      const positionUpdate = await positionUpdatePromise;
-      expect(positionUpdate.x).toBe(500);
-      expect(positionUpdate.y).toBe(600);
-    });
-  });
+  // Note: position-update tests removed - position sync is now handled via CRDT
 
   describe('signal routing', () => {
     it('routes signal to specific target peer', async () => {

@@ -57,13 +57,13 @@ All socket events are typed in `shared/types/events.ts`. Both client and server 
 
 | Action | Method | Description |
 |--------|--------|-------------|
-| **Join/Leave Space** | WebSocket | Server assigns peer UUID, broadcasts `peer-joined`/`peer-left` |
+| **Join/Leave Space** | WebSocket | Server assigns peer UUID, notifies peers for WebRTC |
 | **WebRTC Signaling** (offer/answer/ICE) | WebSocket | Server routes signals to specific target peer |
-| **Avatar Position** | WebSocket | Broadcasts `position-update` to room |
-| **Mute/Video Toggle** | WebSocket | Broadcasts `media-state-update` to room |
-| **Status Update** | WebSocket | Broadcasts `status-update` to room |
-| **Screen Share Start/Stop** | WebSocket | Broadcasts `screen-share-started`/`stopped` to room |
-| **Screen Share Position** | WebSocket | Broadcasts `screen-share-position-update` to room |
-| **Screen Share Resize** | WebSocket | Broadcasts `screen-share-resize-update` to room |
+| **Avatar Position** | **CRDT (Yjs)** | Synced via Yjs document, conflict-free |
+| **Mute/Video Toggle** | **CRDT (Yjs)** | Synced via Yjs document, conflict-free |
+| **Status Update** | **CRDT (Yjs)** | Synced via Yjs document, conflict-free |
+| **Screen Share Start/Stop** | WebSocket + CRDT | WebSocket for WebRTC track coordination, CRDT for state |
+| **Screen Share Position** | **CRDT (Yjs)** | Synced via Yjs document, conflict-free |
+| **Screen Share Resize** | **CRDT (Yjs)** | Synced via Yjs document, conflict-free |
 | **Audio/Video Streams** | WebRTC (P2P) | Direct peer-to-peer mesh, spatial audio panning |
 | **Screen Share Video** | WebRTC (P2P) | Video frames sent directly between browsers |
