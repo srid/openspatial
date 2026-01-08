@@ -248,6 +248,13 @@ export class WebRTCManager {
   private handleVideoTrack(peerId: string, stream: MediaStream): void {
     this.avatars?.setRemoteStream(peerId, stream);
     this.spatialAudio?.addPeer(peerId, stream);
+    
+    // Re-apply media state after stream arrives (fixes race condition where
+    // updateMediaState was called before video element existed)
+    const peer = this.state.peers.get(peerId);
+    if (peer && this.avatars) {
+      this.avatars.updateMediaState(peerId, peer.isMuted, peer.isVideoOff);
+    }
   }
 
   private handleScreenTrack(peerId: string, stream: MediaStream): void {
