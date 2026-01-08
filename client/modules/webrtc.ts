@@ -49,6 +49,10 @@ export class WebRTCManager {
     this.spatialAudio = spatialAudio;
   }
 
+  hasPeerConnection(peerId: string): boolean {
+    return this.peerConnections.has(peerId);
+  }
+
   createPeerConnection(peerId: string, initiator = false): RTCPeerConnection {
     if (this.peerConnections.has(peerId)) {
       const existingPc = this.peerConnections.get(peerId)!;
@@ -95,6 +99,12 @@ export class WebRTCManager {
     };
 
     pc.onnegotiationneeded = async () => {
+      // Prevent race conditions: don't create offer if we're not stable
+      // (e.g., if we're in the middle of handling an incoming offer)
+      if (pc.signalingState !== 'stable') {
+        return;
+      }
+
       try {
         this.makingOffer.set(peerId, true);
         await pc.setLocalDescription();
@@ -148,10 +158,6 @@ export class WebRTCManager {
         this.closePeerConnection(peerId);
       }
     };
-
-    if (initiator) {
-      this.createOffer(peerId, pc);
-    }
 
     return pc;
   }

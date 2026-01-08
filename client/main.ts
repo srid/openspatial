@@ -173,9 +173,18 @@ function setupEventListeners(): void {
           avatars.updateStatus(peerId, peerState.status);
         }
         
-        // Create WebRTC connection for new peer
+        // Create WebRTC connection
         if (webrtc) {
-          webrtc.createPeerConnection(peerId, true);
+          // Deterministic initiator: The peer with the alphanumerically larger ID offers.
+          // This prevents "glare" (both sides trying to offer simultaneously).
+          const isInitiator = state.peerId! > peerId;
+          const shouldCreate = isInitiator || !webrtc.hasPeerConnection(peerId);
+          
+          if (shouldCreate) {
+             // If we are initiator, we create and offer.
+             // If we are NOT initiator, we create connection but wait for their offer.
+             webrtc.createPeerConnection(peerId, isInitiator);
+          }
         }
         
         updateParticipantCount();
