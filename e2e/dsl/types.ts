@@ -86,3 +86,19 @@ export interface ScreenShareView {
   size(): Promise<Size>;
   position(): Promise<Position>;
 }
+
+// ─────────────────────────────────────────────────────────────────
+// Assertion Helpers
+// ─────────────────────────────────────────────────────────────────
+
+import { expect } from '@playwright/test';
+
+/**
+ * Assert that two Rects are equal.
+ */
+export function expectRect(actual: Rect, expected: Rect): void {
+  expect(actual.position.x).toBe(expected.position.x);
+  expect(actual.position.y).toBe(expected.position.y);
+  expect(actual.size.width).toBe(expected.size.width);
+  expect(actual.size.height).toBe(expected.size.height);
+}

@@ -4,7 +4,7 @@
  * NOTE: "leaving removes screen shares" is skipped due to WebRTC timing issues.
  */
 import { expect, test } from '@playwright/test';
-import { scenario } from '../dsl';
+import { scenario, expectRect } from '../dsl';
 
 // FIXME: This test times out waiting for screen share cleanup after leave
 // The WebRTC teardown may take longer than 30s in test environment
@@ -20,11 +20,12 @@ scenario('screen share resize syncs', 'ss-resize', async ({ createUser }) => {
   await alice.startScreenShare({ color: 'green' });
   const initialRect = await bob.screenShareOf('Alice').rect();
 
-  await alice.resizeScreenShare({
+  const expectedRect = {
     position: initialRect.position,
     size: { width: 800, height: 600 },
-  });
+  };
+  await alice.resizeScreenShare(expectedRect);
   const newRect = await bob.screenShareOf('Alice').rect();
 
-  expect(newRect.size.width).not.toBe(initialRect.size.width);
+  expectRect(newRect, expectedRect);
 });
