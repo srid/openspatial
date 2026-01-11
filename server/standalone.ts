@@ -63,10 +63,8 @@ const io = new Server(server, {
 
 attachSignaling(io);
 
-// Attach Yjs WebSocket server (only for HTTPS since y-websocket needs the underlying server)
-if (USE_HTTPS) {
-  attachYjsServer(server as HttpsServer);
-}
+// Attach Yjs WebSocket server for CRDT document synchronization
+attachYjsServer(server);
 
 const protocol = USE_HTTPS ? 'https' : 'http';
 server.listen(PORT, '0.0.0.0', () => {
