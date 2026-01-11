@@ -253,33 +253,25 @@ export class WebRTCManager {
     const username = peer?.username || 'Unknown';
     const avatarPos = this.avatars?.getPosition(peerId) || { x: 2000, y: 2000 };
 
-    let shareId: string;
-    let x = avatarPos.x + 150;
-    let y = avatarPos.y;
-    let width = 480;  // Default size
-    let height = 320;
+    // Default position near the avatar
+    const x = avatarPos.x + 150;
+    const y = avatarPos.y;
 
+    // Get shareId from pending list (set by screen-share-started event)
+    let shareId: string;
     const pendingIds = this.state.pendingShareIds?.get(peerId);
     if (pendingIds && pendingIds.length > 0) {
       const pending = pendingIds.shift()!;
-      if (typeof pending === 'object') {
-        shareId = pending.shareId;
-        x = pending.x;
-        y = pending.y;
-        width = pending.width;
-        height = pending.height;
-      } else {
-        shareId = pending;
-      }
+      // pendingShareIds can be string (just shareId) or object (legacy, but we only use shareId)
+      shareId = typeof pending === 'object' ? pending.shareId : pending;
     } else {
       shareId = `${peerId}-${stream.id}`;
       console.warn('No pending shareId for screen track, using fallback');
     }
 
+    // Create screen share at default position
+    // CRDT pending state mechanism will apply correct position/size
     this.screenShare?.createScreenShare(shareId, peerId, username, stream, x, y);
-    // NOTE: Size is now managed by CRDT. The createScreenShare method applies
-    // any pending CRDT state. We no longer apply Socket.io size here as CRDT
-    // is the source of truth for size after resize operations.
   }
 
   addScreenTrack(shareId: string, screenStream: MediaStream): void {

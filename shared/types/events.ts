@@ -22,10 +22,7 @@ export interface PeerData {
 export interface ScreenShareData {
   peerId: string;
   username: string;
-  x: number;
-  y: number;
-  width: number;
-  height: number;
+  // NOTE: Position and size are managed by CRDT, not Socket.io
 }
 
 // ==================== Socket Events (Client -> Server) ====================
@@ -65,8 +62,7 @@ export interface StatusUpdateEvent {
 export interface ScreenShareStartedEvent {
   peerId: string;
   shareId: string;
-  x: number;
-  y: number;
+  // Position is managed by CRDT
 }
 
 export interface ScreenShareStoppedEvent {
@@ -94,7 +90,7 @@ export interface ConnectedEvent {
 
 export interface SpaceStateEvent {
   peers: Record<string, PeerData>;
-  screenShares: Record<string, ScreenShareData>;
+  // NOTE: Screen shares are managed by CRDT, not sent via Socket.io
 }
 
 export interface PeerJoinedEvent {

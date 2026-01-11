@@ -407,22 +407,8 @@ function handleSpaceState(spaceState: SpaceStateEvent): void {
     }
   }
 
-  if (spaceState.screenShares) {
-    for (const [shareId, shareData] of Object.entries(spaceState.screenShares)) {
-      if (shareData.peerId !== state.peerId) {
-        if (!state.pendingShareIds.has(shareData.peerId)) {
-          state.pendingShareIds.set(shareData.peerId, []);
-        }
-        state.pendingShareIds.get(shareData.peerId)!.push({
-          shareId,
-          x: shareData.x,
-          y: shareData.y,
-          width: shareData.width,
-          height: shareData.height,
-        });
-      }
-    }
-  }
+  // NOTE: Screen shares are managed by CRDT, not Socket.io
+  // Late-joiners will receive screen share state from CRDT observer
 
   updateParticipantCount();
 }
@@ -533,8 +519,8 @@ async function startScreenShare(): Promise<void> {
     // Add to CRDT for sync
     crdt?.addScreenShare(shareId, state.peerId!, state.username, x, y, width, height);
 
-    // Still need socket for WebRTC track signaling
-    socket.emit('screen-share-started', { peerId: state.peerId!, shareId, x, y });
+    // Still need socket for WebRTC track signaling (position/size is CRDT-only)
+    socket.emit('screen-share-started', { peerId: state.peerId!, shareId });
 
     stream.getVideoTracks()[0].onended = () => {
       stopScreenShare(shareId);

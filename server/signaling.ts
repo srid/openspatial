@@ -83,7 +83,7 @@ export function attachSignaling(io: Server): void {
 
       const spaceState: SpaceStateEvent = {
         peers: Object.fromEntries(space.peers),
-        screenShares: Object.fromEntries(space.screenShares),
+        // Screen shares are managed by CRDT, not sent here
       };
       socket.emit('space-state', spaceState);
 
@@ -111,19 +111,17 @@ export function attachSignaling(io: Server): void {
     // - media-state-update
     // - status-update
 
-    socket.on('screen-share-started', ({ peerId: pid, shareId, x, y }: ScreenShareStartedEvent) => {
+    socket.on('screen-share-started', ({ peerId: pid, shareId }: ScreenShareStartedEvent) => {
       if (!currentSpace) return;
       const space = spaces.get(currentSpace);
       const peer = space?.peers.get(pid);
       if (peer && currentUsername) {
         peer.isScreenSharing = true;
+        // Only track shareId -> peerId/username mapping for WebRTC routing
+        // Position and size are managed by CRDT
         const shareData: ScreenShareData = {
           peerId: pid,
           username: currentUsername,
-          x: x || 0,
-          y: y || 0,
-          width: 480,  // Default size matching client's createScreenShare
-          height: 320,
         };
         space?.screenShares.set(shareId, shareData);
         
