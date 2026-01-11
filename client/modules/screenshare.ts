@@ -14,6 +14,8 @@ export class ScreenShareManager {
   private onResizeUpdate: ResizeUpdateCallback | null;
   private onClose: CloseCallback | null;
   private resizeObserver: ResizeObserver | null = null;
+  // Pending state from CRDT for screen shares not yet created
+  private pendingState = new Map<string, { x?: number; y?: number; width?: number; height?: number }>();
 
   constructor(
     state: AppState,
@@ -156,12 +158,26 @@ export class ScreenShareManager {
     this.space!.appendChild(element);
     this.screenShares.set(shareId, element);
     
+    // Apply any pending CRDT state that arrived before the element was created
+    const pending = this.pendingState.get(shareId);
+    if (pending) {
+      if (pending.x !== undefined && pending.y !== undefined) {
+        element.style.left = `${pending.x}px`;
+        element.style.top = `${pending.y}px`;
+      }
+      if (pending.width !== undefined && pending.height !== undefined) {
+        element.style.width = `${pending.width}px`;
+        element.style.height = `${pending.height}px`;
+      }
+      this.pendingState.delete(shareId);
+    }
+    
     // Observe resize for local screen shares
     if (isLocal && this.resizeObserver) {
       this.resizeObserver.observe(element);
     }
     
-    console.log('[ScreenShare] Created with shareId:', shareId, 'Map size:', this.screenShares.size);
+    console.log('[ScreenShare] Created with shareId:', shareId);
   }
 
   private setupDrag(element: HTMLDivElement, shareId: string): void {
@@ -209,15 +225,14 @@ export class ScreenShareManager {
   }
 
   setPosition(shareId: string, x: number, y: number): void {
-    console.log('[ScreenShare] setPosition called with shareId:', shareId);
-    console.log('[ScreenShare] Current keys:', [...this.screenShares.keys()]);
     const element = this.screenShares.get(shareId);
     if (element) {
       element.style.left = `${x}px`;
       element.style.top = `${y}px`;
-      console.log('[ScreenShare] Position updated successfully');
     } else {
-      console.warn('[ScreenShare] Element NOT FOUND for shareId:', shareId);
+      // Store pending state for when element is created
+      const pending = this.pendingState.get(shareId) || {};
+      this.pendingState.set(shareId, { ...pending, x, y });
     }
   }
 
@@ -226,6 +241,10 @@ export class ScreenShareManager {
     if (element) {
       element.style.width = `${width}px`;
       element.style.height = `${height}px`;
+    } else {
+      // Store pending state for when element is created
+      const pending = this.pendingState.get(shareId) || {};
+      this.pendingState.set(shareId, { ...pending, width, height });
     }
   }
 

@@ -93,11 +93,9 @@ export class AvatarManager {
     if (!avatar) return;
 
     const container = avatar.querySelector('.avatar-video-container') as HTMLElement;
-
-    const placeholder = container.querySelector('.avatar-placeholder');
-    if (placeholder) {
-      placeholder.remove();
-    }
+    
+    // Check if video should be hidden (CRDT state set isVideoOff before stream arrived)
+    const isVideoOff = avatar.dataset.isVideoOff === 'true';
 
     let video = container.querySelector('video');
     if (!video) {
@@ -109,6 +107,28 @@ export class AvatarManager {
     }
 
     video.srcObject = stream;
+    
+    // Respect the isVideoOff state from CRDT
+    // If video should be off, keep placeholder and hide video
+    if (isVideoOff) {
+      video.style.display = 'none';
+      // Placeholder should already exist from updateMediaState, but ensure it's there
+      let placeholder = container.querySelector('.avatar-placeholder');
+      if (!placeholder) {
+        const nameEl = avatar.querySelector('.avatar-name') as HTMLElement;
+        const name = nameEl.textContent || 'U';
+        placeholder = document.createElement('div');
+        placeholder.className = 'avatar-placeholder';
+        placeholder.textContent = name.charAt(0).toUpperCase();
+        container.appendChild(placeholder);
+      }
+    } else {
+      // Video is on, remove placeholder if present
+      const placeholder = container.querySelector('.avatar-placeholder');
+      if (placeholder) {
+        placeholder.remove();
+      }
+    }
   }
 
   setPosition(peerId: string, x: number, y: number): void {
@@ -131,6 +151,10 @@ export class AvatarManager {
 
   getPositions(): Map<string, Position> {
     return this.positions;
+  }
+
+  hasAvatar(peerId: string): boolean {
+    return this.avatars.has(peerId);
   }
 
   /**
@@ -322,6 +346,9 @@ export class AvatarManager {
   updateMediaState(peerId: string, isMuted: boolean, isVideoOff: boolean): void {
     const avatar = this.avatars.get(peerId);
     if (!avatar) return;
+    
+    // Store video off state as data attribute for later reference by setRemoteStream
+    avatar.dataset.isVideoOff = String(isVideoOff);
 
     const indicators = avatar.querySelector('.avatar-indicators') as HTMLElement;
     indicators.innerHTML = '';

@@ -3,13 +3,8 @@ import type { Server, Socket } from 'socket.io';
 import type {
   JoinSpaceEvent,
   SignalEvent,
-  PositionUpdateEvent,
-  MediaStateUpdateEvent,
-  StatusUpdateEvent,
   ScreenShareStartedEvent,
   ScreenShareStoppedEvent,
-  ScreenSharePositionUpdateEvent,
-  ScreenShareResizeUpdateEvent,
   GetSpaceInfoEvent,
   PeerData,
   ScreenShareData,
@@ -109,60 +104,12 @@ export function attachSignaling(io: Server): void {
       }
     });
 
-    socket.on('position-update', ({ peerId: pid, x, y }: PositionUpdateEvent) => {
-      if (!currentSpace) return;
-      const space = spaces.get(currentSpace);
-      const peer = space?.peers.get(pid);
-      if (peer) {
-        peer.position = { x, y };
-        socket.to(currentSpace).emit('position-update', { peerId: pid, x, y });
-      }
-    });
-
-    socket.on('screen-share-position-update', ({ shareId, x, y }: ScreenSharePositionUpdateEvent) => {
-      if (!currentSpace) return;
-      const space = spaces.get(currentSpace);
-      const share = space?.screenShares.get(shareId);
-      // Only allow owner to update position
-      if (share && share.peerId === peerId) {
-        share.x = x;
-        share.y = y;
-        socket.to(currentSpace).emit('screen-share-position-update', { shareId, x, y });
-      }
-    });
-
-    socket.on('screen-share-resize-update', ({ shareId, width, height }: ScreenShareResizeUpdateEvent) => {
-      if (!currentSpace) return;
-      const space = spaces.get(currentSpace);
-      const share = space?.screenShares.get(shareId);
-      // Only allow owner to update size
-      if (share && share.peerId === peerId) {
-        share.width = width;
-        share.height = height;
-        socket.to(currentSpace).emit('screen-share-resize-update', { shareId, width, height });
-      }
-    });
-
-    socket.on('media-state-update', ({ peerId: pid, isMuted, isVideoOff }: MediaStateUpdateEvent) => {
-      if (!currentSpace) return;
-      const space = spaces.get(currentSpace);
-      const peer = space?.peers.get(pid);
-      if (peer) {
-        peer.isMuted = isMuted;
-        peer.isVideoOff = isVideoOff;
-        socket.to(currentSpace).emit('media-state-update', { peerId: pid, isMuted, isVideoOff });
-      }
-    });
-
-    socket.on('status-update', ({ peerId: pid, status }: StatusUpdateEvent) => {
-      if (!currentSpace) return;
-      const space = spaces.get(currentSpace);
-      const peer = space?.peers.get(pid);
-      if (peer) {
-        peer.status = status;
-        socket.to(currentSpace).emit('status-update', { peerId: pid, status });
-      }
-    });
+    // Note: The following handlers have been removed as state sync is now managed by Yjs CRDT:
+    // - position-update
+    // - screen-share-position-update
+    // - screen-share-resize-update
+    // - media-state-update
+    // - status-update
 
     socket.on('screen-share-started', ({ peerId: pid, shareId, x, y }: ScreenShareStartedEvent) => {
       if (!currentSpace) return;

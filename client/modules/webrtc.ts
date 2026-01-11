@@ -242,13 +242,10 @@ export class WebRTCManager {
   private handleVideoTrack(peerId: string, stream: MediaStream): void {
     this.avatars?.setRemoteStream(peerId, stream);
     this.spatialAudio?.addPeer(peerId, stream);
-    
-    // Re-apply media state after stream arrives (fixes race condition where
-    // updateMediaState was called before video element existed)
-    const peer = this.state.peers.get(peerId);
-    if (peer && this.avatars) {
-      this.avatars.updateMediaState(peerId, peer.isMuted, peer.isVideoOff);
-    }
+    // NOTE: Media state (isMuted, isVideoOff) is now managed by CRDT observers.
+    // Previously, we re-applied state from this.state.peers here, but that data
+    // comes from Socket.io which no longer tracks media state updates.
+    // The CRDT observer will apply the correct state.
   }
 
   private handleScreenTrack(peerId: string, stream: MediaStream): void {
@@ -280,11 +277,9 @@ export class WebRTCManager {
     }
 
     this.screenShare?.createScreenShare(shareId, peerId, username, stream, x, y);
-    
-    // Always apply size for late-joiners
-    if (this.screenShare) {
-      this.screenShare.setSize(shareId, width, height);
-    }
+    // NOTE: Size is now managed by CRDT. The createScreenShare method applies
+    // any pending CRDT state. We no longer apply Socket.io size here as CRDT
+    // is the source of truth for size after resize operations.
   }
 
   addScreenTrack(shareId: string, screenStream: MediaStream): void {

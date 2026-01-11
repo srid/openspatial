@@ -7,6 +7,7 @@ import { ScreenShareManager } from './modules/screenshare.js';
 import { SpatialAudio } from './modules/spatial-audio.js';
 import { UIController } from './modules/ui.js';
 import { MinimapManager } from './modules/minimap.js';
+import { CRDTManager } from './modules/crdt.js';
 import type {
   ConnectedEvent,
   SpaceStateEvent,
@@ -14,13 +15,8 @@ import type {
   PeerJoinedEvent,
   PeerLeftEvent,
   SignalEvent,
-  PositionUpdateEvent,
-  MediaStateUpdateEvent,
-  StatusUpdateEvent,
   ScreenShareStartedBroadcast,
   ScreenShareStoppedBroadcast,
-  ScreenSharePositionUpdateEvent,
-  ScreenShareResizeUpdateEvent,
   PeerData,
   ScreenShareData,
 } from '../shared/types/events.js';
@@ -54,14 +50,15 @@ const canvas = new CanvasManager();
 const avatars = new AvatarManager(state);
 const screenShare = new ScreenShareManager(
   state,
-  (shareId, x, y) => socket.emit('screen-share-position-update', { shareId, x, y }),
-  (shareId, width, height) => socket.emit('screen-share-resize-update', { shareId, width, height }),
+  (shareId, x, y) => crdt?.updateScreenSharePosition(shareId, x, y),
+  (shareId, width, height) => crdt?.updateScreenShareSize(shareId, width, height),
   (shareId) => stopScreenShare(shareId)
 );
 const spatialAudio = new SpatialAudio();
 spatialAudio.setAvatarManager(avatars);
 const ui = new UIController(state);
 let webrtc: WebRTCManager | null = null;
+let crdt: CRDTManager | null = null;
 
 // DOM elements
 const joinModal = document.getElementById('join-modal') as HTMLElement;
@@ -143,15 +140,12 @@ function setupEventListeners(): void {
   socket.on('peer-joined', handlePeerJoined);
   socket.on('peer-left', handlePeerLeft);
   socket.on('signal', handleSignal);
-  socket.on('position-update', handlePositionUpdate);
-  socket.on('media-state-update', handleMediaStateUpdate);
+  // Note: position-update, media-state-update, status-update now handled by CRDT observers
   socket.on('screen-share-started', handleScreenShareStarted);
   socket.on('screen-share-stopped', handleScreenShareStopped);
-  socket.on('screen-share-position-update', handleScreenSharePositionUpdate);
-  socket.on('screen-share-resize-update', handleScreenShareResizeUpdate);
+  // Note: screen-share-position-update, screen-share-resize-update now handled by CRDT observers
   socket.on('space-state', handleSpaceState);
   socket.on('reconnected', handleReconnected);
-  socket.on('status-update', handleStatusUpdate);
 
   // Set up connection state handler for UI feedback
   socket.onConnectionStateChange(handleConnectionStateChange);
@@ -275,6 +269,11 @@ function handleConnected(data: ConnectedEvent): void {
     // Close old peer connections - they're invalid now
     webrtc?.closeAllConnections();
     
+    // Reconnect CRDT
+    crdt?.destroy();
+    crdt = new CRDTManager(state.spaceId);
+    setupCRDTObservers();
+    
     updateParticipantCount();
     return;
   }
@@ -309,42 +308,100 @@ function handleConnected(data: ConnectedEvent): void {
     });
   });
 
+  // Initialize CRDT and add local peer to the document
+  crdt = new CRDTManager(state.spaceId);
+  crdt.addPeer(state.peerId, state.username, centerX, centerY);
+  setupCRDTObservers();
+
   avatars.onPositionChange((peerId, x, y) => {
-    socket.emit('position-update', { peerId, x, y });
+    crdt?.updatePosition(peerId, x, y);
     spatialAudio.updatePositions(avatars.getPositions(), state.peerId!);
   });
 
   avatars.onStatusChange((newStatus) => {
     state.status = newStatus;
     avatars.updateStatus(state.peerId!, newStatus);
-    socket.emit('status-update', {
-      peerId: state.peerId!,
-      status: newStatus,
-    });
+    crdt?.updateStatus(state.peerId!, newStatus);
   });
 
   updateParticipantCount();
 }
 
+// Set up CRDT observers for remote state changes
+function setupCRDTObservers(): void {
+  if (!crdt) return;
+
+  // Observe peer state changes (position, media state, status)
+  // Uses CRDT-driven creation: if avatar doesn't exist, create it from CRDT data
+  crdt.observePeers((peers) => {
+    for (const [peerId, peerState] of peers) {
+      if (peerId === state.peerId) continue; // Skip local peer
+      
+      // CRDT-driven creation: if avatar doesn't exist, create it from CRDT data
+      // This handles the race condition where CRDT state arrives before Socket.io signaling
+      if (!avatars.hasAvatar(peerId)) {
+        console.log(`[CRDT] Creating avatar for ${peerId} from CRDT data`);
+        state.peers.set(peerId, { 
+          username: peerState.username, 
+          position: { x: peerState.x, y: peerState.y },
+          isMuted: peerState.isMuted,
+          isVideoOff: peerState.isVideoOff,
+          isScreenSharing: false
+        });
+        avatars.createRemoteAvatar(peerId, peerState.username, peerState.x, peerState.y);
+        updateParticipantCount();
+        
+        // Initiate WebRTC connection if we have a local stream
+        if (state.localStream && webrtc) {
+          webrtc.createPeerConnection(peerId, true);
+        }
+      }
+      
+      // Update position
+      avatars.updatePosition(peerId, peerState.x, peerState.y);
+      
+      // Update media state
+      avatars.updateMediaState(peerId, peerState.isMuted, peerState.isVideoOff);
+      
+      // Update status (always call to handle clearing status)
+      avatars.updateStatus(peerId, peerState.status);
+    }
+    spatialAudio.updatePositions(avatars.getPositions(), state.peerId!);
+  });
+
+  // Observe screen share state changes
+  crdt.observeScreenShares((shares) => {
+    for (const [shareId, shareState] of shares) {
+      if (shareState.peerId === state.peerId) continue; // Skip local shares
+      
+      // Update position and size
+      screenShare.setPosition(shareId, shareState.x, shareState.y);
+      screenShare.setSize(shareId, shareState.width, shareState.height);
+    }
+  });
+}
+
 function handleSpaceState(spaceState: SpaceStateEvent): void {
   for (const [peerId, peerData] of Object.entries(spaceState.peers)) {
     if (peerId === state.peerId) {
-      // Apply server-assigned position to local avatar
+      // Apply server-assigned position to local avatar and CRDT
       avatars.setPosition(peerId, peerData.position.x, peerData.position.y);
       canvas.centerOn(peerData.position.x, peerData.position.y);
+      // Update CRDT with server-assigned position so other peers see it correctly
+      crdt?.updatePosition(peerId, peerData.position.x, peerData.position.y);
     } else {
       state.peers.set(peerId, peerData);
       avatars.createRemoteAvatar(peerId, peerData.username, peerData.position.x, peerData.position.y);
 
       // Apply existing peer status if set
+      // NOTE: Status is also managed by CRDT, but we apply Socket.io state first
+      // since it arrives faster. CRDT observer will update with latest state.
       if (peerData.status) {
         avatars.updateStatus(peerId, peerData.status);
       }
 
-      // Apply existing peer media state (muted/video off)
-      if (peerData.isMuted || peerData.isVideoOff) {
-        avatars.updateMediaState(peerId, peerData.isMuted, peerData.isVideoOff);
-      }
+      // NOTE: Media state (isMuted, isVideoOff) is now managed by CRDT observers.
+      // The server no longer tracks media state, so peerData values are defaults.
 
       webrtc!.createPeerConnection(peerId, true);
     }
@@ -399,22 +456,14 @@ function handleSignal(data: SignalEvent): void {
   webrtc?.handleSignal(data);
 }
 
-function handlePositionUpdate(data: PositionUpdateEvent): void {
-  const { peerId, x, y } = data;
-  avatars.updatePosition(peerId, x, y);
-  spatialAudio.updatePositions(avatars.getPositions(), state.peerId!);
-}
+// Legacy handlers removed - these are now handled by CRDT observers:
+// - handlePositionUpdate
+// - handleMediaStateUpdate  
+// - handleStatusUpdate
+// - handleScreenSharePositionUpdate
+// - handleScreenShareResizeUpdate
 
-function handleMediaStateUpdate(data: MediaStateUpdateEvent): void {
-  const { peerId, isMuted, isVideoOff } = data;
-  avatars.updateMediaState(peerId, isMuted, isVideoOff);
-}
-
-function handleStatusUpdate(data: StatusUpdateEvent): void {
-  const { peerId, status } = data;
-  avatars.updateStatus(peerId, status);
-}
-
+// These handlers are still needed for WebRTC track signaling:
 function handleScreenShareStarted(data: ScreenShareStartedBroadcast): void {
   const { peerId, shareId } = data;
   if (!state.pendingShareIds.has(peerId)) {
@@ -426,16 +475,7 @@ function handleScreenShareStarted(data: ScreenShareStartedBroadcast): void {
 function handleScreenShareStopped(data: ScreenShareStoppedBroadcast): void {
   const { shareId } = data;
   screenShare.removeScreenShare(shareId);
-}
-
-function handleScreenSharePositionUpdate(data: ScreenSharePositionUpdateEvent): void {
-  const { shareId, x, y } = data;
-  screenShare.setPosition(shareId, x, y);
-}
-
-function handleScreenShareResizeUpdate(data: ScreenShareResizeUpdateEvent): void {
-  const { shareId, width, height } = data;
-  screenShare.setSize(shareId, width, height);
+  crdt?.removeScreenShare(shareId);
 }
 
 function toggleMic(): void {
@@ -450,11 +490,7 @@ function toggleMic(): void {
   ui.updateMicButton(state.isMuted);
   avatars.updateMediaState(state.peerId!, state.isMuted, state.isVideoOff);
 
-  socket.emit('media-state-update', {
-    peerId: state.peerId!,
-    isMuted: state.isMuted,
-    isVideoOff: state.isVideoOff,
-  });
+  crdt?.updateMediaState(state.peerId!, state.isMuted, state.isVideoOff);
 }
 
 function toggleCamera(): void {
@@ -469,11 +505,7 @@ function toggleCamera(): void {
   ui.updateCameraButton(state.isVideoOff);
   avatars.updateMediaState(state.peerId!, state.isMuted, state.isVideoOff);
 
-  socket.emit('media-state-update', {
-    peerId: state.peerId!,
-    isMuted: state.isMuted,
-    isVideoOff: state.isVideoOff,
-  });
+  crdt?.updateMediaState(state.peerId!, state.isMuted, state.isVideoOff);
 }
 
 
@@ -490,12 +522,18 @@ async function startScreenShare(): Promise<void> {
 
     const localAvatar = avatars.getPosition(state.peerId!);
     const offsetX = 150 + (state.screenStreams.size - 1) * 50;
-    screenShare.createScreenShare(shareId, state.peerId!, state.username, stream, localAvatar.x + offsetX, localAvatar.y);
-
-    webrtc?.addScreenTrack(shareId, stream);
-
     const x = localAvatar.x + offsetX;
     const y = localAvatar.y;
+    const width = 480;
+    const height = 320;
+
+    screenShare.createScreenShare(shareId, state.peerId!, state.username, stream, x, y);
+    webrtc?.addScreenTrack(shareId, stream);
+
+    // Add to CRDT for sync
+    crdt?.addScreenShare(shareId, state.peerId!, state.username, x, y, width, height);
+
+    // Still need socket for WebRTC track signaling
     socket.emit('screen-share-started', { peerId: state.peerId!, shareId, x, y });
 
     stream.getVideoTracks()[0].onended = () => {
@@ -519,6 +557,10 @@ function stopScreenShare(shareId: string): void {
   screenShare.removeScreenShare(shareId);
   webrtc?.removeScreenTrack(shareId);
 
+  // Remove from CRDT
+  crdt?.removeScreenShare(shareId);
+
+  // Still need socket for WebRTC track cleanup signaling
   socket.emit('screen-share-stopped', { peerId: state.peerId!, shareId });
 }
 
@@ -529,6 +571,13 @@ function leaveSpace(): void {
   state.screenStreams.forEach((stream) => {
     stream.getTracks().forEach((track) => track.stop());
   });
+
+  // Clean up CRDT: remove local peer and destroy connection
+  if (state.peerId) {
+    crdt?.removePeer(state.peerId);
+  }
+  crdt?.destroy();
+  crdt = null;
 
   webrtc?.closeAllConnections();
   socket.disconnect();
