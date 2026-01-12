@@ -1,5 +1,8 @@
 import { v4 as uuidv4 } from 'uuid';
 import type { Server, Socket } from 'socket.io';
+import * as Y from 'yjs';
+// @ts-expect-error - y-websocket utils has no types
+import { docs } from 'y-websocket/bin/utils';
 import type {
   JoinSpaceEvent,
   SignalEvent,
@@ -18,6 +21,30 @@ import type {
 interface Space {
   peers: Map<string, PeerData>;
   screenShares: Map<string, ScreenShareData>;
+}
+
+/**
+ * Clean up a peer from the CRDT document when they disconnect.
+ * This handles cases like browser refresh where client-side cleanup doesn't run.
+ */
+function cleanupCRDTOnDisconnect(spaceId: string, peerId: string): void {
+  const doc = docs.get(spaceId) as Y.Doc | undefined;
+  if (doc) {
+    const peers = doc.getMap('peers');
+    if (peers.has(peerId)) {
+      peers.delete(peerId);
+      console.log(`[CRDT Cleanup] Removed peer ${peerId} from space ${spaceId}`);
+    }
+    // Also cleanup any screen shares owned by this peer
+    const screenShares = doc.getMap('screenShares');
+    for (const [shareId, value] of screenShares.entries()) {
+      const share = value as { peerId: string };
+      if (share.peerId === peerId) {
+        screenShares.delete(shareId);
+        console.log(`[CRDT Cleanup] Removed screen share ${shareId} from space ${spaceId}`);
+      }
+    }
+  }
 }
 
 /**
@@ -162,6 +189,10 @@ export function attachSignaling(io: Server): void {
               space.screenShares.delete(shareId);
             }
           }
+          
+          // Clean up CRDT - remove peer and their screen shares from Yjs document
+          cleanupCRDTOnDisconnect(currentSpace, peerId);
+          
           socket.to(currentSpace).emit('peer-left', { peerId });
           console.log(`[Signaling] ${currentUsername} left space ${currentSpace} (${space.peers.size} peers)`);
           if (space.peers.size === 0) {

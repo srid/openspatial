@@ -77,3 +77,34 @@ scenario('late-joiner sees avatar position', 'pos-late', async ({ createUser }) 
   // Bob should see Alice at her moved position
   await expectPosition(() => bob.avatarOf('Alice').position(), alicePos);
 });
+
+scenario('refreshing user does not leave ghost avatar', 'refresh-no-ghost', async ({ createUser }) => {
+  // Alice joins first
+  const alice = await createUser('Alice').join();
+  
+  // Bob joins and sees Alice
+  const bob = await createUser('Bob').join();
+  await bob.waitForUser('Alice');
+  expect(await bob.visibleUsers()).toEqual(['Alice']);
+  
+  // Alice leaves (simulating refresh/disconnect)
+  await alice.leave();
+  
+  // Wait for cleanup to propagate
+  await bob.wait(1000);
+  
+  // Bob should no longer see any users (Alice is gone)
+  expect(await bob.visibleUsers()).toEqual([]);
+  
+  // Alice rejoins with the same name
+  const aliceAgain = await createUser('Alice').join();
+  await aliceAgain.waitForUser('Bob');
+  
+  // Bob should see exactly one Alice, not a ghost + new Alice
+  const bobSeesUsers = await bob.visibleUsers();
+  expect(bobSeesUsers).toEqual(['Alice']);
+  
+  // Count the number of "Alice" avatars Bob sees (should be exactly 1)
+  // If there's a ghost, there would be 2
+  expect(bobSeesUsers.length).toBe(1);
+});
