@@ -129,38 +129,9 @@ describe('Signaling Server', () => {
     });
   });
 
-  describe('position updates', () => {
-    it('broadcasts position-update to other peers', async () => {
-      clientSocket1 = await connectClient();
-      clientSocket2 = await connectClient();
-
-      // Both join
-      let client1PeerId: string;
-      await Promise.all([
-        new Promise<void>((resolve) => {
-          clientSocket1.on('connected', (data: { peerId: string }) => {
-            client1PeerId = data.peerId;
-            resolve();
-          });
-          clientSocket1.emit('join-space', { spaceId: 'shared-room', username: 'Alice' });
-        }),
-        new Promise<void>((resolve) => {
-          clientSocket2.on('connected', () => resolve());
-          clientSocket2.emit('join-space', { spaceId: 'shared-room', username: 'Bob' });
-        }),
-      ]);
-
-      const positionUpdatePromise = new Promise<{ peerId: string; x: number; y: number }>((resolve) => {
-        clientSocket2.on('position-update', resolve);
-      });
-
-      clientSocket1.emit('position-update', { peerId: client1PeerId!, x: 500, y: 600 });
-
-      const positionUpdate = await positionUpdatePromise;
-      expect(positionUpdate.x).toBe(500);
-      expect(positionUpdate.y).toBe(600);
-    });
-  });
+  // NOTE: Position updates are now handled by CRDT (Yjs), not Socket.io
+  // The position-update event has been removed. This functionality is tested
+  // via E2E tests that verify CRDT synchronization.
 
   describe('signal routing', () => {
     it('routes signal to specific target peer', async () => {
