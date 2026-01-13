@@ -86,6 +86,9 @@ function init(): void {
     spaceIdInput.readOnly = true;
     usernameInput.focus();
 
+    // Show loading state immediately (before Socket.io connection)
+    showSpaceParticipantsLoading();
+    
     // Query space info for preview
     querySpaceInfo(spaceId);
   } else {
@@ -111,7 +114,19 @@ async function querySpaceInfo(spaceId: string): Promise<void> {
   }
 }
 
+function showSpaceParticipantsLoading(): void {
+  spaceParticipants.classList.remove('hidden');
+  spaceParticipants.classList.add('loading');
+  spaceParticipants.innerHTML = `
+    <svg class="spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
+    </svg>
+    Checking who's here...
+  `;
+}
+
 function displaySpaceParticipants(participants: string[]): void {
+  spaceParticipants.classList.remove('loading');
   if (participants.length === 0) {
     spaceParticipants.classList.add('empty');
     spaceParticipants.textContent = 'No one here yet — be the first to join!';
