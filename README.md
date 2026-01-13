@@ -57,13 +57,23 @@ All socket events are typed in `shared/types/events.ts`. Both client and server 
 
 | Action | Method | Description |
 |--------|--------|-------------|
-| **Join/Leave Space** | WebSocket | Server assigns peer UUID, broadcasts `peer-joined`/`peer-left` |
-| **WebRTC Signaling** (offer/answer/ICE) | WebSocket | Server routes signals to specific target peer |
-| **Avatar Position** | WebSocket | Broadcasts `position-update` to room |
-| **Mute/Video Toggle** | WebSocket | Broadcasts `media-state-update` to room |
-| **Status Update** | WebSocket | Broadcasts `status-update` to room |
-| **Screen Share Start/Stop** | WebSocket | Broadcasts `screen-share-started`/`stopped` to room |
-| **Screen Share Position** | WebSocket | Broadcasts `screen-share-position-update` to room |
-| **Screen Share Resize** | WebSocket | Broadcasts `screen-share-resize-update` to room |
+| **Join/Leave Space** | Socket.io | Server assigns peer UUID, broadcasts `peer-joined`/`peer-left` |
+| **WebRTC Signaling** (offer/answer/ICE) | Socket.io | Server routes signals to specific target peer |
+| **Avatar Position** | CRDT (Yjs) | Synced via y-websocket, persisted in `peers` map |
+| **Mute/Video Toggle** | CRDT (Yjs) | Synced via y-websocket, persisted in `peers` map |
+| **Status Update** | CRDT (Yjs) | Synced via y-websocket, persisted in `peers` map |
+| **Screen Share Tracks** | Socket.io + WebRTC | Socket.io for start/stop signaling, WebRTC for video |
+| **Screen Share State** (position/size) | CRDT (Yjs) | Synced via y-websocket, persisted in `screenShares` map |
+| **Text Notes** | CRDT (Yjs) | Synced via y-websocket, persisted in `textNotes` map |
 | **Audio/Video Streams** | WebRTC (P2P) | Direct peer-to-peer mesh, spatial audio panning |
 | **Screen Share Video** | WebRTC (P2P) | Video frames sent directly between browsers |
+
+### CRDT State (Yjs)
+
+All real-time state synchronization uses Yjs with y-websocket:
+
+- **`peers`** - Avatar positions, media state, status messages
+- **`screenShares`** - Screen share positions and sizes
+- **`textNotes`** - Text note content, position, size, and styling
+
+Server-side cleanup removes orphaned entries when peers disconnect.
