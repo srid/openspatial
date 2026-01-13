@@ -837,6 +837,187 @@ body {
     background: black;
 }
 
+/* ===== Text Notes ===== */
+.text-note {
+    position: absolute;
+    min-width: 200px;
+    min-height: 120px;
+    background: var(--color-bg-secondary);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-xl);
+    overflow: visible;
+    box-shadow: var(--shadow-xl);
+    z-index: 5;
+}
+
+.text-note-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--space-2) var(--space-3);
+    background: var(--color-bg-tertiary);
+    border-bottom: 1px solid var(--color-border);
+    border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+    cursor: grab;
+}
+
+.text-note-header:active {
+    cursor: grabbing;
+}
+
+.text-note-title {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+}
+
+.text-note-title svg {
+    width: 14px;
+    height: 14px;
+    color: var(--color-text-muted);
+}
+
+.text-note-controls {
+    display: flex;
+    align-items: center;
+    gap: var(--space-1);
+}
+
+.text-note-btn {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+    transition: all var(--transition-fast);
+}
+
+.text-note-btn:hover {
+    background: var(--color-surface-hover);
+    color: var(--color-text-primary);
+}
+
+.text-note-font-size {
+    font-family: serif;
+}
+
+.text-note-color {
+    border: 2px solid var(--color-border);
+}
+
+.text-note-close {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    background: transparent;
+    border: none;
+    border-radius: var(--radius-sm);
+    color: var(--color-text-muted);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.text-note-close:hover {
+    background: rgba(239, 68, 68, 0.2);
+    color: var(--color-danger);
+}
+
+.text-note-content {
+    height: calc(100% - 40px);
+    padding: var(--space-2);
+}
+
+.text-note-textarea {
+    width: 100%;
+    height: 100%;
+    background: transparent;
+    border: none;
+    color: #ffffff;
+    font-family: inherit;
+    font-size: 18px;
+    line-height: 1.5;
+    resize: none;
+    outline: none;
+}
+
+.text-note-textarea::placeholder {
+    color: var(--color-text-muted);
+}
+
+.text-note-text {
+    width: 100%;
+    height: 100%;
+    color: #ffffff;
+    font-size: 18px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-break: break-word;
+    overflow-y: auto;
+}
+
+/* Text note menus */
+.text-note-menu {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    margin-top: var(--space-1);
+    background: var(--color-bg-elevated);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: var(--space-1);
+    z-index: 1000;
+    box-shadow: var(--shadow-lg);
+}
+
+.text-note-menu-option {
+    display: block;
+    width: 100%;
+    padding: var(--space-2) var(--space-3);
+    background: transparent;
+    border: none;
+    border-radius: var(--radius-sm);
+    color: var(--color-text-primary);
+    cursor: pointer;
+    text-align: left;
+    transition: all var(--transition-fast);
+}
+
+.text-note-menu-option:hover {
+    background: var(--color-surface-hover);
+}
+
+.text-note-color-menu {
+    display: flex;
+    gap: var(--space-1);
+    padding: var(--space-2);
+}
+
+.text-note-color-option {
+    width: 24px;
+    height: 24px;
+    border: 2px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.text-note-color-option:hover {
+    transform: scale(1.1);
+    box-shadow: 0 0 8px rgba(255, 255, 255, 0.3);
+}
+
 /* ===== Responsive ===== */
 @media (max-width: 480px) {
     .modal-content {

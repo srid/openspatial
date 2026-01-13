@@ -29,3 +29,20 @@ export function getPeersMap(doc: Y.Doc): Y.Map<PeerState> {
 export function getScreenSharesMap(doc: Y.Doc): Y.Map<ScreenShareState> {
   return doc.getMap('screenShares');
 }
+
+export interface TextNoteState {
+  peerId: string;
+  username: string;
+  content: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  fontSize: 'small' | 'medium' | 'large';
+  fontFamily: 'sans' | 'serif' | 'mono';
+  color: string;
+}
+
+export function getTextNotesMap(doc: Y.Doc): Y.Map<TextNoteState> {
+  return doc.getMap('textNotes');
+}

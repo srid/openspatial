@@ -44,6 +44,15 @@ function cleanupCRDTOnDisconnect(spaceId: string, peerId: string): void {
         console.log(`[CRDT Cleanup] Removed screen share ${shareId} from space ${spaceId}`);
       }
     }
+    // Also cleanup any text notes owned by this peer
+    const textNotes = doc.getMap('textNotes');
+    for (const [noteId, value] of textNotes.entries()) {
+      const note = value as { peerId: string };
+      if (note.peerId === peerId) {
+        textNotes.delete(noteId);
+        console.log(`[CRDT Cleanup] Removed text note ${noteId} from space ${spaceId}`);
+      }
+    }
   }
 }
 

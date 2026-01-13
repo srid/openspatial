@@ -4,18 +4,21 @@
  */
 import * as Y from 'yjs';
 import { WebsocketProvider } from 'y-websocket';
-import type { PeerState, ScreenShareState } from '../../shared/yjs-schema.js';
+import type { PeerState, ScreenShareState, TextNoteState } from '../../shared/yjs-schema.js';
 
 type PeersCallback = (peers: Map<string, PeerState>) => void;
 type ScreenSharesCallback = (shares: Map<string, ScreenShareState>) => void;
+type TextNotesCallback = (notes: Map<string, TextNoteState>) => void;
 
 export class CRDTManager {
   private doc: Y.Doc;
   private provider: WebsocketProvider;
   private peers: Y.Map<PeerState>;
   private screenShares: Y.Map<ScreenShareState>;
+  private textNotes: Y.Map<TextNoteState>;
   private peersCallbacks: PeersCallback[] = [];
   private screenSharesCallbacks: ScreenSharesCallback[] = [];
+  private textNotesCallbacks: TextNotesCallback[] = [];
 
   constructor(spaceId: string) {
     this.doc = new Y.Doc();
@@ -27,10 +30,12 @@ export class CRDTManager {
     
     this.peers = this.doc.getMap('peers');
     this.screenShares = this.doc.getMap('screenShares');
+    this.textNotes = this.doc.getMap('textNotes');
     
     // Set up observers
     this.peers.observe(() => this.notifyPeersChange());
     this.screenShares.observe(() => this.notifyScreenSharesChange());
+    this.textNotes.observe(() => this.notifyTextNotesChange());
     
     this.provider.on('status', ({ status }: { status: string }) => {
       console.log(`[CRDT] Connection status: ${status}`);
@@ -190,6 +195,93 @@ export class CRDTManager {
     return this.screenShares.get(shareId);
   }
 
+  getTextNote(noteId: string): TextNoteState | undefined {
+    return this.textNotes.get(noteId);
+  }
+
+  // === Text Note State Updates ===
+
+  addTextNote(
+    noteId: string,
+    peerId: string,
+    username: string,
+    content: string,
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+    fontSize: 'small' | 'medium' | 'large' = 'medium',
+    fontFamily: 'sans' | 'serif' | 'mono' = 'sans',
+    color: string = '#ffffff'
+  ): void {
+    this.textNotes.set(noteId, {
+      peerId,
+      username,
+      content,
+      x,
+      y,
+      width,
+      height,
+      fontSize,
+      fontFamily,
+      color
+    });
+  }
+
+  removeTextNote(noteId: string): void {
+    this.textNotes.delete(noteId);
+  }
+
+  updateTextNotePosition(noteId: string, x: number, y: number): void {
+    const note = this.textNotes.get(noteId);
+    if (note) {
+      this.textNotes.set(noteId, { ...note, x, y });
+    }
+  }
+
+  updateTextNoteSize(noteId: string, width: number, height: number): void {
+    const note = this.textNotes.get(noteId);
+    if (note) {
+      this.textNotes.set(noteId, { ...note, width, height });
+    }
+  }
+
+  updateTextNoteContent(noteId: string, content: string): void {
+    const note = this.textNotes.get(noteId);
+    if (note) {
+      this.textNotes.set(noteId, { ...note, content });
+    }
+  }
+
+  updateTextNoteStyle(noteId: string, fontSize: 'small' | 'medium' | 'large', color: string): void {
+    const note = this.textNotes.get(noteId);
+    if (note) {
+      this.textNotes.set(noteId, { ...note, fontSize, color });
+    }
+  }
+
+  observeTextNotes(callback: TextNotesCallback): void {
+    this.textNotesCallbacks.push(callback);
+    this.waitForSync(2000).then(() => {
+      callback(this.getTextNotesAsMap());
+    });
+  }
+
+  private notifyTextNotesChange(): void {
+    const notesMap = this.getTextNotesAsMap();
+    for (const callback of this.textNotesCallbacks) {
+      callback(notesMap);
+    }
+  }
+
+  private getTextNotesAsMap(): Map<string, TextNoteState> {
+    const result = new Map<string, TextNoteState>();
+    for (const [key, value] of this.textNotes.entries()) {
+      result.set(key, value);
+    }
+    return result;
+  }
+
   // === Cleanup ===
 
   destroy(): void {
@@ -198,5 +290,6 @@ export class CRDTManager {
     this.doc.destroy();
     this.peersCallbacks = [];
     this.screenSharesCallbacks = [];
+    this.textNotesCallbacks = [];
   }
 }
