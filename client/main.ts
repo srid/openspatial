@@ -406,15 +406,24 @@ function setupCRDTObservers(): void {
   });
 
   // Observe text note state changes
+  // Track which note IDs we've created DOM elements for
+  const existingNoteIds = new Set<string>();
+  
   crdt.observeTextNotes((notes) => {
     // Track which notes exist in CRDT
     const crdtNoteIds = new Set(notes.keys());
     
+    // Remove notes that no longer exist in CRDT
+    for (const noteId of existingNoteIds) {
+      if (!crdtNoteIds.has(noteId)) {
+        textNote.removeTextNote(noteId);
+        existingNoteIds.delete(noteId);
+      }
+    }
+    
     for (const [noteId, noteState] of notes) {
       // Create if doesn't exist
-      const existingNote = crdt.getTextNote(noteId);
-      if (existingNote) {
-        // Create the note element if not already created
+      if (!existingNoteIds.has(noteId)) {
         textNote.createTextNote(
           noteId,
           noteState.peerId,
@@ -428,16 +437,17 @@ function setupCRDTObservers(): void {
           noteState.fontFamily,
           noteState.color
         );
-        
-        // For remote notes, update state
-        if (noteState.peerId !== state.peerId) {
-          textNote.setPosition(noteId, noteState.x, noteState.y);
-          textNote.setSize(noteId, noteState.width, noteState.height);
-          textNote.setContent(noteId, noteState.content);
-          textNote.setFontSize(noteId, noteState.fontSize);
-          textNote.setFontFamily(noteId, noteState.fontFamily);
-          textNote.setColor(noteId, noteState.color);
-        }
+        existingNoteIds.add(noteId);
+      }
+      
+      // For remote notes, update state
+      if (noteState.peerId !== state.peerId) {
+        textNote.setPosition(noteId, noteState.x, noteState.y);
+        textNote.setSize(noteId, noteState.width, noteState.height);
+        textNote.setContent(noteId, noteState.content);
+        textNote.setFontSize(noteId, noteState.fontSize);
+        textNote.setFontFamily(noteId, noteState.fontFamily);
+        textNote.setColor(noteId, noteState.color);
       }
     }
   });

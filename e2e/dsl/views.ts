@@ -4,7 +4,7 @@
  * These provide typed access to avatar and screen share state.
  */
 import { Page, expect } from '@playwright/test';
-import { Position, Size, Rect, AvatarState, AvatarView, ScreenShareView } from './types';
+import { Position, Size, Rect, AvatarState, AvatarView, ScreenShareView, TextNoteView } from './types';
 
 const SYNC_TIMEOUT = 5000;
 
@@ -117,5 +117,43 @@ export class ScreenShareViewImpl implements ScreenShareView {
   async position(): Promise<Position> {
     const r = await this.rect();
     return r.position;
+  }
+}
+
+export class TextNoteViewImpl implements TextNoteView {
+  constructor(
+    private page: Page,
+    private owner: string,
+    private isSelf: boolean
+  ) {}
+
+  private get locator() {
+    const labelText = this.isSelf ? 'Your Note' : `${this.owner}'s Note`;
+    return this.page.locator('.text-note', { hasText: labelText });
+  }
+
+  async content(): Promise<string> {
+    await expect(this.locator).toBeVisible({ timeout: SYNC_TIMEOUT });
+    const textarea = this.locator.locator('.text-note-textarea');
+    const textDiv = this.locator.locator('.text-note-text');
+    
+    if (await textarea.count() > 0) {
+      return await textarea.inputValue();
+    }
+    return await textDiv.textContent() || '';
+  }
+
+  async rect(): Promise<Rect> {
+    await expect(this.locator).toBeVisible({ timeout: SYNC_TIMEOUT });
+    return await this.locator.evaluate((el: HTMLElement) => ({
+      position: {
+        x: parseFloat(el.style.left) || 0,
+        y: parseFloat(el.style.top) || 0,
+      },
+      size: {
+        width: parseFloat(el.style.width) || 0,
+        height: parseFloat(el.style.height) || 0,
+      },
+    }));
   }
 }

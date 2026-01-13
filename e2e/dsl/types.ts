@@ -33,6 +33,13 @@ export interface ScreenShareInfo {
   rect: Rect;
 }
 
+export interface TextNoteInfo {
+  id: string;
+  owner: string;
+  content: string;
+  rect: Rect;
+}
+
 export type ScenarioFn = (ctx: ScenarioContext) => Promise<void>;
 
 export interface ScenarioContext {
@@ -61,14 +68,22 @@ export interface User {
   dragAvatar(delta: { dx: number; dy: number }): Promise<void>;
   goOffline(): Promise<void>;
   goOnline(): Promise<void>;
+  
+  // Text Note Actions
+  createTextNote(): Promise<TextNoteInfo>;
+  editTextNote(content: string): Promise<void>;
+  deleteTextNote(): Promise<void>;
 
   // Queries
   waitForUser(name: string): Promise<void>;
   waitForScreenShare(owner: string): Promise<void>;
+  waitForTextNote(owner: string): Promise<void>;
   wait(ms: number): Promise<void>;
   visibleUsers(): Promise<string[]>;
   screenShares(): Promise<ScreenShareInfo[]>;
+  textNotes(): Promise<TextNoteInfo[]>;
   screenShareOf(owner: string): ScreenShareView;
+  textNoteOf(owner: string): TextNoteView;
   avatarOf(name: string): AvatarView;
   participantCount(): Promise<number>;
   connectionStatus(): Promise<ConnectionStatus>;
@@ -87,6 +102,11 @@ export interface ScreenShareView {
   rect(): Promise<Rect>;
   size(): Promise<Size>;
   position(): Promise<Position>;
+}
+
+export interface TextNoteView {
+  content(): Promise<string>;
+  rect(): Promise<Rect>;
 }
 
 // ─────────────────────────────────────────────────────────────────

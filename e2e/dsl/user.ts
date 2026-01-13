@@ -9,11 +9,13 @@ import {
   Position,
   ConnectionStatus,
   ScreenShareInfo,
+  TextNoteInfo,
   Rect,
   AvatarView,
   ScreenShareView,
+  TextNoteView,
 } from './types';
-import { AvatarViewImpl, ScreenShareViewImpl } from './views';
+import { AvatarViewImpl, ScreenShareViewImpl, TextNoteViewImpl } from './views';
 import { mockScreenShare } from './mocks';
 
 const SYNC_TIMEOUT = 10000;
@@ -146,6 +148,38 @@ export class UserImpl implements User {
   }
 
   // ─────────────────────────────────────────────────────────────────
+  // Text Note Actions
+  // ─────────────────────────────────────────────────────────────────
+
+  async createTextNote(): Promise<TextNoteInfo> {
+    await this.page.click('#btn-note');
+    await this.page.waitForTimeout(500);
+
+    // Return info about the created text note
+    const rect = await this.textNoteOf(this.name).rect();
+    const content = await this.textNoteOf(this.name).content();
+    return {
+      id: `${this.name}-note`,
+      owner: this.name,
+      content,
+      rect,
+    };
+  }
+
+  async editTextNote(content: string): Promise<void> {
+    const note = this.page.locator('.text-note:has-text("Your Note")');
+    const textarea = note.locator('.text-note-textarea');
+    await textarea.fill(content);
+    await this.page.waitForTimeout(SYNC_WAIT);
+  }
+
+  async deleteTextNote(): Promise<void> {
+    const note = this.page.locator('.text-note:has-text("Your Note")');
+    const closeBtn = note.locator('.text-note-close');
+    await closeBtn.click();
+  }
+
+  // ─────────────────────────────────────────────────────────────────
   // Queries
   // ─────────────────────────────────────────────────────────────────
 
@@ -165,6 +199,12 @@ export class UserImpl implements User {
     const labelText = owner === this.name ? 'Your Screen' : `${owner}'s Screen`;
     const screenShare = this.page.locator('.screen-share', { hasText: labelText });
     await expect(screenShare).toBeVisible({ timeout: SYNC_TIMEOUT });
+  }
+
+  async waitForTextNote(owner: string): Promise<void> {
+    const labelText = owner === this.name ? 'Your Note' : `${owner}'s Note`;
+    const note = this.page.locator('.text-note', { hasText: labelText });
+    await expect(note).toBeVisible({ timeout: SYNC_TIMEOUT });
   }
 
   /**
@@ -215,6 +255,37 @@ export class UserImpl implements User {
   screenShareOf(owner: string): ScreenShareView {
     const displayOwner = owner === this.name ? 'Your Screen' : owner;
     return new ScreenShareViewImpl(this.page, displayOwner);
+  }
+
+  async textNotes(): Promise<TextNoteInfo[]> {
+    await this.page.waitForTimeout(SYNC_WAIT);
+    const notes = this.page.locator('.text-note');
+    const count = await notes.count();
+    const result: TextNoteInfo[] = [];
+
+    for (let i = 0; i < count; i++) {
+      const note = notes.nth(i);
+      const label = await note.locator('.text-note-title span').textContent();
+      const owner = label?.replace("'s Note", '').replace('Your Note', this.name).trim() ?? '';
+      const content = await note.locator('.text-note-textarea, .text-note-text').first().textContent() || '';
+      const rect = await note.evaluate((el: HTMLElement) => ({
+        position: {
+          x: parseFloat(el.style.left) || 0,
+          y: parseFloat(el.style.top) || 0,
+        },
+        size: {
+          width: parseFloat(el.style.width) || 0,
+          height: parseFloat(el.style.height) || 0,
+        },
+      }));
+      result.push({ id: `${owner}-note`, owner, content, rect });
+    }
+    return result;
+  }
+
+  textNoteOf(owner: string): TextNoteView {
+    const isSelf = owner === this.name;
+    return new TextNoteViewImpl(this.page, owner, isSelf);
   }
 
   avatarOf(targetName: string): AvatarView {
