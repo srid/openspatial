@@ -77,3 +77,8 @@ All real-time state synchronization uses Yjs with y-websocket:
 - **`textNotes`** - Text note content, position, size, and styling
 
 Server-side cleanup removes orphaned entries when peers disconnect.
+
+## Deployment
+
+For production deployment to Hetzner Cloud with NixOS, TURN server, and Let's Encrypt SSL, see [deploy/README.md](./deploy/README.md).
+
