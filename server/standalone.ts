@@ -6,6 +6,7 @@ import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { attachSignaling } from './signaling.js';
 import { attachYjsServer } from './yjs-server.js';
+import { getIceServers } from './turn-config.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -17,6 +18,11 @@ const USE_HTTPS = process.env.HTTPS !== '0' && process.env.HTTPS !== 'false';
 
 // Serve static files from Vite build
 app.use(express.static(join(__dirname, '../dist')));
+
+// API endpoint for ICE servers (STUN + optional TURN)
+app.get('/api/ice-servers', (_req: Request, res: Response) => {
+    res.json(getIceServers());
+});
 
 // SPA fallback for /s/* routes
 app.get('/s/*', (_req: Request, res: Response) => {
