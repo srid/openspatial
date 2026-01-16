@@ -2,6 +2,7 @@
 , stdenv
 , buildNpmPackage
 , nodejs_22
+, bash
 }:
 
 buildNpmPackage {
@@ -27,7 +28,7 @@ buildNpmPackage {
     cp package.json $out/lib/openspatial/
 
     cat > $out/bin/openspatial <<EOF
-#!/usr/bin/env bash
+#!${bash}/bin/bash
 cd $out/lib/openspatial
 exec ${nodejs_22}/bin/npx tsx $out/lib/openspatial/server/standalone.ts "\$@"
 EOF
@@ -40,3 +41,4 @@ EOF
     mainProgram = "openspatial";
   };
 }
+

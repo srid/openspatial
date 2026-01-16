@@ -67,6 +67,9 @@ in
         wantedBy = [ "multi-user.target" ];
         after = [ "network.target" ] ++ lib.optional cfg.turn.enable "coturn.service";
 
+        # Include bash in PATH for npm/npx subprocesses
+        path = [ pkgs.bash ];
+
         environment = {
           PORT = toString cfg.port;
           HTTPS = if cfg.https then "1" else "0";
@@ -77,13 +80,21 @@ in
 
         serviceConfig = {
           Type = "simple";
-          ExecStart = "${openspatial}/bin/openspatial";
           Restart = "on-failure";
           DynamicUser = true;
-        } // lib.optionalAttrs cfg.turn.enable {
-          # Load TURN_SECRET from secret file
-          EnvironmentFile = cfg.turn.secretFile;
-        };
+        } // (if cfg.turn.enable then {
+          # Wrapper script that loads TURN_SECRET from file before starting
+          ExecStart = lib.getExe (pkgs.writeShellApplication {
+            name = "openspatial-start";
+            text = ''
+              TURN_SECRET="$(cat ${cfg.turn.secretFile})"
+              export TURN_SECRET
+              exec ${openspatial}/bin/openspatial
+            '';
+          });
+        } else {
+          ExecStart = "${openspatial}/bin/openspatial";
+        });
       };
 
       networking.firewall.allowedTCPPorts = lib.mkIf cfg.openFirewall [ cfg.port ];
