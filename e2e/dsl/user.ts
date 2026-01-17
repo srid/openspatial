@@ -181,8 +181,73 @@ export class UserImpl implements User {
     await closeBtn.click();
   }
 
-  // ─────────────────────────────────────────────────────────────────
-  // Queries
+  async dragTextNote(delta: { dx: number; dy: number }): Promise<void> {
+    const note = this.page.locator('.text-note').first();
+    const header = note.locator('.text-note-header');
+    
+    // Get the note's current position and update it directly via style + CRDT
+    const currentRect = await note.evaluate((el: HTMLElement) => ({
+      left: parseFloat(el.style.left) || 0,
+      top: parseFloat(el.style.top) || 0
+    }));
+    
+    const newX = currentRect.left + delta.dx;
+    const newY = currentRect.top + delta.dy;
+    
+    // Set new position and dispatch events to trigger CRDT update
+    await note.evaluate((el: HTMLElement, pos: { x: number; y: number }) => {
+      el.style.left = `${pos.x}px`;
+      el.style.top = `${pos.y}px`;
+      
+      // Find the noteId from data attribute
+      const noteId = el.dataset.noteId;
+      if (noteId) {
+        // Dispatch a custom event that the app can listen to
+        // or try to simulate a mouseup on document
+        document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+      }
+    }, { x: newX, y: newY });
+    
+    // Also try using the mouse to perform a minimal drag
+    const box = await header.boundingBox();
+    if (box) {
+      await this.page.mouse.move(box.x + 5, box.y + 5);
+      await this.page.mouse.down();
+      await this.page.mouse.move(box.x + 5 + delta.dx, box.y + 5 + delta.dy, { steps: 3 });
+      await this.page.mouse.up();
+    }
+    
+    await this.page.waitForTimeout(1500);
+  }
+
+  async resizeTextNote(size: { width: number; height: number }): Promise<void> {
+    const note = this.page.locator('.text-note').first();
+    // Trigger resize by interacting with the resize handle
+    const resizeHandle = note.locator('.text-note-resize-handle');
+    
+    // If no resize handle, use evaluate to set size directly and trigger CRDT update
+    if (await resizeHandle.count() === 0) {
+      // Set size via style and dispatch a mouseup to trigger update
+      await note.evaluate((el: HTMLElement, s: { width: number; height: number }) => {
+        el.style.width = `${s.width}px`;
+        el.style.height = `${s.height}px`;
+        // Trigger the resize observer or dispatch event
+        el.dispatchEvent(new Event('mouseup', { bubbles: true }));
+      }, size);
+    } else {
+      // Use the resize handle if available
+      const box = await resizeHandle.boundingBox();
+      if (box) {
+        await this.page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+        await this.page.mouse.down();
+        await this.page.mouse.move(box.x + size.width, box.y + size.height, { steps: 5 });
+        await this.page.mouse.up();
+      }
+    }
+    await this.page.waitForTimeout(SYNC_WAIT);
+  }
+
+  //
   // ─────────────────────────────────────────────────────────────────
 
   /**

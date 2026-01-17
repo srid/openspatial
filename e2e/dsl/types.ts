@@ -73,6 +73,8 @@ export interface User {
   createTextNote(): Promise<TextNoteInfo>;
   editTextNote(content: string): Promise<void>;
   deleteTextNote(): Promise<void>;
+  dragTextNote(delta: { dx: number; dy: number }): Promise<void>;
+  resizeTextNote(size: Size): Promise<void>;
 
   // Queries
   waitForUser(name: string): Promise<void>;

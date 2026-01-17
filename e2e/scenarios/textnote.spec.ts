@@ -124,3 +124,50 @@ scenario('late-joiner sees text notes', 'note-late-join', async ({ createUser })
   expect(notes[0].content).toBe('Pre-existing note');
 });
 
+scenario('text note position syncs to other users', 'note-drag-sync', async ({ createUser }) => {
+  const alice = await createUser('Alice').join();
+  const bob = await createUser('Bob').join();
+  await bob.waitForUser('Alice');
+
+  // Alice creates a text note
+  await alice.createTextNote();
+  await bob.waitForTextNote();
+
+  // Get initial position
+  const beforeDrag = await bob.textNoteOf('any').rect();
+
+  // Alice drags the note
+  await alice.dragTextNote({ dx: 100, dy: 50 });
+
+  // Wait for sync and check position changed
+  await expect.poll(async () => {
+    const afterDrag = await bob.textNoteOf('any').rect();
+    return afterDrag.position.x !== beforeDrag.position.x || 
+           afterDrag.position.y !== beforeDrag.position.y;
+  }, { timeout: 5000 }).toBe(true);
+});
+
+scenario('text note size syncs to other users', 'note-resize-sync', async ({ createUser }) => {
+  const alice = await createUser('Alice').join();
+  const bob = await createUser('Bob').join();
+  await bob.waitForUser('Alice');
+
+  // Alice creates a text note
+  await alice.createTextNote();
+  await bob.waitForTextNote();
+
+  // Get initial size
+  const beforeResize = await bob.textNoteOf('any').rect();
+  const newWidth = beforeResize.size.width + 100;
+  const newHeight = beforeResize.size.height + 50;
+
+  // Alice resizes the note
+  await alice.resizeTextNote({ width: newWidth, height: newHeight });
+
+  // Wait for sync and check size changed
+  await expect.poll(async () => {
+    const afterResize = await bob.textNoteOf('any').rect();
+    return afterResize.size.width !== beforeResize.size.width || 
+           afterResize.size.height !== beforeResize.size.height;
+  }, { timeout: 5000 }).toBe(true);
+});
