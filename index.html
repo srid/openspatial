@@ -48,6 +48,27 @@
                 </div>
                 <p class="tagline">Virtual office for remote teams</p>
             </div>
+            
+            <!-- Space Info -->
+            <div id="space-info-preview" class="space-info-preview">
+                <div class="space-name-display">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                        <polyline points="9 22 9 12 15 12 15 22"></polyline>
+                    </svg>
+                    <span id="space-name-label">Loading...</span>
+                </div>
+                <div id="space-participants" class="space-participants">
+                    <svg class="spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
+                    </svg>
+                    <span>Checking who's here...</span>
+                </div>
+            </div>
+            
+            <!-- Error Message -->
+            <div id="join-error" class="join-error hidden"></div>
+            
             <form id="join-form">
                 <input type="hidden" id="space-id">
                 <div class="form-group">

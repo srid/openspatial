@@ -262,6 +262,58 @@ body {
     animation: spin 1s linear infinite;
 }
 
+/* Space Info Preview (in join modal) */
+.space-info-preview {
+    margin-bottom: var(--space-6);
+    padding: var(--space-4);
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+}
+
+.space-name-display {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    font-size: var(--font-size-lg);
+    font-weight: 600;
+    color: var(--color-text-primary);
+    margin-bottom: var(--space-3);
+}
+
+.space-name-display svg {
+    color: var(--color-accent);
+}
+
+.space-info-preview .space-participants {
+    margin-top: 0;
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+}
+
+.space-info-preview .space-participants svg.spin {
+    animation: spin 1s linear infinite;
+}
+
+/* Join Error Message */
+.join-error {
+    margin-bottom: var(--space-4);
+    padding: var(--space-3) var(--space-4);
+    background: rgba(239, 68, 68, 0.15);
+    border: 1px solid rgba(239, 68, 68, 0.5);
+    border-radius: var(--radius-md);
+    color: var(--color-danger);
+    font-size: var(--font-size-sm);
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+}
+
+.join-error svg {
+    flex-shrink: 0;
+}
+
 /* ===== Buttons ===== */
 .btn {
     display: inline-flex;

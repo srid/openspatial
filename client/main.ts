@@ -78,6 +78,9 @@ const joinForm = document.getElementById('join-form') as HTMLFormElement;
 const canvasContainer = document.getElementById('canvas-container') as HTMLElement;
 const usernameInput = document.getElementById('username') as HTMLInputElement;
 const spaceIdInput = document.getElementById('space-id') as HTMLInputElement;
+const spaceNameLabel = document.getElementById('space-name-label') as HTMLElement;
+const spaceParticipants = document.getElementById('space-participants') as HTMLElement;
+const joinError = document.getElementById('join-error') as HTMLElement;
 
 // Preview socket for pre-join space info
 let previewSocket: SocketHandler | null = null;
@@ -107,14 +110,70 @@ function init(): void {
     spaceIdInput.value = spaceId;
     document.title = `${spaceId} - OpenSpatial`;
     
+    // Display space name
+    spaceNameLabel.textContent = spaceId;
+    
     landingPage.classList.add('hidden');
     joinModal.classList.remove('hidden');
     usernameInput.focus();
+    
+    // Query space info for participant count
+    querySpaceInfo(spaceId);
   } else {
     // Landing page - already visible by default
     landingPage.classList.remove('hidden');
     joinModal.classList.add('hidden');
   }
+}
+
+async function querySpaceInfo(spaceId: string): Promise<void> {
+  previewSocket = new SocketHandler();
+  
+  previewSocket.on('space-info', (data: SpaceInfoEvent) => {
+    displaySpaceParticipants(data.participants);
+    // Disconnect preview socket after getting info
+    previewSocket?.disconnect();
+    previewSocket = null;
+  });
+
+  try {
+    await previewSocket.connect();
+    previewSocket.emit('get-space-info', { spaceId });
+  } catch (error) {
+    console.error('Failed to query space info:', error);
+    spaceParticipants.innerHTML = '<span>Unable to check participants</span>';
+  }
+}
+
+function displaySpaceParticipants(participants: string[]): void {
+  if (participants.length === 0) {
+    spaceParticipants.innerHTML = '<span>No one here yet — be the first!</span>';
+  } else {
+    const names = participants.map(name => 
+      `<span class="participant-name">${name}</span>`
+    ).join('');
+    const label = participants.length === 1 ? 'Here now:' : `${participants.length} people here:`;
+    spaceParticipants.innerHTML = `
+      <span>${label}</span>
+      <div class="participant-list">${names}</div>
+    `;
+  }
+}
+
+function showJoinError(message: string): void {
+  joinError.innerHTML = `
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <circle cx="12" cy="12" r="10"></circle>
+      <line x1="12" y1="8" x2="12" y2="12"></line>
+      <line x1="12" y1="16" x2="12.01" y2="16"></line>
+    </svg>
+    <span>${message}</span>
+  `;
+  joinError.classList.remove('hidden');
+}
+
+function hideJoinError(): void {
+  joinError.classList.add('hidden');
 }
 
 function setupEventListeners(): void {
@@ -183,6 +242,7 @@ function handleReconnected(): void {
 
 async function handleJoin(e: Event): Promise<void> {
   e.preventDefault();
+  hideJoinError();
 
   state.username = usernameInput.value.trim();
   state.spaceId = spaceIdInput.value.trim();
@@ -209,11 +269,11 @@ async function handleJoin(e: Event): Promise<void> {
       console.error('getUserMedia error:', err.name, err.message);
 
       if (err.name === 'NotAllowedError') {
-        alert('Camera/microphone access was denied. Please grant permission and try again.');
+        showJoinError('Camera/microphone access was denied. Please grant permission and try again.');
       } else if (err.name === 'NotFoundError') {
-        alert('No camera or microphone found on this device.');
+        showJoinError('No camera or microphone found on this device.');
       } else if (err.name === 'NotReadableError') {
-        alert('Camera/microphone is already in use by another application.');
+        showJoinError('Camera/microphone is already in use by another application.');
       } else if (err.name === 'OverconstrainedError') {
         console.log('Retrying with basic constraints...');
         state.localStream = await navigator.mediaDevices.getUserMedia({
@@ -221,7 +281,7 @@ async function handleJoin(e: Event): Promise<void> {
           audio: true,
         });
       } else {
-        alert(`Camera/microphone error: ${err.name} - ${err.message}`);
+        showJoinError(`Camera/microphone error: ${err.name}`);
       }
 
       if (!state.localStream) return;
@@ -239,7 +299,7 @@ async function handleJoin(e: Event): Promise<void> {
   } catch (error) {
     const err = error as Error;
     console.error('Failed to join:', err);
-    alert(`Failed to join: ${err.message}`);
+    showJoinError(`Failed to connect: ${err.message}`);
   }
 }
 
