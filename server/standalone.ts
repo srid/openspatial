@@ -7,7 +7,7 @@ import { dirname, join } from 'path';
 import { attachSignaling } from './signaling.js';
 import { attachYjsServer } from './yjs-server.js';
 import { getIceServers } from './turn-config.js';
-import { getAllSpaces, validateSpace } from './spaces.js';
+import { validateSpace } from './spaces.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -35,11 +35,6 @@ app.use(express.static(join(__dirname, '../dist'), {
 // API endpoint for ICE servers (STUN + optional TURN)
 app.get('/api/ice-servers', (_req: Request, res: Response) => {
     res.json(getIceServers());
-});
-
-// API endpoint for spaces list
-app.get('/api/spaces', (_req: Request, res: Response) => {
-    res.json(getAllSpaces());
 });
 
 // SPA fallback for /s/:spaceId routes with space validation
