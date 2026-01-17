@@ -17,15 +17,28 @@ const PORT = Number(process.env.PORT) || 3000;
 const USE_HTTPS = process.env.HTTPS !== '0' && process.env.HTTPS !== 'false';
 
 // Serve static files from Vite build
-app.use(express.static(join(__dirname, '../dist')));
+// Assets with hashes get long cache, HTML gets no-cache
+app.use('/assets', express.static(join(__dirname, '../dist/assets'), {
+    maxAge: '1y',
+    immutable: true,
+}));
+app.use(express.static(join(__dirname, '../dist'), {
+    // Don't cache HTML so browser always gets fresh asset references
+    setHeaders: (res, path) => {
+        if (path.endsWith('.html')) {
+            res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+        }
+    }
+}));
 
 // API endpoint for ICE servers (STUN + optional TURN)
 app.get('/api/ice-servers', (_req: Request, res: Response) => {
     res.json(getIceServers());
 });
 
-// SPA fallback for /s/* routes
+// SPA fallback for /s/* routes (no-cache for HTML)
 app.get('/s/*', (_req: Request, res: Response) => {
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
     res.sendFile(join(__dirname, '../dist/index.html'));
 });
 
