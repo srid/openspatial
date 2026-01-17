@@ -17,6 +17,7 @@ import type {
   ScreenShareStartedBroadcast,
   ScreenShareStoppedBroadcast,
 } from '../shared/types/events.js';
+import { getSpace as getSpaceFromDb } from './db.js';
 
 interface Space {
   peers: Map<string, PeerData>;
@@ -77,12 +78,16 @@ export function attachSignaling(io: Server): void {
 
     // Query space info without joining (for pre-join preview)
     socket.on('get-space-info', ({ spaceId }: GetSpaceInfoEvent) => {
-      const space = spaces.get(spaceId);
-      if (space) {
-        const participants = Array.from(space.peers.values()).map(p => p.username);
-        socket.emit('space-info', { spaceId, participants });
+      // Check if space exists in database (production) or in-memory (dev auto-create mode)
+      const dbSpace = getSpaceFromDb(spaceId);
+      const memorySpace = spaces.get(spaceId);
+      const exists = dbSpace !== null || process.env.AUTO_CREATE_SPACES === 'true';
+      
+      if (memorySpace) {
+        const participants = Array.from(memorySpace.peers.values()).map(p => p.username);
+        socket.emit('space-info', { spaceId, exists, participants });
       } else {
-        socket.emit('space-info', { spaceId, participants: [] });
+        socket.emit('space-info', { spaceId, exists, participants: [] });
       }
     });
 

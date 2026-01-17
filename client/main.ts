@@ -130,7 +130,12 @@ async function querySpaceInfo(spaceId: string): Promise<void> {
   previewSocket = new SocketHandler();
   
   previewSocket.on('space-info', (data: SpaceInfoEvent) => {
-    displaySpaceParticipants(data.participants);
+    if (!data.exists) {
+      // Space doesn't exist in production - show error
+      showSpaceNotFoundError(spaceId);
+    } else {
+      displaySpaceParticipants(data.participants);
+    }
     // Disconnect preview socket after getting info
     previewSocket?.disconnect();
     previewSocket = null;
@@ -142,6 +147,18 @@ async function querySpaceInfo(spaceId: string): Promise<void> {
   } catch (error) {
     console.error('Failed to query space info:', error);
     spaceParticipants.innerHTML = '<span>Unable to check participants</span>';
+  }
+}
+
+function showSpaceNotFoundError(spaceId: string): void {
+  // Hide join form elements, show error
+  spaceParticipants.innerHTML = '';
+  showJoinError(`Space "${spaceId}" doesn't exist. An admin needs to create it first.`);
+  
+  // Disable join button
+  const submitButton = joinForm.querySelector('button[type="submit"]') as HTMLButtonElement;
+  if (submitButton) {
+    submitButton.disabled = true;
   }
 }
 

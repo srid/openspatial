@@ -122,5 +122,6 @@ export interface GetSpaceInfoEvent {
 
 export interface SpaceInfoEvent {
   spaceId: string;
+  exists: boolean;
   participants: string[];
 }
