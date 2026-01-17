@@ -1,4 +1,6 @@
 import './index.css';
+// CSS is now loaded - show the page
+document.body.classList.add('loaded');
 import { SocketHandler, ConnectionState, ReconnectInfo } from './modules/socket.js';
 import { WebRTCManager } from './modules/webrtc.js';
 import { CanvasManager } from './modules/canvas.js';
