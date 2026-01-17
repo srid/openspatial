@@ -107,6 +107,9 @@ in
       };
 
       networking.firewall.allowedTCPPorts = lib.mkIf cfg.openFirewall [ cfg.port ];
+
+      # Make openspatial-cli available for SSH management
+      environment.systemPackages = [ openspatial ];
     }
 
     # Coturn service when turn.enable is true

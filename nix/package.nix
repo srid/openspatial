@@ -38,6 +38,8 @@ EOF
     # CLI binary for space management
     cat > $out/bin/openspatial-cli <<EOF
 #!${bash}/bin/bash
+# Default to /var/lib/openspatial for NixOS, can override with DATA_DIR env var
+export DATA_DIR="\''${DATA_DIR:-/var/lib/openspatial}"
 cd $out/lib/openspatial
 exec ${nodejs_22}/bin/npx tsx $out/lib/openspatial/server/cli.ts "\$@"
 EOF
