@@ -14,7 +14,7 @@ import type { Duplex } from 'stream';
 import * as Y from 'yjs';
 // @ts-expect-error - y-websocket utils has no types
 import { setupWSConnection, docs } from 'y-websocket/bin/utils';
-import { getTextNotes, upsertTextNote, deleteTextNote, rowToTextNoteState, getSpace, createSpace } from './db.js';
+import { getTextNotes, upsertTextNote, deleteTextNote, getSpace, createSpace } from './db.js';
 import type { TextNoteState } from '../shared/yjs-schema.js';
 
 // Environment config
@@ -53,8 +53,9 @@ function hydrateFromSQLite(doc: Y.Doc, spaceId: string): void {
   
   // Apply all inserts in a single transaction
   doc.transact(() => {
-    for (const row of rows) {
-      textNotes.set(row.id, rowToTextNoteState(row));
+    for (const note of rows) {
+      const { id, ...state } = note;
+      textNotes.set(id, state);
     }
   });
   
@@ -159,7 +160,7 @@ export function attachYjsServer(server: HttpServer | HttpsServer): void {
       if (AUTO_CREATE_SPACES) {
         // Auto-create space (for dev/testing)
         try {
-          createSpace(spaceId, `Auto-created: ${spaceId}`);
+          createSpace(spaceId);
           console.log(`[Yjs] Auto-created space: ${spaceId}`);
           space = getSpace(spaceId);
         } catch (e) {
