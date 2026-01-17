@@ -102,6 +102,7 @@ function init(): void {
     const spaceId = decodeURIComponent(pathMatch[1]);
     spaceIdInput.value = spaceId;
     spaceIdInput.readOnly = true;
+    document.title = `${spaceId} - OpenSpatial`;
     usernameInput.focus();
 
     // Show loading state immediately (before Socket.io connection)
@@ -681,7 +682,7 @@ function leaveSpace(): void {
   state.isMuted = false;
   state.isVideoOff = false;
 
-  history.replaceState(null, '', '/');
+  // Keep the space URL so user can easily rejoin
   document.title = 'OpenSpatial - Virtual Office';
 
   canvasContainer.classList.add('hidden');

@@ -43,3 +43,45 @@ test('remembers username after joining and reloading', async ({ browser }) => {
   
   await context.close();
 });
+
+test('space URL remains after leaving', async ({ browser }) => {
+  const context = await browser.newContext({
+    permissions: ['camera', 'microphone'],
+  });
+  const page = await context.newPage();
+  
+  // Navigate to a space URL
+  await page.goto('/s/url-persist-test');
+  
+  // Join the space
+  await page.fill('#username', 'UrlTestUser');
+  await page.locator('#join-form').evaluate((form: HTMLFormElement) => form.requestSubmit());
+  await expect(page.locator('#control-bar')).toBeVisible({ timeout: 10000 });
+  
+  // Verify we're at the space URL
+  expect(page.url()).toContain('/s/url-persist-test');
+  
+  // Leave the space
+  await page.click('#btn-leave');
+  await expect(page.locator('#join-modal')).toBeVisible();
+  
+  // URL should still be the space URL
+  expect(page.url()).toContain('/s/url-persist-test');
+  
+  await context.close();
+});
+
+test('document title includes space name on space URL', async ({ browser }) => {
+  const context = await browser.newContext({
+    permissions: ['camera', 'microphone'],
+  });
+  const page = await context.newPage();
+  
+  // Navigate to a space URL
+  await page.goto('/s/title-test-room');
+  
+  // Title should include space name
+  await expect(page).toHaveTitle('title-test-room - OpenSpatial');
+  
+  await context.close();
+});
