@@ -203,8 +203,6 @@ export class CRDTManager {
 
   addTextNote(
     noteId: string,
-    peerId: string,
-    username: string,
     content: string,
     x: number,
     y: number,
@@ -215,8 +213,6 @@ export class CRDTManager {
     color: string = '#ffffff'
   ): void {
     this.textNotes.set(noteId, {
-      peerId,
-      username,
       content,
       x,
       y,
@@ -253,10 +249,10 @@ export class CRDTManager {
     }
   }
 
-  updateTextNoteStyle(noteId: string, fontSize: 'small' | 'medium' | 'large', color: string): void {
+  updateTextNoteStyle(noteId: string, fontSize: 'small' | 'medium' | 'large', fontFamily: 'sans' | 'serif' | 'mono', color: string): void {
     const note = this.textNotes.get(noteId);
     if (note) {
-      this.textNotes.set(noteId, { ...note, fontSize, color });
+      this.textNotes.set(noteId, { ...note, fontSize, fontFamily, color });
     }
   }
 

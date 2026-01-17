@@ -35,6 +35,9 @@ in
     enable = true;
     port = 3000;
     https = false;  # nginx handles TLS
+
+    # Spaces to create on startup
+    spaces = [ "demo" "jusnix" "actualism" "vinoth" ];
     
     turn = {
       enable = true;

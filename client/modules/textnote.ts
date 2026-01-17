@@ -6,7 +6,7 @@
 type PositionUpdateCallback = (noteId: string, x: number, y: number) => void;
 type SizeUpdateCallback = (noteId: string, width: number, height: number) => void;
 type ContentUpdateCallback = (noteId: string, content: string) => void;
-type StyleUpdateCallback = (noteId: string, fontSize: 'small' | 'medium' | 'large', color: string) => void;
+type StyleUpdateCallback = (noteId: string, fontSize: 'small' | 'medium' | 'large', fontFamily: 'sans' | 'serif' | 'mono', color: string) => void;
 type CloseCallback = (noteId: string) => void;
 
 interface AppState {
@@ -63,8 +63,6 @@ export class TextNoteManager {
 
   createTextNote(
     noteId: string,
-    peerId: string,
-    username: string,
     content: string,
     x: number,
     y: number,
@@ -76,11 +74,10 @@ export class TextNoteManager {
   ): void {
     if (this.textNotes.has(noteId)) return;
 
-    const isLocal = peerId === this.state.peerId;
+    // All notes are now shared and editable by everyone
     const element = document.createElement('div');
     element.className = 'text-note';
     element.dataset.noteId = noteId;
-    element.dataset.peerId = peerId;
     element.style.left = `${x}px`;
     element.style.top = `${y}px`;
     element.style.width = `${width}px`;
@@ -97,14 +94,13 @@ export class TextNoteManager {
         <path d="M12 20h9"></path>
         <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
       </svg>
-      <span>${isLocal ? 'Your Note' : `${username}'s Note`}</span>
+      <span>Note</span>
     `;
     header.appendChild(title);
 
-    // Controls (only for owner)
-    if (isLocal) {
-      const controls = document.createElement('div');
-      controls.className = 'text-note-controls';
+    // All notes now have controls (shared/editable by everyone)
+    const controls = document.createElement('div');
+    controls.className = 'text-note-controls';
 
       // Font size selector
       const fontSizeBtn = document.createElement('button');
@@ -154,57 +150,53 @@ export class TextNoteManager {
         this.onClose?.(noteId);
       };
       controls.appendChild(closeBtn);
-
-      header.appendChild(controls);
-    }
+    header.appendChild(controls);
 
     element.appendChild(header);
 
-    // Content area
+    // Content area - all notes are now editable
     const contentArea = document.createElement('div');
     contentArea.className = 'text-note-content';
     
-    if (isLocal) {
-      const textarea = document.createElement('textarea');
-      textarea.className = 'text-note-textarea';
-      textarea.placeholder = 'Type your note here...';
-      textarea.value = content;
-      textarea.style.fontSize = FONT_SIZES[fontSize];
-      textarea.style.fontFamily = FONT_FAMILIES[fontFamily];
-      textarea.style.color = color;
-      textarea.oninput = () => {
-        this.onContentUpdate?.(noteId, textarea.value);
-      };
-      contentArea.appendChild(textarea);
+    const textarea = document.createElement('textarea');
+    textarea.className = 'text-note-textarea';
+    textarea.placeholder = 'Type your note here...';
+    textarea.value = content;
+    textarea.style.fontSize = FONT_SIZES[fontSize];
+    textarea.style.fontFamily = FONT_FAMILIES[fontFamily];
+    textarea.style.color = color;
+    textarea.oninput = () => {
+      this.onContentUpdate?.(noteId, textarea.value);
+    };
+    contentArea.appendChild(textarea);
 
-      // Make resizable
-      element.style.resize = 'both';
-      element.style.overflow = 'hidden';
+    // Make resizable
+    element.style.resize = 'both';
+    element.style.overflow = 'hidden';
 
-      // Observe resize
-      const resizeObserver = new ResizeObserver((entries) => {
-        for (const entry of entries) {
-          const { width, height } = entry.contentRect;
-          this.onSizeUpdate?.(noteId, Math.round(width), Math.round(height));
+    // Observe resize - use borderBoxSize to get full element dimensions (including padding/border)
+    const resizeObserver = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        // Use borderBoxSize if available (preferred), fallback to getBoundingClientRect
+        let width: number, height: number;
+        if (entry.borderBoxSize && entry.borderBoxSize.length > 0) {
+          width = entry.borderBoxSize[0].inlineSize;
+          height = entry.borderBoxSize[0].blockSize;
+        } else {
+          // Fallback for older browsers
+          const rect = element.getBoundingClientRect();
+          width = rect.width;
+          height = rect.height;
         }
-      });
-      resizeObserver.observe(element);
-    } else {
-      const contentDiv = document.createElement('div');
-      contentDiv.className = 'text-note-text';
-      contentDiv.textContent = content;
-      contentDiv.style.fontSize = FONT_SIZES[fontSize];
-      contentDiv.style.fontFamily = FONT_FAMILIES[fontFamily];
-      contentDiv.style.color = color;
-      contentArea.appendChild(contentDiv);
-    }
+        this.onSizeUpdate?.(noteId, Math.round(width), Math.round(height));
+      }
+    });
+    resizeObserver.observe(element);
 
     element.appendChild(contentArea);
 
-    // Setup drag (only for owner)
-    if (isLocal) {
-      this.setupDrag(element, noteId, header);
-    }
+    // All notes are now draggable
+    this.setupDrag(element, noteId, header);
 
     this.space!.appendChild(element);
     this.textNotes.set(noteId, element);
@@ -257,7 +249,7 @@ export class TextNoteManager {
       option.onclick = (e) => {
         e.stopPropagation();
         this.setFontSize(noteId, size);
-        this.onStyleUpdate?.(noteId, size, this.getColor(noteId));
+        this.onStyleUpdate?.(noteId, size, this.getFontFamily(noteId), this.getColor(noteId));
         menu.remove();
       };
       menu.appendChild(option);
@@ -294,7 +286,7 @@ export class TextNoteManager {
         e.stopPropagation();
         this.setColor(noteId, value);
         btn.style.backgroundColor = value;
-        this.onStyleUpdate?.(noteId, this.getFontSize(noteId), value);
+        this.onStyleUpdate?.(noteId, this.getFontSize(noteId), this.getFontFamily(noteId), value);
         menu.remove();
       };
       menu.appendChild(option);
@@ -335,7 +327,7 @@ export class TextNoteManager {
       option.onclick = (e) => {
         e.stopPropagation();
         this.setFontFamily(noteId, value);
-        this.onStyleUpdate?.(noteId, this.getFontSize(noteId), this.getColor(noteId));
+        this.onStyleUpdate?.(noteId, this.getFontSize(noteId), value, this.getColor(noteId));
         menu.remove();
       };
       menu.appendChild(option);
@@ -517,15 +509,7 @@ export class TextNoteManager {
     }
   }
 
-  removeTextNotesByPeerId(peerId: string): void {
-    for (const [noteId, element] of this.textNotes) {
-      if (element.dataset.peerId === peerId) {
-        element.remove();
-        this.textNotes.delete(noteId);
-        console.log('[TextNote] Removed by peerId:', noteId);
-      }
-    }
-  }
+  // removeTextNotesByPeerId removed - notes are no longer tied to users
 
   clear(): void {
     this.textNotes.forEach((element) => element.remove());

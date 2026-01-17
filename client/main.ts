@@ -62,7 +62,7 @@ const textNote = new TextNoteManager(
   (noteId, x, y) => crdt?.updateTextNotePosition(noteId, x, y),
   (noteId, width, height) => crdt?.updateTextNoteSize(noteId, width, height),
   (noteId, content) => crdt?.updateTextNoteContent(noteId, content),
-  (noteId, fontSize, color) => crdt?.updateTextNoteStyle(noteId, fontSize, color),
+  (noteId, fontSize, fontFamily, color) => crdt?.updateTextNoteStyle(noteId, fontSize, fontFamily, color),
   (noteId) => removeTextNote(noteId)
 );
 const spatialAudio = new SpatialAudio();
@@ -72,12 +72,15 @@ let webrtc: WebRTCManager | null = null;
 let crdt: CRDTManager | null = null;
 
 // DOM elements
+const landingPage = document.getElementById('landing-page') as HTMLElement;
 const joinModal = document.getElementById('join-modal') as HTMLElement;
 const joinForm = document.getElementById('join-form') as HTMLFormElement;
 const canvasContainer = document.getElementById('canvas-container') as HTMLElement;
 const usernameInput = document.getElementById('username') as HTMLInputElement;
 const spaceIdInput = document.getElementById('space-id') as HTMLInputElement;
+const spaceNameLabel = document.getElementById('space-name-label') as HTMLElement;
 const spaceParticipants = document.getElementById('space-participants') as HTMLElement;
+const joinError = document.getElementById('join-error') as HTMLElement;
 
 // Preview socket for pre-join space info
 let previewSocket: SocketHandler | null = null;
@@ -99,21 +102,27 @@ function init(): void {
     usernameInput.value = savedUsername;
   }
 
+  // Route based on URL: / = landing page, /s/:spaceId = join modal
   const pathMatch = window.location.pathname.match(/^\/s\/(.+)$/);
   if (pathMatch) {
+    // Space page - show join modal
     const spaceId = decodeURIComponent(pathMatch[1]);
     spaceIdInput.value = spaceId;
-    spaceIdInput.readOnly = true;
     document.title = `${spaceId} - OpenSpatial`;
-    usernameInput.focus();
-
-    // Show loading state immediately (before Socket.io connection)
-    showSpaceParticipantsLoading();
     
-    // Query space info for preview
+    // Display space name
+    spaceNameLabel.textContent = spaceId;
+    
+    landingPage.classList.add('hidden');
+    joinModal.classList.remove('hidden');
+    usernameInput.focus();
+    
+    // Query space info for participant count
     querySpaceInfo(spaceId);
   } else {
-    usernameInput.focus();
+    // Landing page - already visible by default
+    landingPage.classList.remove('hidden');
+    joinModal.classList.add('hidden');
   }
 }
 
@@ -121,7 +130,12 @@ async function querySpaceInfo(spaceId: string): Promise<void> {
   previewSocket = new SocketHandler();
   
   previewSocket.on('space-info', (data: SpaceInfoEvent) => {
-    displaySpaceParticipants(data.participants);
+    if (!data.exists) {
+      // Space doesn't exist in production - show error
+      showSpaceNotFoundError(spaceId);
+    } else {
+      displaySpaceParticipants(data.participants);
+    }
     // Disconnect preview socket after getting info
     previewSocket?.disconnect();
     previewSocket = null;
@@ -132,40 +146,66 @@ async function querySpaceInfo(spaceId: string): Promise<void> {
     previewSocket.emit('get-space-info', { spaceId });
   } catch (error) {
     console.error('Failed to query space info:', error);
+    spaceParticipants.innerHTML = '<span>Unable to check participants</span>';
   }
 }
 
-function showSpaceParticipantsLoading(): void {
-  spaceParticipants.classList.remove('hidden');
-  spaceParticipants.classList.add('loading');
-  spaceParticipants.innerHTML = `
-    <svg class="spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-      <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
-    </svg>
-    Checking who's here...
-  `;
+function showSpaceNotFoundError(spaceId: string): void {
+  // Hide join form elements, show error
+  spaceParticipants.innerHTML = '';
+  showJoinError(`Space "${spaceId}" doesn't exist. An admin needs to create it first.`);
+  
+  // Disable join button
+  const submitButton = joinForm.querySelector('button[type="submit"]') as HTMLButtonElement;
+  if (submitButton) {
+    submitButton.disabled = true;
+  }
 }
 
 function displaySpaceParticipants(participants: string[]): void {
-  spaceParticipants.classList.remove('loading');
   if (participants.length === 0) {
-    spaceParticipants.classList.add('empty');
-    spaceParticipants.textContent = 'No one here yet — be the first to join!';
+    spaceParticipants.innerHTML = '<span>No one here yet — be the first!</span>';
   } else {
-    spaceParticipants.classList.remove('empty');
-    const label = participants.length === 1 ? 'Currently here:' : `${participants.length} people here:`;
+    const names = participants.map(name => 
+      `<span class="participant-name">${name}</span>`
+    ).join('');
+    const label = participants.length === 1 ? 'Here now:' : `${participants.length} people here:`;
     spaceParticipants.innerHTML = `
-      ${label}
-      <div class="participant-list">
-        ${participants.map(name => `<span class="participant-name">${name}</span>`).join('')}
-      </div>
+      <span>${label}</span>
+      <div class="participant-list">${names}</div>
     `;
   }
-  spaceParticipants.classList.remove('hidden');
+}
+
+function showJoinError(message: string): void {
+  joinError.innerHTML = `
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <circle cx="12" cy="12" r="10"></circle>
+      <line x1="12" y1="8" x2="12" y2="12"></line>
+      <line x1="12" y1="16" x2="12.01" y2="16"></line>
+    </svg>
+    <span>${message}</span>
+  `;
+  joinError.classList.remove('hidden');
+}
+
+function hideJoinError(): void {
+  joinError.classList.add('hidden');
 }
 
 function setupEventListeners(): void {
   joinForm.addEventListener('submit', handleJoin);
+  
+  // Landing page space form
+  const landingSpaceForm = document.getElementById('landing-space-form');
+  if (landingSpaceForm) {
+    landingSpaceForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const input = document.getElementById('landing-space-input') as HTMLInputElement;
+      const spaceName = input.value.trim() || 'demo'; // Default to 'demo' if empty
+      window.location.href = `/s/${encodeURIComponent(spaceName)}`;
+    });
+  }
 
   document.getElementById('btn-mic')!.addEventListener('click', toggleMic);
   document.getElementById('btn-camera')!.addEventListener('click', toggleCamera);
@@ -230,6 +270,7 @@ function handleReconnected(): void {
 
 async function handleJoin(e: Event): Promise<void> {
   e.preventDefault();
+  hideJoinError();
 
   state.username = usernameInput.value.trim();
   state.spaceId = spaceIdInput.value.trim();
@@ -256,11 +297,11 @@ async function handleJoin(e: Event): Promise<void> {
       console.error('getUserMedia error:', err.name, err.message);
 
       if (err.name === 'NotAllowedError') {
-        alert('Camera/microphone access was denied. Please grant permission and try again.');
+        showJoinError('Camera/microphone access was denied. Please grant permission and try again.');
       } else if (err.name === 'NotFoundError') {
-        alert('No camera or microphone found on this device.');
+        showJoinError('No camera or microphone found on this device.');
       } else if (err.name === 'NotReadableError') {
-        alert('Camera/microphone is already in use by another application.');
+        showJoinError('Camera/microphone is already in use by another application.');
       } else if (err.name === 'OverconstrainedError') {
         console.log('Retrying with basic constraints...');
         state.localStream = await navigator.mediaDevices.getUserMedia({
@@ -268,7 +309,7 @@ async function handleJoin(e: Event): Promise<void> {
           audio: true,
         });
       } else {
-        alert(`Camera/microphone error: ${err.name} - ${err.message}`);
+        showJoinError(`Camera/microphone error: ${err.name}`);
       }
 
       if (!state.localStream) return;
@@ -286,7 +327,7 @@ async function handleJoin(e: Event): Promise<void> {
   } catch (error) {
     const err = error as Error;
     console.error('Failed to join:', err);
-    alert(`Failed to join: ${err.message}`);
+    showJoinError(`Failed to connect: ${err.message}`);
   }
 }
 
@@ -441,8 +482,6 @@ function setupCRDTObservers(): void {
       if (!existingNoteIds.has(noteId)) {
         textNote.createTextNote(
           noteId,
-          noteState.peerId,
-          noteState.username,
           noteState.content,
           noteState.x,
           noteState.y,
@@ -453,10 +492,8 @@ function setupCRDTObservers(): void {
           noteState.color
         );
         existingNoteIds.add(noteId);
-      }
-      
-      // For remote notes, update state
-      if (noteState.peerId !== state.peerId) {
+      } else {
+        // Update existing note state
         textNote.setPosition(noteId, noteState.x, noteState.y);
         textNote.setSize(noteId, noteState.width, noteState.height);
         textNote.setContent(noteId, noteState.content);
@@ -646,8 +683,8 @@ function createTextNote(): void {
   const x = localPos.x + 150;
   const y = localPos.y - 50;
   
-  // Add to CRDT
-  crdt?.addTextNote(noteId, state.peerId, state.username, '', x, y, 250, 150);
+  // Add to CRDT (no peerId/username needed anymore)
+  crdt?.addTextNote(noteId, '', x, y, 250, 150);
 }
 
 function removeTextNote(noteId: string): void {

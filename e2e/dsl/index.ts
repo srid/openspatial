@@ -14,11 +14,11 @@ const CONTROL_BAR_TIMEOUT = 10000;
 
 /**
  * Join a space with a given username.
+ * Navigates directly to /s/:spaceId and fills in the username.
  */
 async function joinSpace(page: Page, username: string, spaceId: string): Promise<void> {
-  await page.goto('/');
+  await page.goto(`/s/${spaceId}`);
   await page.fill('#username', username);
-  await page.fill('#space-id', spaceId);
   await page.locator('#join-form').evaluate((form: HTMLFormElement) => form.requestSubmit());
   await expect(page.locator('#control-bar')).toBeVisible({ timeout: CONTROL_BAR_TIMEOUT });
 }

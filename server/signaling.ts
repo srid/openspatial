@@ -17,6 +17,7 @@ import type {
   ScreenShareStartedBroadcast,
   ScreenShareStoppedBroadcast,
 } from '../shared/types/events.js';
+import { getSpace as getSpaceFromDb } from './db.js';
 
 interface Space {
   peers: Map<string, PeerData>;
@@ -44,15 +45,7 @@ function cleanupCRDTOnDisconnect(spaceId: string, peerId: string): void {
         console.log(`[CRDT Cleanup] Removed screen share ${shareId} from space ${spaceId}`);
       }
     }
-    // Also cleanup any text notes owned by this peer
-    const textNotes = doc.getMap('textNotes');
-    for (const [noteId, value] of textNotes.entries()) {
-      const note = value as { peerId: string };
-      if (note.peerId === peerId) {
-        textNotes.delete(noteId);
-        console.log(`[CRDT Cleanup] Removed text note ${noteId} from space ${spaceId}`);
-      }
-    }
+    // Note: Text notes are NOT cleaned up on disconnect - they are persisted and shared
   }
 }
 
@@ -84,13 +77,17 @@ export function attachSignaling(io: Server): void {
     peerSockets.set(peerId, socket.id);
 
     // Query space info without joining (for pre-join preview)
-    socket.on('get-space-info', ({ spaceId }: GetSpaceInfoEvent) => {
-      const space = spaces.get(spaceId);
-      if (space) {
-        const participants = Array.from(space.peers.values()).map(p => p.username);
-        socket.emit('space-info', { spaceId, participants });
+    socket.on('get-space-info', async ({ spaceId }: GetSpaceInfoEvent) => {
+      // Check if space exists in database (production) or in-memory (dev auto-create mode)
+      const dbSpace = await getSpaceFromDb(spaceId);
+      const memorySpace = spaces.get(spaceId);
+      const exists = dbSpace !== null || process.env.AUTO_CREATE_SPACES === 'true';
+      
+      if (memorySpace) {
+        const participants = Array.from(memorySpace.peers.values()).map(p => p.username);
+        socket.emit('space-info', { spaceId, exists, participants });
       } else {
-        socket.emit('space-info', { spaceId, participants: [] });
+        socket.emit('space-info', { spaceId, exists, participants: [] });
       }
     });
 

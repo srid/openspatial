@@ -4,7 +4,7 @@
 
 # OpenSpatial
 
-A spatial video chat application where participants share a virtual canvas with draggable avatars and screen shares.
+A virtual space where distance disappears — spatial audio and shared canvas for gatherings of any kind.
 
 ## Quick Start
 

@@ -7,6 +7,8 @@ import { dirname, join } from 'path';
 import { attachSignaling } from './signaling.js';
 import { attachYjsServer } from './yjs-server.js';
 import { getIceServers } from './turn-config.js';
+import { validateSpace } from './spaces.js';
+import { runMigrations, ensureDemoSpace } from './db.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -36,8 +38,8 @@ app.get('/api/ice-servers', (_req: Request, res: Response) => {
     res.json(getIceServers());
 });
 
-// SPA fallback for /s/* routes (no-cache for HTML)
-app.get('/s/*', (_req: Request, res: Response) => {
+// SPA fallback for /s/:spaceId routes with space validation
+app.get('/s/:spaceId', validateSpace, (_req: Request, res: Response) => {
     res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
     res.sendFile(join(__dirname, '../dist/index.html'));
 });
@@ -85,7 +87,19 @@ attachSignaling(io);
 // Attach Yjs WebSocket server for CRDT document synchronization
 attachYjsServer(server);
 
+// Async startup: run migrations and ensure demo space before listening
 const protocol = USE_HTTPS ? 'https' : 'http';
-server.listen(PORT, '0.0.0.0', () => {
-    console.log(`🚀 OpenSpatial running on ${protocol}://0.0.0.0:${PORT}`);
-});
+
+(async () => {
+    try {
+        await runMigrations();
+        await ensureDemoSpace();
+        
+        server.listen(PORT, '0.0.0.0', () => {
+            console.log(`🚀 OpenSpatial running on ${protocol}://0.0.0.0:${PORT}`);
+        });
+    } catch (err) {
+        console.error('Startup failed:', err);
+        process.exit(1);
+    }
+})();

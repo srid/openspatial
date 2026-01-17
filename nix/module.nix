@@ -26,6 +26,19 @@ in
       description = "Open firewall port";
     };
 
+    dataDir = lib.mkOption {
+      type = lib.types.str;
+      default = "/var/lib/openspatial";
+      description = "Directory for SQLite database and persistent data";
+    };
+
+    spaces = lib.mkOption {
+      type = lib.types.listOf lib.types.str;
+      default = [];
+      example = [ "demo" "team" "friends" ];
+      description = "List of space IDs to ensure exist on startup";
+    };
+
     turn = {
       enable = lib.mkEnableOption "bundled coturn TURN server for NAT traversal";
 
@@ -73,6 +86,7 @@ in
         environment = {
           PORT = toString cfg.port;
           HTTPS = if cfg.https then "1" else "0";
+          DATA_DIR = cfg.dataDir;
         } // lib.optionalAttrs cfg.turn.enable {
           TURN_HOST = cfg.turn.domain;
           TURN_PORT = toString cfg.turn.port;
@@ -82,6 +96,16 @@ in
           Type = "simple";
           Restart = "on-failure";
           DynamicUser = true;
+          StateDirectory = "openspatial";
+          StateDirectoryMode = "0750";
+          # Create configured spaces before starting
+          ExecStartPre = lib.mkIf (cfg.spaces != []) (lib.getExe (pkgs.writeShellApplication {
+            name = "openspatial-init-spaces";
+            text = ''
+              export DATA_DIR="${cfg.dataDir}"
+              ${openspatial}/bin/openspatial-cli create ${lib.concatStringsSep " " cfg.spaces}
+            '';
+          }));
         } // (if cfg.turn.enable then {
           # Wrapper script that loads TURN_SECRET from file before starting
           ExecStart = lib.getExe (pkgs.writeShellApplication {
@@ -98,6 +122,9 @@ in
       };
 
       networking.firewall.allowedTCPPorts = lib.mkIf cfg.openFirewall [ cfg.port ];
+
+      # Make openspatial-cli available for SSH management
+      environment.systemPackages = [ openspatial ];
     }
 
     # Coturn service when turn.enable is true
