@@ -8,19 +8,19 @@ import { test, expect } from '@playwright/test';
 test('remembers username after joining and reloading', async ({ browser }) => {
   const context = await browser.newContext({
     permissions: ['camera', 'microphone'],
+    ignoreHTTPSErrors: true,
   });
   const page = await context.newPage();
   
-  // Go to the app
-  await page.goto('/');
+  // Go to the tmp space (auto-created on server start)
+  await page.goto('/s/tmp');
   
   // Initially username should be empty
   const usernameInput = page.locator('#username');
   await expect(usernameInput).toHaveValue('');
   
-  // Fill in and join
+  // Fill in and join (space ID is in URL, not a form field)
   await usernameInput.fill('TestUser');
-  await page.fill('#space-id', 'remember-name-test');
   await page.locator('#join-form').evaluate((form: HTMLFormElement) => form.requestSubmit());
   
   // Wait for join to complete
@@ -47,11 +47,12 @@ test('remembers username after joining and reloading', async ({ browser }) => {
 test('space URL remains after leaving', async ({ browser }) => {
   const context = await browser.newContext({
     permissions: ['camera', 'microphone'],
+    ignoreHTTPSErrors: true,
   });
   const page = await context.newPage();
   
-  // Navigate to a space URL
-  await page.goto('/s/url-persist-test');
+  // Navigate to tmp space (must be predefined)
+  await page.goto('/s/tmp');
   
   // Join the space
   await page.fill('#username', 'UrlTestUser');
@@ -59,14 +60,14 @@ test('space URL remains after leaving', async ({ browser }) => {
   await expect(page.locator('#control-bar')).toBeVisible({ timeout: 10000 });
   
   // Verify we're at the space URL
-  expect(page.url()).toContain('/s/url-persist-test');
+  expect(page.url()).toContain('/s/tmp');
   
   // Leave the space
   await page.click('#btn-leave');
   await expect(page.locator('#join-modal')).toBeVisible();
   
   // URL should still be the space URL
-  expect(page.url()).toContain('/s/url-persist-test');
+  expect(page.url()).toContain('/s/tmp');
   
   await context.close();
 });
@@ -74,14 +75,15 @@ test('space URL remains after leaving', async ({ browser }) => {
 test('document title includes space name on space URL', async ({ browser }) => {
   const context = await browser.newContext({
     permissions: ['camera', 'microphone'],
+    ignoreHTTPSErrors: true,
   });
   const page = await context.newPage();
   
-  // Navigate to a space URL
-  await page.goto('/s/title-test-room');
+  // Navigate to tmp space (predefined)
+  await page.goto('/s/tmp');
   
   // Title should include space name
-  await expect(page).toHaveTitle('title-test-room - OpenSpatial');
+  await expect(page).toHaveTitle('tmp - OpenSpatial');
   
   await context.close();
 });

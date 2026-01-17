@@ -45,6 +45,19 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_text_elements_space_id ON text_elements(space_id);
 `);
 
+// Auto-create 'tmp' space for development/testing if it doesn't exist
+const tmpSpace = db.prepare('SELECT id FROM spaces WHERE id = ?').get('tmp');
+if (!tmpSpace) {
+  db.prepare('INSERT INTO spaces (id, name) VALUES (?, ?)').run('tmp', 'Temporary Space');
+  console.log('[DB] Created default "tmp" space');
+} else {
+  // Clear any leftover text notes from tmp space (for clean E2E test runs)
+  const deleted = db.prepare('DELETE FROM text_elements WHERE space_id = ?').run('tmp');
+  if (deleted.changes > 0) {
+    console.log(`[DB] Cleared ${deleted.changes} text notes from "tmp" space`);
+  }
+}
+
 // === Space Operations ===
 
 export function getAllSpaces(): Space[] {

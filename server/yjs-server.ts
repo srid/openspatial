@@ -14,8 +14,11 @@ import type { Duplex } from 'stream';
 import * as Y from 'yjs';
 // @ts-expect-error - y-websocket utils has no types
 import { setupWSConnection, docs } from 'y-websocket/bin/utils';
-import { getTextNotes, upsertTextNote, deleteTextNote, rowToTextNoteState, getSpace } from './db.js';
+import { getTextNotes, upsertTextNote, deleteTextNote, rowToTextNoteState, getSpace, createSpace } from './db.js';
 import type { TextNoteState } from '../shared/yjs-schema.js';
+
+// Environment config
+const AUTO_CREATE_SPACES = process.env.AUTO_CREATE_SPACES === 'true';
 
 // Track which spaces have been hydrated to avoid duplicate hydration
 const hydratedSpaces = new Set<string>();
@@ -149,6 +152,28 @@ export function attachYjsServer(server: HttpServer | HttpsServer): void {
     const url = req.url || '';
     const pathname = new URL(url, `http://${req.headers.host}`).pathname;
     const spaceId = pathname.replace(/^\/yjs\/?/, '') || 'default';
+    
+    // Validate space exists before allowing connection
+    let space = getSpace(spaceId);
+    if (!space) {
+      if (AUTO_CREATE_SPACES) {
+        // Auto-create space (for dev/testing)
+        try {
+          createSpace(spaceId, `Auto-created: ${spaceId}`);
+          console.log(`[Yjs] Auto-created space: ${spaceId}`);
+          space = getSpace(spaceId);
+        } catch (e) {
+          // Space might have been created by another connection
+          space = getSpace(spaceId);
+        }
+      }
+      
+      if (!space) {
+        console.log(`[Yjs] Rejecting connection to unknown space: ${spaceId}`);
+        ws.close(4001, `Space "${spaceId}" not found`);
+        return;
+      }
+    }
     
     console.log(`[Yjs] Client connected to space: ${spaceId}`);
     

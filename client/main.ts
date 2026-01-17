@@ -72,12 +72,12 @@ let webrtc: WebRTCManager | null = null;
 let crdt: CRDTManager | null = null;
 
 // DOM elements
+const landingPage = document.getElementById('landing-page') as HTMLElement;
 const joinModal = document.getElementById('join-modal') as HTMLElement;
 const joinForm = document.getElementById('join-form') as HTMLFormElement;
 const canvasContainer = document.getElementById('canvas-container') as HTMLElement;
 const usernameInput = document.getElementById('username') as HTMLInputElement;
 const spaceIdInput = document.getElementById('space-id') as HTMLInputElement;
-const spaceParticipants = document.getElementById('space-participants') as HTMLElement;
 
 // Preview socket for pre-join space info
 let previewSocket: SocketHandler | null = null;
@@ -99,69 +99,22 @@ function init(): void {
     usernameInput.value = savedUsername;
   }
 
+  // Route based on URL: / = landing page, /s/:spaceId = join modal
   const pathMatch = window.location.pathname.match(/^\/s\/(.+)$/);
   if (pathMatch) {
+    // Space page - show join modal
     const spaceId = decodeURIComponent(pathMatch[1]);
     spaceIdInput.value = spaceId;
-    spaceIdInput.readOnly = true;
     document.title = `${spaceId} - OpenSpatial`;
-    usernameInput.focus();
-
-    // Show loading state immediately (before Socket.io connection)
-    showSpaceParticipantsLoading();
     
-    // Query space info for preview
-    querySpaceInfo(spaceId);
-  } else {
+    landingPage.classList.add('hidden');
+    joinModal.classList.remove('hidden');
     usernameInput.focus();
-  }
-}
-
-async function querySpaceInfo(spaceId: string): Promise<void> {
-  previewSocket = new SocketHandler();
-  
-  previewSocket.on('space-info', (data: SpaceInfoEvent) => {
-    displaySpaceParticipants(data.participants);
-    // Disconnect preview socket after getting info
-    previewSocket?.disconnect();
-    previewSocket = null;
-  });
-
-  try {
-    await previewSocket.connect();
-    previewSocket.emit('get-space-info', { spaceId });
-  } catch (error) {
-    console.error('Failed to query space info:', error);
-  }
-}
-
-function showSpaceParticipantsLoading(): void {
-  spaceParticipants.classList.remove('hidden');
-  spaceParticipants.classList.add('loading');
-  spaceParticipants.innerHTML = `
-    <svg class="spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-      <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
-    </svg>
-    Checking who's here...
-  `;
-}
-
-function displaySpaceParticipants(participants: string[]): void {
-  spaceParticipants.classList.remove('loading');
-  if (participants.length === 0) {
-    spaceParticipants.classList.add('empty');
-    spaceParticipants.textContent = 'No one here yet — be the first to join!';
   } else {
-    spaceParticipants.classList.remove('empty');
-    const label = participants.length === 1 ? 'Currently here:' : `${participants.length} people here:`;
-    spaceParticipants.innerHTML = `
-      ${label}
-      <div class="participant-list">
-        ${participants.map(name => `<span class="participant-name">${name}</span>`).join('')}
-      </div>
-    `;
+    // Landing page - already visible by default
+    landingPage.classList.remove('hidden');
+    joinModal.classList.add('hidden');
   }
-  spaceParticipants.classList.remove('hidden');
 }
 
 function setupEventListeners(): void {

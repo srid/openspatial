@@ -17,8 +17,29 @@
     <!-- CSS is imported in main.ts and bundled by Vite with cache-busting hash -->
 </head>
 <body>
-    <!-- Join Space Modal -->
-    <div id="join-modal" class="modal">
+    <!-- Landing Page (shown at /) -->
+    <div id="landing-page" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="logo">
+                    <img src="/client/assets/logo.svg" alt="OpenSpatial" class="logo-icon">
+                    <h1>OpenSpatial</h1>
+                </div>
+                <p class="tagline">Virtual office for remote teams</p>
+            </div>
+            <div class="landing-actions">
+                <a href="/s/tmp" class="btn btn-primary">
+                    <span>Enter Workspace</span>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M5 12h14M12 5l7 7-7 7"/>
+                    </svg>
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Join Space Modal (shown at /s/:spaceId) -->
+    <div id="join-modal" class="modal hidden">
         <div class="modal-content">
             <div class="modal-header">
                 <div class="logo">
@@ -28,14 +49,10 @@
                 <p class="tagline">Virtual office for remote teams</p>
             </div>
             <form id="join-form">
+                <input type="hidden" id="space-id">
                 <div class="form-group">
                     <label for="username">Your Name</label>
                     <input type="text" id="username" placeholder="Enter your name" required autocomplete="off">
-                </div>
-                <div class="form-group">
-                    <label for="space-id">Space</label>
-                    <input type="text" id="space-id" placeholder="Enter space name or create new" required autocomplete="off">
-                    <div id="space-participants" class="space-participants hidden"></div>
                 </div>
                 <button type="submit" class="btn btn-primary">
                     <span>Join Space</span>
