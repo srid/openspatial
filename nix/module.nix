@@ -26,6 +26,12 @@ in
       description = "Open firewall port";
     };
 
+    dataDir = lib.mkOption {
+      type = lib.types.str;
+      default = "/var/lib/openspatial";
+      description = "Directory for SQLite database and persistent data";
+    };
+
     turn = {
       enable = lib.mkEnableOption "bundled coturn TURN server for NAT traversal";
 
@@ -73,6 +79,7 @@ in
         environment = {
           PORT = toString cfg.port;
           HTTPS = if cfg.https then "1" else "0";
+          DATA_DIR = cfg.dataDir;
         } // lib.optionalAttrs cfg.turn.enable {
           TURN_HOST = cfg.turn.domain;
           TURN_PORT = toString cfg.turn.port;
@@ -82,6 +89,8 @@ in
           Type = "simple";
           Restart = "on-failure";
           DynamicUser = true;
+          StateDirectory = "openspatial";
+          StateDirectoryMode = "0750";
         } // (if cfg.turn.enable then {
           # Wrapper script that loads TURN_SECRET from file before starting
           ExecStart = lib.getExe (pkgs.writeShellApplication {

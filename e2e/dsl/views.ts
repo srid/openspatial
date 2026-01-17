@@ -122,25 +122,18 @@ export class ScreenShareViewImpl implements ScreenShareView {
 
 export class TextNoteViewImpl implements TextNoteView {
   constructor(
-    private page: Page,
-    private owner: string,
-    private isSelf: boolean
+    private page: Page
   ) {}
 
   private get locator() {
-    const labelText = this.isSelf ? 'Your Note' : `${this.owner}'s Note`;
-    return this.page.locator('.text-note', { hasText: labelText });
+    // Notes are ownerless - just get first text note
+    return this.page.locator('.text-note').first();
   }
 
   async content(): Promise<string> {
     await expect(this.locator).toBeVisible({ timeout: SYNC_TIMEOUT });
     const textarea = this.locator.locator('.text-note-textarea');
-    const textDiv = this.locator.locator('.text-note-text');
-    
-    if (await textarea.count() > 0) {
-      return await textarea.inputValue();
-    }
-    return await textDiv.textContent() || '';
+    return await textarea.inputValue();
   }
 
   async rect(): Promise<Rect> {

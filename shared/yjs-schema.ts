@@ -31,8 +31,6 @@ export function getScreenSharesMap(doc: Y.Doc): Y.Map<ScreenShareState> {
 }
 
 export interface TextNoteState {
-  peerId: string;
-  username: string;
   content: string;
   x: number;
   y: number;
@@ -45,4 +43,12 @@ export interface TextNoteState {
 
 export function getTextNotesMap(doc: Y.Doc): Y.Map<TextNoteState> {
   return doc.getMap('textNotes');
+}
+
+// === Persistence Types ===
+
+export interface Space {
+  id: string;
+  name: string;
+  created_at: string;
 }

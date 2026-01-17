@@ -77,7 +77,7 @@ export interface User {
   // Queries
   waitForUser(name: string): Promise<void>;
   waitForScreenShare(owner: string): Promise<void>;
-  waitForTextNote(owner: string): Promise<void>;
+  waitForTextNote(owner?: string): Promise<void>;
   wait(ms: number): Promise<void>;
   visibleUsers(): Promise<string[]>;
   screenShares(): Promise<ScreenShareInfo[]>;

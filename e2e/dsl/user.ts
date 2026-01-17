@@ -167,14 +167,16 @@ export class UserImpl implements User {
   }
 
   async editTextNote(content: string): Promise<void> {
-    const note = this.page.locator('.text-note:has-text("Your Note")');
+    // Since notes are ownerless, just get the first/most recent text note
+    const note = this.page.locator('.text-note').first();
     const textarea = note.locator('.text-note-textarea');
     await textarea.fill(content);
     await this.page.waitForTimeout(SYNC_WAIT);
   }
 
   async deleteTextNote(): Promise<void> {
-    const note = this.page.locator('.text-note:has-text("Your Note")');
+    // Since notes are ownerless, just get the first/most recent text note
+    const note = this.page.locator('.text-note').first();
     const closeBtn = note.locator('.text-note-close');
     await closeBtn.click();
   }
@@ -201,9 +203,9 @@ export class UserImpl implements User {
     await expect(screenShare).toBeVisible({ timeout: SYNC_TIMEOUT });
   }
 
-  async waitForTextNote(owner: string): Promise<void> {
-    const labelText = owner === this.name ? 'Your Note' : `${owner}'s Note`;
-    const note = this.page.locator('.text-note', { hasText: labelText });
+  async waitForTextNote(_owner?: string): Promise<void> {
+    // Notes are ownerless now - just wait for any text note
+    const note = this.page.locator('.text-note', { hasText: 'Note' });
     await expect(note).toBeVisible({ timeout: SYNC_TIMEOUT });
   }
 
@@ -265,9 +267,8 @@ export class UserImpl implements User {
 
     for (let i = 0; i < count; i++) {
       const note = notes.nth(i);
-      const label = await note.locator('.text-note-title span').textContent();
-      const owner = label?.replace("'s Note", '').replace('Your Note', this.name).trim() ?? '';
-      const content = await note.locator('.text-note-textarea, .text-note-text').first().textContent() || '';
+      // Notes are ownerless now
+      const content = await note.locator('.text-note-textarea').first().inputValue() || '';
       const rect = await note.evaluate((el: HTMLElement) => ({
         position: {
           x: parseFloat(el.style.left) || 0,
@@ -278,14 +279,14 @@ export class UserImpl implements User {
           height: parseFloat(el.style.height) || 0,
         },
       }));
-      result.push({ id: `${owner}-note`, owner, content, rect });
+      result.push({ id: `note-${i}`, owner: 'shared', content, rect });
     }
     return result;
   }
 
-  textNoteOf(owner: string): TextNoteView {
-    const isSelf = owner === this.name;
-    return new TextNoteViewImpl(this.page, owner, isSelf);
+  textNoteOf(_owner: string): TextNoteView {
+    // Notes are ownerless now - return first note
+    return new TextNoteViewImpl(this.page);
   }
 
   avatarOf(targetName: string): AvatarView {

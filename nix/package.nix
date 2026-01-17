@@ -27,12 +27,21 @@ buildNpmPackage {
     cp -r node_modules $out/lib/openspatial/
     cp package.json $out/lib/openspatial/
 
+    # Main server binary
     cat > $out/bin/openspatial <<EOF
 #!${bash}/bin/bash
 cd $out/lib/openspatial
 exec ${nodejs_22}/bin/npx tsx $out/lib/openspatial/server/standalone.ts "\$@"
 EOF
     chmod +x $out/bin/openspatial
+
+    # CLI binary for space management
+    cat > $out/bin/openspatial-cli <<EOF
+#!${bash}/bin/bash
+cd $out/lib/openspatial
+exec ${nodejs_22}/bin/npx tsx $out/lib/openspatial/server/cli.ts "\$@"
+EOF
+    chmod +x $out/bin/openspatial-cli
   '';
 
   meta = with lib; {

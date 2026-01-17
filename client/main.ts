@@ -441,8 +441,6 @@ function setupCRDTObservers(): void {
       if (!existingNoteIds.has(noteId)) {
         textNote.createTextNote(
           noteId,
-          noteState.peerId,
-          noteState.username,
           noteState.content,
           noteState.x,
           noteState.y,
@@ -453,10 +451,8 @@ function setupCRDTObservers(): void {
           noteState.color
         );
         existingNoteIds.add(noteId);
-      }
-      
-      // For remote notes, update state
-      if (noteState.peerId !== state.peerId) {
+      } else {
+        // Update existing note state
         textNote.setPosition(noteId, noteState.x, noteState.y);
         textNote.setSize(noteId, noteState.width, noteState.height);
         textNote.setContent(noteId, noteState.content);
@@ -646,8 +642,8 @@ function createTextNote(): void {
   const x = localPos.x + 150;
   const y = localPos.y - 50;
   
-  // Add to CRDT
-  crdt?.addTextNote(noteId, state.peerId, state.username, '', x, y, 250, 150);
+  // Add to CRDT (no peerId/username needed anymore)
+  crdt?.addTextNote(noteId, '', x, y, 250, 150);
 }
 
 function removeTextNote(noteId: string): void {
