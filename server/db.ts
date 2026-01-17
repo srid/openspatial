@@ -50,11 +50,13 @@ const tmpSpace = db.prepare('SELECT id FROM spaces WHERE id = ?').get('tmp');
 if (!tmpSpace) {
   db.prepare('INSERT INTO spaces (id, name) VALUES (?, ?)').run('tmp', 'Temporary Space');
   console.log('[DB] Created default "tmp" space');
-} else {
-  // Clear any leftover text notes from tmp space (for clean E2E test runs)
-  const deleted = db.prepare('DELETE FROM text_elements WHERE space_id = ?').run('tmp');
+}
+
+// In auto-create mode (dev/testing), clear all text notes on restart for clean test runs
+if (process.env.AUTO_CREATE_SPACES === 'true') {
+  const deleted = db.prepare('DELETE FROM text_elements').run();
   if (deleted.changes > 0) {
-    console.log(`[DB] Cleared ${deleted.changes} text notes from "tmp" space`);
+    console.log(`[DB] Cleared ${deleted.changes} text notes (dev mode clean start)`);
   }
 }
 

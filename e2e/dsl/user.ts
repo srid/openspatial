@@ -269,8 +269,8 @@ export class UserImpl implements User {
   }
 
   async waitForTextNote(_owner?: string): Promise<void> {
-    // Notes are ownerless now - just wait for any text note
-    const note = this.page.locator('.text-note', { hasText: 'Note' });
+    // Notes are ownerless now - just wait for any text note (use first() to avoid strict mode)
+    const note = this.page.locator('.text-note').first();
     await expect(note).toBeVisible({ timeout: SYNC_TIMEOUT });
   }
 

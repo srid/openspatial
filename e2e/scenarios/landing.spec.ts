@@ -5,7 +5,7 @@
  */
 import { test, expect } from '@playwright/test';
 
-test('landing page shows Try Demo link to /s/tmp', async ({ browser }) => {
+test('landing page shows space entry form with Enter Space button', async ({ browser }) => {
   const context = await browser.newContext({
     ignoreHTTPSErrors: true,
   });
@@ -14,17 +14,15 @@ test('landing page shows Try Demo link to /s/tmp', async ({ browser }) => {
   // Navigate to landing page
   await page.goto('/');
   
-  // Should see landing page with Try Demo button
-  const demoButton = page.locator('a.btn-primary:has-text("Try Demo")');
-  await expect(demoButton).toBeVisible();
-  
-  // Button should link to /s/tmp
-  await expect(demoButton).toHaveAttribute('href', '/s/tmp');
+  // Should see landing page with space input and Enter Space button
+  await expect(page.locator('#landing-space-input')).toBeVisible();
+  const enterButton = page.locator('button.btn-primary:has-text("Enter Space")');
+  await expect(enterButton).toBeVisible();
   
   await context.close();
 });
 
-test('clicking Try Demo navigates to /s/tmp join modal', async ({ browser }) => {
+test('submitting empty form navigates to /s/tmp', async ({ browser }) => {
   const context = await browser.newContext({
     ignoreHTTPSErrors: true,
   });
@@ -33,13 +31,32 @@ test('clicking Try Demo navigates to /s/tmp join modal', async ({ browser }) => 
   // Navigate to landing page
   await page.goto('/');
   
-  // Click Try Demo
-  await page.click('a:has-text("Try Demo")');
+  // Just click Enter Space without typing anything
+  await page.click('button:has-text("Enter Space")');
   
   // Should be at /s/tmp with join modal visible
   await expect(page).toHaveURL(/\/s\/tmp/);
   await expect(page.locator('#join-modal')).toBeVisible();
-  await expect(page.locator('#username')).toBeVisible();
+  
+  await context.close();
+});
+
+test('entering custom space name navigates to that space', async ({ browser }) => {
+  const context = await browser.newContext({
+    ignoreHTTPSErrors: true,
+  });
+  const page = await context.newPage();
+  
+  // Navigate to landing page
+  await page.goto('/');
+  
+  // Enter a custom space name
+  await page.fill('#landing-space-input', 'my-custom-space');
+  await page.click('button:has-text("Enter Space")');
+  
+  // Should be at the custom space URL
+  await expect(page).toHaveURL(/\/s\/my-custom-space/);
+  await expect(page.locator('#join-modal')).toBeVisible();
   
   await context.close();
 });
@@ -70,7 +87,7 @@ test('landing page has GitHub link', async ({ browser }) => {
   
   await page.goto('/');
   
-  // GitHub button should be visible and link to repo
+  // GitHub link should be visible and link to repo
   const githubLink = page.locator('a:has-text("GitHub")');
   await expect(githubLink).toBeVisible();
   await expect(githubLink).toHaveAttribute('href', 'https://github.com/srid/openspatial');

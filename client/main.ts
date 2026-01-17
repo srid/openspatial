@@ -178,6 +178,17 @@ function hideJoinError(): void {
 
 function setupEventListeners(): void {
   joinForm.addEventListener('submit', handleJoin);
+  
+  // Landing page space form
+  const landingSpaceForm = document.getElementById('landing-space-form');
+  if (landingSpaceForm) {
+    landingSpaceForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const input = document.getElementById('landing-space-input') as HTMLInputElement;
+      const spaceName = input.value.trim() || 'tmp'; // Default to 'tmp' if empty
+      window.location.href = `/s/${encodeURIComponent(spaceName)}`;
+    });
+  }
 
   document.getElementById('btn-mic')!.addEventListener('click', toggleMic);
   document.getElementById('btn-camera')!.addEventListener('click', toggleCamera);
