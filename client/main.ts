@@ -185,7 +185,7 @@ function setupEventListeners(): void {
     landingSpaceForm.addEventListener('submit', (e) => {
       e.preventDefault();
       const input = document.getElementById('landing-space-input') as HTMLInputElement;
-      const spaceName = input.value.trim() || 'tmp'; // Default to 'tmp' if empty
+      const spaceName = input.value.trim() || 'demo'; // Default to 'demo' if empty
       window.location.href = `/s/${encodeURIComponent(spaceName)}`;
     });
   }

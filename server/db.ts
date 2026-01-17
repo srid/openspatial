@@ -45,10 +45,10 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_text_elements_space_id ON text_elements(space_id);
 `);
 
-// Auto-create 'tmp' space for development/testing if it doesn't exist
-const tmpSpace = db.prepare('SELECT id FROM spaces WHERE id = ?').get('tmp');
+// Auto-create 'demo' space for development/testing if it doesn't exist
+const tmpSpace = db.prepare('SELECT id FROM spaces WHERE id = ?').get('demo');
 if (!tmpSpace) {
-  db.prepare('INSERT INTO spaces (id, name) VALUES (?, ?)').run('tmp', 'Temporary Space');
+  db.prepare('INSERT INTO spaces (id, name) VALUES (?, ?)').run('demo', 'Temporary Space');
   console.log('[DB] Created default "tmp" space');
 }
 

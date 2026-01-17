@@ -13,7 +13,7 @@ test('remembers username after joining and reloading', async ({ browser }) => {
   const page = await context.newPage();
   
   // Go to the tmp space (auto-created on server start)
-  await page.goto('/s/tmp');
+  await page.goto('/s/demo');
   
   // Initially username should be empty
   const usernameInput = page.locator('#username');
@@ -52,7 +52,7 @@ test('space URL remains after leaving', async ({ browser }) => {
   const page = await context.newPage();
   
   // Navigate to tmp space (must be predefined)
-  await page.goto('/s/tmp');
+  await page.goto('/s/demo');
   
   // Join the space
   await page.fill('#username', 'UrlTestUser');
@@ -60,14 +60,14 @@ test('space URL remains after leaving', async ({ browser }) => {
   await expect(page.locator('#control-bar')).toBeVisible({ timeout: 10000 });
   
   // Verify we're at the space URL
-  expect(page.url()).toContain('/s/tmp');
+  expect(page.url()).toContain('/s/demo');
   
   // Leave the space
   await page.click('#btn-leave');
   await expect(page.locator('#join-modal')).toBeVisible();
   
   // URL should still be the space URL
-  expect(page.url()).toContain('/s/tmp');
+  expect(page.url()).toContain('/s/demo');
   
   await context.close();
 });
@@ -80,7 +80,7 @@ test('document title includes space name on space URL', async ({ browser }) => {
   const page = await context.newPage();
   
   // Navigate to tmp space (predefined)
-  await page.goto('/s/tmp');
+  await page.goto('/s/demo');
   
   // Title should include space name
   await expect(page).toHaveTitle('tmp - OpenSpatial');

@@ -22,7 +22,7 @@ test('landing page shows space entry form with Enter Space button', async ({ bro
   await context.close();
 });
 
-test('submitting empty form navigates to /s/tmp', async ({ browser }) => {
+test('submitting empty form navigates to /s/demo', async ({ browser }) => {
   const context = await browser.newContext({
     ignoreHTTPSErrors: true,
   });
@@ -34,7 +34,7 @@ test('submitting empty form navigates to /s/tmp', async ({ browser }) => {
   // Just click Enter Space without typing anything
   await page.click('button:has-text("Enter Space")');
   
-  // Should be at /s/tmp with join modal visible
+  // Should be at /s/demo with join modal visible
   await expect(page).toHaveURL(/\/s\/tmp/);
   await expect(page.locator('#join-modal')).toBeVisible();
   
@@ -68,7 +68,7 @@ test('/s/:spaceId shows join modal with space name in title', async ({ browser }
   const page = await context.newPage();
   
   // Navigate directly to a space URL
-  await page.goto('/s/tmp');
+  await page.goto('/s/demo');
   
   // Join modal should be visible
   await expect(page.locator('#join-modal')).toBeVisible();
