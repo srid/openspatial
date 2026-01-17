@@ -103,7 +103,7 @@ in
             name = "openspatial-init-spaces";
             text = ''
               export DATA_DIR="${cfg.dataDir}"
-              ${lib.concatMapStringsSep "\n" (space: "${openspatial}/bin/openspatial-cli create ${space}") cfg.spaces}
+              ${openspatial}/bin/openspatial-cli create ${lib.concatStringsSep " " cfg.spaces}
             '';
           }));
         } // (if cfg.turn.enable then {

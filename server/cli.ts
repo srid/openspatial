@@ -2,9 +2,9 @@
 /**
  * OpenSpatial CLI - Space management commands.
  * Usage:
- *   openspatial-cli list           # List all spaces
- *   openspatial-cli create <id>    # Create a new space
- *   openspatial-cli delete <id>    # Delete a space
+ *   openspatial-cli list                    # List all spaces
+ *   openspatial-cli create <id> [id2...]    # Create one or more spaces
+ *   openspatial-cli delete <id>             # Delete a space
  */
 import { getAllSpaces, getSpace, createSpace, deleteSpace } from './db.js';
 
@@ -13,14 +13,13 @@ function printUsage(): void {
 OpenSpatial CLI - Space Management
 
 Usage:
-  openspatial-cli list           List all spaces
-  openspatial-cli create <id>    Create a new space
-  openspatial-cli delete <id>    Delete a space
+  openspatial-cli list                    List all spaces
+  openspatial-cli create <id> [id2...]    Create one or more spaces
+  openspatial-cli delete <id>             Delete a space
 
 Examples:
-  openspatial-cli create main
-  openspatial-cli create team-alpha
-  openspatial-cli delete main
+  openspatial-cli create demo team-alpha team-beta
+  openspatial-cli delete demo
 `);
 }
 
@@ -42,26 +41,27 @@ function listSpaces(): void {
   console.log();
 }
 
-function handleCreate(id: string | undefined): void {
-  if (!id) {
-    console.error('Error: <id> is required');
-    console.error('Usage: openspatial-cli create <id>');
+function handleCreate(ids: string[]): void {
+  if (ids.length === 0) {
+    console.error('Error: At least one <id> is required');
+    console.error('Usage: openspatial-cli create <id> [id2...]');
     process.exit(1);
   }
   
-  // Validate ID format (alphanumeric + hyphens, lowercase)
-  if (!/^[a-z0-9-]+$/.test(id)) {
-    console.error('Error: Space ID must be lowercase alphanumeric with hyphens only');
-    process.exit(1);
+  for (const id of ids) {
+    // Validate ID format (alphanumeric + hyphens, lowercase)
+    if (!/^[a-z0-9-]+$/.test(id)) {
+      console.error(`Error: Space ID "${id}" must be lowercase alphanumeric with hyphens only`);
+      process.exit(1);
+    }
+    
+    if (getSpace(id)) {
+      console.log(`Space "${id}" already exists`);
+    } else {
+      createSpace(id);
+      console.log(`✓ Created space: ${id}`);
+    }
   }
-  
-  if (getSpace(id)) {
-    console.log(`Space "${id}" already exists`);
-    process.exit(0);
-  }
-  
-  createSpace(id);
-  console.log(`✓ Created space: ${id}`);
 }
 
 function handleDelete(id: string | undefined): void {
@@ -89,7 +89,7 @@ switch (command) {
     listSpaces();
     break;
   case 'create':
-    handleCreate(args[1]);
+    handleCreate(args.slice(1));
     break;
   case 'delete':
     handleDelete(args[1]);
