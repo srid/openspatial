@@ -1,16 +1,12 @@
 /**
- * y-websocket server for Yjs document synchronization.
- * Runs alongside Socket.io signaling on the same HTTP server.
- * Uses noServer mode to avoid conflicts with Socket.io's WebSocket handling.
- * 
- * Persistence: Text notes are hydrated from SQLite on first connection
- * and persisted back via debounced observer.
+ * Yjs WebSocket server with SQLite persistence.
+ * Handles CRDT synchronization and persists text notes to the database.
  */
-import type { Server as HttpServer } from 'http';
-import type { Server as HttpsServer } from 'https';
-import { WebSocketServer, WebSocket } from 'ws';
 import type { IncomingMessage } from 'http';
 import type { Duplex } from 'stream';
+import type { Server as HttpServer } from 'http';
+import type { Server as HttpsServer } from 'https';
+import { WebSocket, WebSocketServer } from 'ws';
 import * as Y from 'yjs';
 // @ts-expect-error - y-websocket utils has no types
 import { setupWSConnection, docs } from 'y-websocket/bin/utils';
@@ -32,17 +28,17 @@ const DEBOUNCE_MS = 2000;
 /**
  * Hydrate a Y.Doc with text notes from SQLite
  */
-function hydrateFromSQLite(doc: Y.Doc, spaceId: string): void {
+async function hydrateFromSQLite(doc: Y.Doc, spaceId: string): Promise<void> {
   if (hydratedSpaces.has(spaceId)) return;
   
   // Only hydrate if this is a valid space
-  const space = getSpace(spaceId);
+  const space = await getSpace(spaceId);
   if (!space) {
     console.log(`[Yjs] Space ${spaceId} not found in DB, skipping hydration`);
     return;
   }
   
-  const rows = getTextNotes(spaceId);
+  const rows = await getTextNotes(spaceId);
   if (rows.length === 0) {
     console.log(`[Yjs] No text notes to hydrate for space ${spaceId}`);
     hydratedSpaces.add(spaceId);
@@ -66,9 +62,9 @@ function hydrateFromSQLite(doc: Y.Doc, spaceId: string): void {
 /**
  * Set up observer to persist changes back to SQLite (debounced)
  */
-function observeAndPersist(doc: Y.Doc, spaceId: string): void {
+async function observeAndPersist(doc: Y.Doc, spaceId: string): Promise<void> {
   // Only persist to valid spaces
-  const space = getSpace(spaceId);
+  const space = await getSpace(spaceId);
   if (!space) return;
   
   const textNotes = doc.getMap<TextNoteState>('textNotes');
@@ -104,7 +100,7 @@ function observeAndPersist(doc: Y.Doc, spaceId: string): void {
 /**
  * Flush pending writes to SQLite
  */
-function flushToSQLite(spaceId: string): void {
+async function flushToSQLite(spaceId: string): Promise<void> {
   const pending = pendingWrites.get(spaceId);
   if (!pending || pending.size === 0) return;
   
@@ -113,10 +109,10 @@ function flushToSQLite(spaceId: string): void {
   
   for (const [noteId, change] of pending) {
     if (change.action === 'delete') {
-      deleteTextNote(noteId);
+      await deleteTextNote(noteId);
       deletes++;
     } else if (change.value) {
-      upsertTextNote(spaceId, noteId, change.value);
+      await upsertTextNote(spaceId, noteId, change.value);
       upserts++;
     }
   }
@@ -148,24 +144,24 @@ export function attachYjsServer(server: HttpServer | HttpsServer): void {
     // Socket.io handles /socket.io paths automatically
   });
 
-  wss.on('connection', (ws: WebSocket, req: IncomingMessage) => {
+  wss.on('connection', async (ws: WebSocket, req: IncomingMessage) => {
     // Extract spaceId from URL: /yjs/spaceId
     const url = req.url || '';
     const pathname = new URL(url, `http://${req.headers.host}`).pathname;
     const spaceId = pathname.replace(/^\/yjs\/?/, '') || 'default';
     
     // Validate space exists before allowing connection
-    let space = getSpace(spaceId);
+    let space = await getSpace(spaceId);
     if (!space) {
       if (AUTO_CREATE_SPACES) {
         // Auto-create space (for dev/testing)
         try {
-          createSpace(spaceId);
+          await createSpace(spaceId);
           console.log(`[Yjs] Auto-created space: ${spaceId}`);
-          space = getSpace(spaceId);
+          space = await getSpace(spaceId);
         } catch (e) {
           // Space might have been created by another connection
-          space = getSpace(spaceId);
+          space = await getSpace(spaceId);
         }
       }
       
@@ -185,15 +181,14 @@ export function attachYjsServer(server: HttpServer | HttpsServer): void {
     const doc = docs.get(spaceId) as Y.Doc | undefined;
     if (doc) {
       // Hydrate from SQLite on first connection
-      hydrateFromSQLite(doc, spaceId);
+      await hydrateFromSQLite(doc, spaceId);
       
       // Set up persistence observer (only once per doc)
       if (!pendingWrites.has(spaceId)) {
-        observeAndPersist(doc, spaceId);
+        await observeAndPersist(doc, spaceId);
       }
     }
   });
 
   console.log('[Yjs] WebSocket server attached at /yjs (with SQLite persistence)');
 }
-

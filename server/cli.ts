@@ -6,7 +6,7 @@
  *   openspatial-cli create <id> [id2...]    # Create one or more spaces
  *   openspatial-cli delete <id>             # Delete a space
  */
-import { getAllSpaces, getSpace, createSpace, deleteSpace } from './db.js';
+import { getAllSpaces, getSpace, createSpace, deleteSpace, runMigrations } from './db.js';
 
 function printUsage(): void {
   console.log(`
@@ -23,8 +23,8 @@ Examples:
 `);
 }
 
-function listSpaces(): void {
-  const spaces = getAllSpaces();
+async function listSpaces(): Promise<void> {
+  const spaces = await getAllSpaces();
   if (spaces.length === 0) {
     console.log('No spaces found. Create one with: openspatial-cli create <id>');
     return;
@@ -41,7 +41,7 @@ function listSpaces(): void {
   console.log();
 }
 
-function handleCreate(ids: string[]): void {
+async function handleCreate(ids: string[]): Promise<void> {
   if (ids.length === 0) {
     console.error('Error: At least one <id> is required');
     console.error('Usage: openspatial-cli create <id> [id2...]');
@@ -55,52 +55,62 @@ function handleCreate(ids: string[]): void {
       process.exit(1);
     }
     
-    if (getSpace(id)) {
+    if (await getSpace(id)) {
       console.log(`Space "${id}" already exists`);
     } else {
-      createSpace(id);
+      await createSpace(id);
       console.log(`✓ Created space: ${id}`);
     }
   }
 }
 
-function handleDelete(id: string | undefined): void {
+async function handleDelete(id: string | undefined): Promise<void> {
   if (!id) {
     console.error('Error: <id> is required');
     console.error('Usage: openspatial-cli delete <id>');
     process.exit(1);
   }
   
-  if (!getSpace(id)) {
+  if (!await getSpace(id)) {
     console.error(`Error: Space "${id}" not found`);
     process.exit(1);
   }
   
-  deleteSpace(id);
+  await deleteSpace(id);
   console.log(`✓ Deleted space: ${id}`);
 }
 
 // Main
-const args = process.argv.slice(2);
-const command = args[0];
+async function main(): Promise<void> {
+  // Run migrations first
+  await runMigrations();
+  
+  const args = process.argv.slice(2);
+  const command = args[0];
 
-switch (command) {
-  case 'list':
-    listSpaces();
-    break;
-  case 'create':
-    handleCreate(args.slice(1));
-    break;
-  case 'delete':
-    handleDelete(args[1]);
-    break;
-  case '--help':
-  case '-h':
-  case undefined:
-    printUsage();
-    break;
-  default:
-    console.error(`Unknown command: ${command}`);
-    printUsage();
-    process.exit(1);
+  switch (command) {
+    case 'list':
+      await listSpaces();
+      break;
+    case 'create':
+      await handleCreate(args.slice(1));
+      break;
+    case 'delete':
+      await handleDelete(args[1]);
+      break;
+    case '--help':
+    case '-h':
+    case undefined:
+      printUsage();
+      break;
+    default:
+      console.error(`Unknown command: ${command}`);
+      printUsage();
+      process.exit(1);
+  }
 }
+
+main().catch((err) => {
+  console.error('CLI Error:', err);
+  process.exit(1);
+});

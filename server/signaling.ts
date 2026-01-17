@@ -77,9 +77,9 @@ export function attachSignaling(io: Server): void {
     peerSockets.set(peerId, socket.id);
 
     // Query space info without joining (for pre-join preview)
-    socket.on('get-space-info', ({ spaceId }: GetSpaceInfoEvent) => {
+    socket.on('get-space-info', async ({ spaceId }: GetSpaceInfoEvent) => {
       // Check if space exists in database (production) or in-memory (dev auto-create mode)
-      const dbSpace = getSpaceFromDb(spaceId);
+      const dbSpace = await getSpaceFromDb(spaceId);
       const memorySpace = spaces.get(spaceId);
       const exists = dbSpace !== null || process.env.AUTO_CREATE_SPACES === 'true';
       

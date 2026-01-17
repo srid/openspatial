@@ -38,7 +38,11 @@ function yjsPlugin() {
       Promise.all([
         import('y-websocket/bin/utils'),
         import('./server/db.ts')
-      ]).then(([{ setupWSConnection }, { getSpace, createSpace }]) => {
+      ]).then(async ([{ setupWSConnection }, { getSpace, createSpace, runMigrations, ensureDemoSpace }]) => {
+        // Run migrations before setting up handlers
+        await runMigrations();
+        await ensureDemoSpace();
+        
         const wss = new WebSocketServer({ noServer: true });
         
         // Handle upgrade requests manually, only for /yjs path
@@ -54,19 +58,19 @@ function yjsPlugin() {
           // Socket.io handles /socket.io paths automatically
         });
         
-        wss.on('connection', (ws, req) => {
+        wss.on('connection', async (ws, req) => {
           // Extract spaceId from URL: /yjs/spaceId
           const url = req.url || '';
           const pathname = new URL(url, `http://${req.headers.host}`).pathname;
           const docName = pathname.replace(/^\/yjs\/?/, '') || 'default';
           
           // Auto-create space if it doesn't exist (dev mode only)
-          let space = getSpace(docName);
+          let space = await getSpace(docName);
           if (!space) {
             try {
-              createSpace(docName, `Auto-created: ${docName}`);
+              await createSpace(docName);
               console.log(`[Yjs Dev] Auto-created space: ${docName}`);
-              space = getSpace(docName);
+              space = await getSpace(docName);
             } catch (e) {
               // Space might have been created by another connection
             }

@@ -8,6 +8,7 @@ import { attachSignaling } from './signaling.js';
 import { attachYjsServer } from './yjs-server.js';
 import { getIceServers } from './turn-config.js';
 import { validateSpace } from './spaces.js';
+import { runMigrations, ensureDemoSpace } from './db.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -86,7 +87,19 @@ attachSignaling(io);
 // Attach Yjs WebSocket server for CRDT document synchronization
 attachYjsServer(server);
 
+// Async startup: run migrations and ensure demo space before listening
 const protocol = USE_HTTPS ? 'https' : 'http';
-server.listen(PORT, '0.0.0.0', () => {
-    console.log(`🚀 OpenSpatial running on ${protocol}://0.0.0.0:${PORT}`);
-});
+
+(async () => {
+    try {
+        await runMigrations();
+        await ensureDemoSpace();
+        
+        server.listen(PORT, '0.0.0.0', () => {
+            console.log(`🚀 OpenSpatial running on ${protocol}://0.0.0.0:${PORT}`);
+        });
+    } catch (err) {
+        console.error('Startup failed:', err);
+        process.exit(1);
+    }
+})();
