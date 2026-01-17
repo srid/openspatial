@@ -46,17 +46,15 @@ db.exec(`
 `);
 
 // Auto-create 'demo' space for development/testing if it doesn't exist
-const tmpSpace = db.prepare('SELECT id FROM spaces WHERE id = ?').get('demo');
-if (!tmpSpace) {
-  db.prepare('INSERT INTO spaces (id, name) VALUES (?, ?)').run('demo', 'Temporary Space');
-  console.log('[DB] Created default "tmp" space');
-}
-
-// In auto-create mode (dev/testing), clear all text notes on restart for clean test runs
-if (process.env.AUTO_CREATE_SPACES === 'true') {
-  const deleted = db.prepare('DELETE FROM text_elements').run();
+const demoSpace = db.prepare('SELECT id FROM spaces WHERE id = ?').get('demo');
+if (!demoSpace) {
+  db.prepare('INSERT INTO spaces (id, name) VALUES (?, ?)').run('demo', 'Demo Space');
+  console.log('[DB] Created default "demo" space');
+} else if (process.env.AUTO_CREATE_SPACES === 'true') {
+  // Only clear the demo space on restart for clean E2E runs (preserve other spaces)
+  const deleted = db.prepare('DELETE FROM text_elements WHERE space_id = ?').run('demo');
   if (deleted.changes > 0) {
-    console.log(`[DB] Cleared ${deleted.changes} text notes (dev mode clean start)`);
+    console.log(`[DB] Cleared ${deleted.changes} text notes from "demo" space`);
   }
 }
 
