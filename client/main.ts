@@ -80,6 +80,9 @@ const spaceParticipants = document.getElementById('space-participants') as HTMLE
 // Preview socket for pre-join space info
 let previewSocket: SocketHandler | null = null;
 
+// localStorage key for remembering username
+const STORAGE_KEY_USERNAME = 'openspatial-username';
+
 // Initialize
 function init(): void {
   setupEventListeners();
@@ -87,6 +90,12 @@ function init(): void {
 
   const minimap = new MinimapManager(canvas, 4000, 4000);
   minimap.init();
+
+  // Restore saved username from localStorage
+  const savedUsername = localStorage.getItem(STORAGE_KEY_USERNAME);
+  if (savedUsername) {
+    usernameInput.value = savedUsername;
+  }
 
   const pathMatch = window.location.pathname.match(/^\/s\/(.+)$/);
   if (pathMatch) {
@@ -223,6 +232,9 @@ async function handleJoin(e: Event): Promise<void> {
   state.spaceId = spaceIdInput.value.trim();
 
   if (!state.username || !state.spaceId) return;
+
+  // Save username to localStorage for next time
+  localStorage.setItem(STORAGE_KEY_USERNAME, state.username);
 
   try {
     const constraints: MediaStreamConstraints = {
