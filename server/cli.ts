@@ -2,9 +2,9 @@
 /**
  * OpenSpatial CLI - Space management commands.
  * Usage:
- *   openspatial-cli list                 # List all spaces
- *   openspatial-cli create <id> <name>   # Create a new space
- *   openspatial-cli delete <id>          # Delete a space
+ *   openspatial-cli list           # List all spaces
+ *   openspatial-cli create <id>    # Create a new space
+ *   openspatial-cli delete <id>    # Delete a space
  */
 import { getAllSpaces, getSpace, createSpace, deleteSpace } from './db.js';
 
@@ -13,13 +13,13 @@ function printUsage(): void {
 OpenSpatial CLI - Space Management
 
 Usage:
-  openspatial-cli list                 List all spaces
-  openspatial-cli create <id> <name>   Create a new space
-  openspatial-cli delete <id>          Delete a space
+  openspatial-cli list           List all spaces
+  openspatial-cli create <id>    Create a new space
+  openspatial-cli delete <id>    Delete a space
 
 Examples:
-  openspatial-cli create main "Main Office"
-  openspatial-cli create team-alpha "Team Alpha Workspace"
+  openspatial-cli create main
+  openspatial-cli create team-alpha
   openspatial-cli delete main
 `);
 }
@@ -27,26 +27,25 @@ Examples:
 function listSpaces(): void {
   const spaces = getAllSpaces();
   if (spaces.length === 0) {
-    console.log('No spaces found. Create one with: openspatial-cli create <id> <name>');
+    console.log('No spaces found. Create one with: openspatial-cli create <id>');
     return;
   }
   
   console.log('\nSpaces:\n');
-  console.log('  ID                    NAME                           CREATED');
-  console.log('  ─────────────────────────────────────────────────────────────');
+  console.log('  ID                    CREATED');
+  console.log('  ──────────────────────────────────');
   for (const space of spaces) {
     const id = space.id.padEnd(20);
-    const name = space.name.padEnd(30);
     const created = new Date(space.created_at).toLocaleDateString();
-    console.log(`  ${id}  ${name}  ${created}`);
+    console.log(`  ${id}  ${created}`);
   }
   console.log();
 }
 
-function handleCreate(id: string | undefined, name: string | undefined): void {
-  if (!id || !name) {
-    console.error('Error: Both <id> and <name> are required');
-    console.error('Usage: openspatial-cli create <id> <name>');
+function handleCreate(id: string | undefined): void {
+  if (!id) {
+    console.error('Error: <id> is required');
+    console.error('Usage: openspatial-cli create <id>');
     process.exit(1);
   }
   
@@ -61,8 +60,8 @@ function handleCreate(id: string | undefined, name: string | undefined): void {
     process.exit(1);
   }
   
-  createSpace(id, name);
-  console.log(`✓ Created space: ${id} ("${name}")`);
+  createSpace(id);
+  console.log(`✓ Created space: ${id}`);
 }
 
 function handleDelete(id: string | undefined): void {
@@ -90,7 +89,7 @@ switch (command) {
     listSpaces();
     break;
   case 'create':
-    handleCreate(args[1], args.slice(2).join(' ') || args[2]);
+    handleCreate(args[1]);
     break;
   case 'delete':
     handleDelete(args[1]);

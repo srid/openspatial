@@ -23,7 +23,6 @@ db.pragma('journal_mode = WAL');
 db.exec(`
   CREATE TABLE IF NOT EXISTS spaces (
     id TEXT PRIMARY KEY,
-    name TEXT NOT NULL,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
 
@@ -48,7 +47,7 @@ db.exec(`
 // Auto-create 'demo' space for development/testing if it doesn't exist
 const demoSpace = db.prepare('SELECT id FROM spaces WHERE id = ?').get('demo');
 if (!demoSpace) {
-  db.prepare('INSERT INTO spaces (id, name) VALUES (?, ?)').run('demo', 'Demo Space');
+  db.prepare('INSERT INTO spaces (id) VALUES (?)').run('demo');
   console.log('[DB] Created default "demo" space');
 } else if (process.env.AUTO_CREATE_SPACES === 'true') {
   // Only clear the demo space on restart for clean E2E runs (preserve other spaces)
@@ -61,18 +60,18 @@ if (!demoSpace) {
 // === Space Operations ===
 
 export function getAllSpaces(): Space[] {
-  const stmt = db.prepare('SELECT id, name, created_at FROM spaces ORDER BY name');
+  const stmt = db.prepare('SELECT id, created_at FROM spaces ORDER BY id');
   return stmt.all() as Space[];
 }
 
 export function getSpace(id: string): Space | null {
-  const stmt = db.prepare('SELECT id, name, created_at FROM spaces WHERE id = ?');
+  const stmt = db.prepare('SELECT id, created_at FROM spaces WHERE id = ?');
   return (stmt.get(id) as Space) || null;
 }
 
-export function createSpace(id: string, name: string): void {
-  const stmt = db.prepare('INSERT INTO spaces (id, name) VALUES (?, ?)');
-  stmt.run(id, name);
+export function createSpace(id: string): void {
+  const stmt = db.prepare('INSERT INTO spaces (id) VALUES (?)');
+  stmt.run(id);
 }
 
 export function deleteSpace(id: string): void {
