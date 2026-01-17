@@ -75,6 +75,9 @@ export interface User {
   deleteTextNote(): Promise<void>;
   dragTextNote(delta: { dx: number; dy: number }): Promise<void>;
   resizeTextNote(size: Size): Promise<void>;
+  setTextNoteFontSize(size: 'small' | 'medium' | 'large'): Promise<void>;
+  setTextNoteFontFamily(family: 'sans' | 'serif' | 'mono'): Promise<void>;
+  setTextNoteColor(color: string): Promise<void>;
 
   // Queries
   waitForUser(name: string): Promise<void>;
@@ -106,9 +109,16 @@ export interface ScreenShareView {
   position(): Promise<Position>;
 }
 
+export interface TextNoteStyle {
+  fontSize: 'small' | 'medium' | 'large';
+  fontFamily: 'sans' | 'serif' | 'mono';
+  color: string;
+}
+
 export interface TextNoteView {
   content(): Promise<string>;
   rect(): Promise<Rect>;
+  style(): Promise<TextNoteStyle>;
 }
 
 // ─────────────────────────────────────────────────────────────────

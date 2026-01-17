@@ -178,3 +178,72 @@ scenario('text note size syncs to other users', 'note-resize-sync', async ({ cre
   expect(finalSize.size.width).toBeCloseTo(afterResize.size.width, -1); // Within 10px
   expect(finalSize.size.height).toBeCloseTo(afterResize.size.height, -1);
 });
+
+// ─────────────────────────────────────────────────────────────────
+// Style Sync Tests
+// ─────────────────────────────────────────────────────────────────
+
+scenario('text note font-size syncs to other users', 'note-fontsize-sync', async ({ createUser }) => {
+  const alice = await createUser('Alice').join();
+  const bob = await createUser('Bob').join();
+
+  // Alice creates a text note
+  await alice.createTextNote();
+  await alice.editTextNote('Size test');
+  await bob.waitForTextNote();
+
+  // Get initial style
+  const beforeStyle = await bob.textNoteOf('any').style();
+  expect(beforeStyle.fontSize).toBe('medium'); // Default
+
+  // Alice changes font size to large
+  await alice.setTextNoteFontSize('large');
+  await alice.wait(1000);
+
+  // Bob should see the updated font size
+  const afterStyle = await bob.textNoteOf('any').style();
+  expect(afterStyle.fontSize).toBe('large');
+});
+
+scenario('text note font-family syncs to other users', 'note-fontfamily-sync', async ({ createUser }) => {
+  const alice = await createUser('Alice').join();
+  const bob = await createUser('Bob').join();
+
+  // Alice creates a text note
+  await alice.createTextNote();
+  await alice.editTextNote('Font test');
+  await bob.waitForTextNote();
+
+  // Get initial style
+  const beforeStyle = await bob.textNoteOf('any').style();
+  expect(beforeStyle.fontFamily).toBe('sans'); // Default
+
+  // Alice changes font family to mono
+  await alice.setTextNoteFontFamily('mono');
+  await alice.wait(1000);
+
+  // Bob should see the updated font family
+  const afterStyle = await bob.textNoteOf('any').style();
+  expect(afterStyle.fontFamily).toBe('mono');
+});
+
+scenario('text note color syncs to other users', 'note-color-sync', async ({ createUser }) => {
+  const alice = await createUser('Alice').join();
+  const bob = await createUser('Bob').join();
+
+  // Alice creates a text note
+  await alice.createTextNote();
+  await alice.editTextNote('Color test');
+  await bob.waitForTextNote();
+
+  // Get initial color (default is white)
+  const beforeStyle = await bob.textNoteOf('any').style();
+  
+  // Alice changes color to pink (from palette: #f9a8d4)
+  await alice.setTextNoteColor('#f9a8d4');
+  await alice.wait(1000);
+
+  // Bob should see the updated color (browser returns rgb format)
+  const afterStyle = await bob.textNoteOf('any').style();
+  expect(afterStyle.color).toBe('rgb(249, 168, 212)');
+});

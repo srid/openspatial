@@ -6,7 +6,7 @@
 type PositionUpdateCallback = (noteId: string, x: number, y: number) => void;
 type SizeUpdateCallback = (noteId: string, width: number, height: number) => void;
 type ContentUpdateCallback = (noteId: string, content: string) => void;
-type StyleUpdateCallback = (noteId: string, fontSize: 'small' | 'medium' | 'large', color: string) => void;
+type StyleUpdateCallback = (noteId: string, fontSize: 'small' | 'medium' | 'large', fontFamily: 'sans' | 'serif' | 'mono', color: string) => void;
 type CloseCallback = (noteId: string) => void;
 
 interface AppState {
@@ -249,7 +249,7 @@ export class TextNoteManager {
       option.onclick = (e) => {
         e.stopPropagation();
         this.setFontSize(noteId, size);
-        this.onStyleUpdate?.(noteId, size, this.getColor(noteId));
+        this.onStyleUpdate?.(noteId, size, this.getFontFamily(noteId), this.getColor(noteId));
         menu.remove();
       };
       menu.appendChild(option);
@@ -286,7 +286,7 @@ export class TextNoteManager {
         e.stopPropagation();
         this.setColor(noteId, value);
         btn.style.backgroundColor = value;
-        this.onStyleUpdate?.(noteId, this.getFontSize(noteId), value);
+        this.onStyleUpdate?.(noteId, this.getFontSize(noteId), this.getFontFamily(noteId), value);
         menu.remove();
       };
       menu.appendChild(option);
@@ -327,7 +327,7 @@ export class TextNoteManager {
       option.onclick = (e) => {
         e.stopPropagation();
         this.setFontFamily(noteId, value);
-        this.onStyleUpdate?.(noteId, this.getFontSize(noteId), this.getColor(noteId));
+        this.onStyleUpdate?.(noteId, this.getFontSize(noteId), value, this.getColor(noteId));
         menu.remove();
       };
       menu.appendChild(option);

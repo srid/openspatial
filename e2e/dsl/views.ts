@@ -149,4 +149,33 @@ export class TextNoteViewImpl implements TextNoteView {
       },
     }));
   }
+
+  async style(): Promise<{ fontSize: 'small' | 'medium' | 'large'; fontFamily: 'sans' | 'serif' | 'mono'; color: string }> {
+    await expect(this.locator).toBeVisible({ timeout: SYNC_TIMEOUT });
+    return await this.locator.evaluate((el: HTMLElement) => {
+      const textarea = el.querySelector('.text-note-textarea') as HTMLTextAreaElement;
+      const computedStyle = textarea ? window.getComputedStyle(textarea) : null;
+      
+      // Reverse map font sizes
+      const fontSize = (() => {
+        const size = computedStyle?.fontSize || '18px';
+        if (size === '14px') return 'small';
+        if (size === '24px') return 'large';
+        return 'medium';
+      })();
+      
+      // Reverse map font families
+      const fontFamily = (() => {
+        const family = computedStyle?.fontFamily || '';
+        if (family.includes('Georgia') || family.includes('Times')) return 'serif';
+        if (family.includes('Mono') || family.includes('Consolas') || family.includes('monospace')) return 'mono';
+        return 'sans';
+      })();
+      
+      // Get color from textarea inline style (rgb or hex)
+      const color = textarea?.style.color || '#ffffff';
+      
+      return { fontSize, fontFamily, color };
+    });
+  }
 }

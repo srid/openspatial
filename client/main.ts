@@ -62,7 +62,7 @@ const textNote = new TextNoteManager(
   (noteId, x, y) => crdt?.updateTextNotePosition(noteId, x, y),
   (noteId, width, height) => crdt?.updateTextNoteSize(noteId, width, height),
   (noteId, content) => crdt?.updateTextNoteContent(noteId, content),
-  (noteId, fontSize, color) => crdt?.updateTextNoteStyle(noteId, fontSize, color),
+  (noteId, fontSize, fontFamily, color) => crdt?.updateTextNoteStyle(noteId, fontSize, fontFamily, color),
   (noteId) => removeTextNote(noteId)
 );
 const spatialAudio = new SpatialAudio();
