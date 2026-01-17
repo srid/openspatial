@@ -4,7 +4,8 @@ import type { ScreenShareManager } from './screenshare.js';
 import type { SpatialAudio } from './spatial-audio.js';
 import type { PeerData, Position, SignalEvent } from '../../shared/types/events.js';
 
-const ICE_SERVERS = [
+// Fallback ICE servers if dynamic fetch fails
+const FALLBACK_ICE_SERVERS: RTCIceServer[] = [
   { urls: 'stun:stun.l.google.com:19302' },
   { urls: 'stun:stun1.l.google.com:19302' },
 ];
@@ -33,6 +34,7 @@ export class WebRTCManager {
   private webcamStreams = new Map<string, string>();
   private screenShareStreams = new Map<string, string>();
   private makingOffer = new Map<string, boolean>();
+  private iceServers: RTCIceServer[] = FALLBACK_ICE_SERVERS;
   
   private avatars: AvatarManager | null = null;
   private screenShare: ScreenShareManager | null = null;
@@ -41,6 +43,23 @@ export class WebRTCManager {
   constructor(socket: SocketHandler, state: AppState) {
     this.socket = socket;
     this.state = state;
+    this.fetchIceServers();
+  }
+
+  /**
+   * Fetch ICE servers from the server API.
+   * Includes TURN credentials when configured.
+   */
+  private async fetchIceServers(): Promise<void> {
+    try {
+      const response = await fetch('/api/ice-servers');
+      if (response.ok) {
+        this.iceServers = await response.json();
+        console.log('ICE servers loaded:', this.iceServers.length, 'servers');
+      }
+    } catch (error) {
+      console.warn('Failed to fetch ICE servers, using fallback:', error);
+    }
   }
 
   setManagers(avatars: AvatarManager, screenShare: ScreenShareManager, spatialAudio: SpatialAudio): void {
@@ -58,7 +77,7 @@ export class WebRTCManager {
       return existingPc;
     }
 
-    const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
+    const pc = new RTCPeerConnection({ iceServers: this.iceServers });
     this.peerConnections.set(peerId, pc);
 
     if (this.state.localStream) {
