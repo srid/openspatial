@@ -12,7 +12,7 @@ test('remembers username after joining and reloading', async ({ browser }) => {
   });
   const page = await context.newPage();
   
-  // Go to the tmp space (auto-created on server start)
+  // Go to the demo space (auto-created on server start)
   await page.goto('/s/demo');
   
   // Initially username should be empty
@@ -51,7 +51,7 @@ test('space URL remains after leaving', async ({ browser }) => {
   });
   const page = await context.newPage();
   
-  // Navigate to tmp space (must be predefined)
+  // Navigate to demo space (must be predefined)
   await page.goto('/s/demo');
   
   // Join the space
@@ -79,11 +79,11 @@ test('document title includes space name on space URL', async ({ browser }) => {
   });
   const page = await context.newPage();
   
-  // Navigate to tmp space (predefined)
+  // Navigate to demo space (predefined)
   await page.goto('/s/demo');
   
   // Title should include space name
-  await expect(page).toHaveTitle('tmp - OpenSpatial');
+  await expect(page).toHaveTitle('demo - OpenSpatial');
   
   await context.close();
 });

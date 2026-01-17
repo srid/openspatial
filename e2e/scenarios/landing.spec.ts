@@ -35,7 +35,7 @@ test('submitting empty form navigates to /s/demo', async ({ browser }) => {
   await page.click('button:has-text("Enter Space")');
   
   // Should be at /s/demo with join modal visible
-  await expect(page).toHaveURL(/\/s\/tmp/);
+  await expect(page).toHaveURL(/\/s\/demo/);
   await expect(page.locator('#join-modal')).toBeVisible();
   
   await context.close();
@@ -74,7 +74,7 @@ test('/s/:spaceId shows join modal with space name in title', async ({ browser }
   await expect(page.locator('#join-modal')).toBeVisible();
   
   // Title should include space name
-  await expect(page).toHaveTitle('tmp - OpenSpatial');
+  await expect(page).toHaveTitle('demo - OpenSpatial');
   
   await context.close();
 });
