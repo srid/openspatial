@@ -174,10 +174,20 @@ export class TextNoteManager {
     element.style.resize = 'both';
     element.style.overflow = 'hidden';
 
-    // Observe resize
+    // Observe resize - use borderBoxSize to get full element dimensions (including padding/border)
     const resizeObserver = new ResizeObserver((entries) => {
       for (const entry of entries) {
-        const { width, height } = entry.contentRect;
+        // Use borderBoxSize if available (preferred), fallback to getBoundingClientRect
+        let width: number, height: number;
+        if (entry.borderBoxSize && entry.borderBoxSize.length > 0) {
+          width = entry.borderBoxSize[0].inlineSize;
+          height = entry.borderBoxSize[0].blockSize;
+        } else {
+          // Fallback for older browsers
+          const rect = element.getBoundingClientRect();
+          width = rect.width;
+          height = rect.height;
+        }
         this.onSizeUpdate?.(noteId, Math.round(width), Math.round(height));
       }
     });

@@ -158,16 +158,23 @@ scenario('text note size syncs to other users', 'note-resize-sync', async ({ cre
 
   // Get initial size
   const beforeResize = await bob.textNoteOf('any').rect();
-  const newWidth = beforeResize.size.width + 100;
-  const newHeight = beforeResize.size.height + 50;
+  const targetWidth = beforeResize.size.width + 100;
+  const targetHeight = beforeResize.size.height + 50;
 
   // Alice resizes the note
-  await alice.resizeTextNote({ width: newWidth, height: newHeight });
+  await alice.resizeTextNote({ width: targetWidth, height: targetHeight });
 
-  // Wait for sync and check size changed
-  await expect.poll(async () => {
-    const afterResize = await bob.textNoteOf('any').rect();
-    return afterResize.size.width !== beforeResize.size.width || 
-           afterResize.size.height !== beforeResize.size.height;
-  }, { timeout: 5000 }).toBe(true);
+  // Wait for sync
+  await alice.wait(2000);
+
+  // Verify size changed AND stayed changed (catches shrinking bug)
+  const afterResize = await bob.textNoteOf('any').rect();
+  expect(afterResize.size.width).toBeGreaterThan(beforeResize.size.width + 50);
+  expect(afterResize.size.height).toBeGreaterThan(beforeResize.size.height + 25);
+  
+  // Wait a bit more to ensure it doesn't shrink back
+  await alice.wait(1000);
+  const finalSize = await bob.textNoteOf('any').rect();
+  expect(finalSize.size.width).toBeCloseTo(afterResize.size.width, -1); // Within 10px
+  expect(finalSize.size.height).toBeCloseTo(afterResize.size.height, -1);
 });
