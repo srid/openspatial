@@ -56,8 +56,8 @@ function handleCreate(id: string | undefined): void {
   }
   
   if (getSpace(id)) {
-    console.error(`Error: Space "${id}" already exists`);
-    process.exit(1);
+    console.log(`Space "${id}" already exists`);
+    process.exit(0);
   }
   
   createSpace(id);

@@ -32,6 +32,13 @@ in
       description = "Directory for SQLite database and persistent data";
     };
 
+    spaces = lib.mkOption {
+      type = lib.types.listOf lib.types.str;
+      default = [];
+      example = [ "demo" "team" "friends" ];
+      description = "List of space IDs to ensure exist on startup";
+    };
+
     turn = {
       enable = lib.mkEnableOption "bundled coturn TURN server for NAT traversal";
 
@@ -91,6 +98,14 @@ in
           DynamicUser = true;
           StateDirectory = "openspatial";
           StateDirectoryMode = "0750";
+          # Create configured spaces before starting
+          ExecStartPre = lib.mkIf (cfg.spaces != []) (lib.getExe (pkgs.writeShellApplication {
+            name = "openspatial-init-spaces";
+            text = ''
+              export DATA_DIR="${cfg.dataDir}"
+              ${lib.concatMapStringsSep "\n" (space: "${openspatial}/bin/openspatial-cli create ${space}") cfg.spaces}
+            '';
+          }));
         } // (if cfg.turn.enable then {
           # Wrapper script that loads TURN_SECRET from file before starting
           ExecStart = lib.getExe (pkgs.writeShellApplication {
