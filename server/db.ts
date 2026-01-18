@@ -158,15 +158,16 @@ export async function deleteTextNote(id: string): Promise<void> {
     .execute();
 }
 
-// === Initialization ===
-
-export async function clearDemoSpace(): Promise<void> {
+/**
+ * Clear all text notes from all spaces (dev mode only).
+ * This ensures clean E2E test runs since notes now persist correctly.
+ */
+export async function clearAllTextNotes(): Promise<void> {
   const result = await db
     .deleteFrom('text_elements')
-    .where('spaceId', '=', 'demo')
     .executeTakeFirst();
   if (result.numDeletedRows > 0n) {
-    console.log(`[DB] Cleared ${result.numDeletedRows} text notes from "demo" space`);
+    console.log(`[DB] Cleared ${result.numDeletedRows} text notes from all spaces`);
   }
 }
 
@@ -175,7 +176,9 @@ export async function ensureDemoSpace(): Promise<void> {
   if (!demoSpace) {
     await createSpace('demo');
     console.log('[DB] Created default "demo" space');
-  } else if (process.env.AUTO_CREATE_SPACES === 'true') {
-    await clearDemoSpace();
+  }
+  // In dev mode (AUTO_CREATE_SPACES=true), clear all notes for clean E2E tests
+  if (process.env.AUTO_CREATE_SPACES === 'true') {
+    await clearAllTextNotes();
   }
 }

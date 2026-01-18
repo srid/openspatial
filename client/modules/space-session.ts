@@ -360,6 +360,7 @@ export class SpaceSession {
     avatars.clear();
     screenShare.clear();
     textNote.clear();
+    this.existingNoteIds.clear();
 
     state.peers.clear();
     state.localStream = null;

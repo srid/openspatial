@@ -9,15 +9,21 @@ import type { Server as HttpsServer } from 'https';
 import { WebSocket, WebSocketServer } from 'ws';
 import * as Y from 'yjs';
 // @ts-expect-error - y-websocket utils has no types
-import { setupWSConnection, docs } from 'y-websocket/bin/utils';
+import { setupWSConnection, docs, getYDoc } from 'y-websocket/bin/utils';
 import { getTextNotes, upsertTextNote, deleteTextNote, getSpace, createSpace } from './db.js';
 import type { TextNoteState } from '../shared/yjs-schema.js';
 
 // Environment config
 const AUTO_CREATE_SPACES = process.env.AUTO_CREATE_SPACES === 'true';
 
-// Track which spaces have been hydrated to avoid duplicate hydration
-const hydratedSpaces = new Set<string>();
+// Track which doc instances have been hydrated (WeakSet auto-removes destroyed docs)
+const hydratedDocs = new WeakSet<Y.Doc>();
+
+// Track which doc instances have observers set up
+const observedDocs = new WeakSet<Y.Doc>();
+
+// Track connection count per space to know when to destroy docs
+const connectionCounts = new Map<string, number>();
 
 // Track pending writes per space (debounced)
 const pendingWrites = new Map<string, Map<string, { action: 'upsert' | 'delete'; value?: TextNoteState }>>();
@@ -26,10 +32,24 @@ const writeTimeouts = new Map<string, NodeJS.Timeout>();
 const DEBOUNCE_MS = 2000;
 
 /**
+ * Destroy and remove a Y.Doc from cache when all connections close.
+ * This forces fresh hydration from SQLite on next connection.
+ */
+function destroyDoc(spaceId: string): void {
+  const doc = docs.get(spaceId) as Y.Doc | undefined;
+  if (doc) {
+    doc.destroy();
+    docs.delete(spaceId);
+    console.log(`[Yjs] Destroyed doc for space ${spaceId}, will re-hydrate on next connection`);
+  }
+}
+
+/**
  * Hydrate a Y.Doc with text notes from SQLite
  */
 async function hydrateFromSQLite(doc: Y.Doc, spaceId: string): Promise<void> {
-  if (hydratedSpaces.has(spaceId)) return;
+  // Check THIS specific doc instance (WeakSet auto-handles destroyed docs)
+  if (hydratedDocs.has(doc)) return;
   
   // Only hydrate if this is a valid space
   const space = await getSpace(spaceId);
@@ -41,7 +61,7 @@ async function hydrateFromSQLite(doc: Y.Doc, spaceId: string): Promise<void> {
   const rows = await getTextNotes(spaceId);
   if (rows.length === 0) {
     console.log(`[Yjs] No text notes to hydrate for space ${spaceId}`);
-    hydratedSpaces.add(spaceId);
+    hydratedDocs.add(doc);
     return;
   }
   
@@ -55,7 +75,7 @@ async function hydrateFromSQLite(doc: Y.Doc, spaceId: string): Promise<void> {
     }
   });
   
-  hydratedSpaces.add(spaceId);
+  hydratedDocs.add(doc);
   console.log(`[Yjs] Hydrated ${rows.length} text notes for space ${spaceId}`);
 }
 
@@ -174,20 +194,50 @@ export function attachYjsServer(server: HttpServer | HttpsServer): void {
     
     console.log(`[Yjs] Client connected to space: ${spaceId}`);
     
-    // Set up connection first (creates doc if needed)
-    setupWSConnection(ws, req, { docName: spaceId });
+    // Track connection count for this space
+    const currentCount = connectionCounts.get(spaceId) || 0;
+    connectionCounts.set(spaceId, currentCount + 1);
     
-    // Get the doc (should exist now)
-    const doc = docs.get(spaceId) as Y.Doc | undefined;
-    if (doc) {
-      // Hydrate from SQLite on first connection
-      await hydrateFromSQLite(doc, spaceId);
+    // Handle disconnect: flush to SQLite and destroy doc if this was the last connection
+    ws.on('close', async () => {
+      console.log(`[Yjs] Client disconnected from space: ${spaceId}`);
       
-      // Set up persistence observer (only once per doc)
-      if (!pendingWrites.has(spaceId)) {
-        await observeAndPersist(doc, spaceId);
+      // Cancel any pending debounce timeout
+      const timeout = writeTimeouts.get(spaceId);
+      if (timeout) {
+        clearTimeout(timeout);
+        writeTimeouts.delete(spaceId);
       }
+      
+      // Flush any pending writes to SQLite
+      await flushToSQLite(spaceId);
+      
+      // Decrement connection count
+      const count = connectionCounts.get(spaceId) || 1;
+      if (count <= 1) {
+        // Last connection closed - destroy doc so next connection gets fresh hydration
+        connectionCounts.delete(spaceId);
+        destroyDoc(spaceId);
+      } else {
+        connectionCounts.set(spaceId, count - 1);
+      }
+    });
+    
+    // CRITICAL: Get or create the doc FIRST, hydrate it, THEN connect client
+    // This ensures client receives the hydrated state in the initial sync
+    const doc = getYDoc(spaceId) as Y.Doc;
+    
+    // Hydrate from SQLite BEFORE connecting client to the doc
+    await hydrateFromSQLite(doc, spaceId);
+    
+    // Set up persistence observer (only once per doc instance)
+    if (!observedDocs.has(doc)) {
+      observedDocs.add(doc);
+      await observeAndPersist(doc, spaceId);
     }
+    
+    // NOW connect the client - they will receive the already-hydrated state
+    setupWSConnection(ws, req, { docName: spaceId });
   });
 
   console.log('[Yjs] WebSocket server attached at /yjs (with SQLite persistence)');
