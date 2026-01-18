@@ -2,13 +2,8 @@ import { io, Socket } from 'socket.io-client';
 import type {
   JoinSpaceEvent,
   SignalEvent,
-  PositionUpdateEvent,
-  MediaStateUpdateEvent,
-  StatusUpdateEvent,
   ScreenShareStartedEvent,
   ScreenShareStoppedEvent,
-  ScreenSharePositionUpdateEvent,
-  ScreenShareResizeUpdateEvent,
   GetSpaceInfoEvent,
   SpaceInfoEvent,
   ConnectedEvent,
@@ -19,21 +14,20 @@ import type {
   ScreenShareStoppedBroadcast,
 } from '../../shared/types/events.js';
 
-// Union type of all possible client events
+// NOTE: PositionUpdateEvent, MediaStateUpdateEvent, StatusUpdateEvent,
+// ScreenSharePositionUpdateEvent, ScreenShareResizeUpdateEvent have been
+// removed. These state updates are now handled by Yjs CRDT, not Socket.io.
+
+/** Events that the client can emit to the server. */
 type ClientEventMap = {
   'join-space': JoinSpaceEvent;
   'signal': SignalEvent;
-  'position-update': PositionUpdateEvent;
-  'media-state-update': MediaStateUpdateEvent;
-  'status-update': StatusUpdateEvent;
   'screen-share-started': ScreenShareStartedEvent;
   'screen-share-stopped': ScreenShareStoppedEvent;
-  'screen-share-position-update': ScreenSharePositionUpdateEvent;
-  'screen-share-resize-update': ScreenShareResizeUpdateEvent;
   'get-space-info': GetSpaceInfoEvent;
 };
 
-// Union type of all possible server events
+/** Events that the server can emit to the client. */
 type ServerEventMap = {
   'connected': ConnectedEvent;
   'space-state': SpaceStateEvent;
@@ -41,28 +35,36 @@ type ServerEventMap = {
   'peer-joined': PeerJoinedEvent;
   'peer-left': PeerLeftEvent;
   'signal': SignalEvent;
-  'position-update': PositionUpdateEvent;
-  'media-state-update': MediaStateUpdateEvent;
-  'status-update': StatusUpdateEvent;
   'screen-share-started': ScreenShareStartedBroadcast;
   'screen-share-stopped': ScreenShareStoppedBroadcast;
-  'screen-share-position-update': ScreenSharePositionUpdateEvent;
-  'screen-share-resize-update': ScreenShareResizeUpdateEvent;
 };
 
 type EventHandler<T> = (data: T) => void;
 type AnyHandler = EventHandler<unknown>;
 
-// Connection state for UI feedback
+/** Connection state for UI feedback. */
 export type ConnectionState = 'connecting' | 'connected' | 'disconnected' | 'reconnecting';
 
+/** Information about reconnection attempts. */
 export interface ReconnectInfo {
   attempt: number;
   maxAttempts: number;
 }
 
+/** Callback for connection state changes. */
 export type ConnectionStateCallback = (state: ConnectionState, info?: ReconnectInfo) => void;
 
+/**
+ * SocketHandler manages the Socket.io connection to the signaling server.
+ * 
+ * Handles:
+ * - Connection lifecycle (connect, disconnect, reconnection)
+ * - WebRTC signaling relay
+ * - Space join/leave events
+ * - Screen share start/stop notifications
+ * 
+ * Note: Position, media state, and status updates are handled by CRDT, not Socket.io.
+ */
 export class SocketHandler {
   private socket: Socket | null = null;
   private handlers = new Map<string, AnyHandler[]>();
@@ -138,13 +140,10 @@ export class SocketHandler {
       this.socket.on('peer-joined', (data: PeerJoinedEvent) => this.trigger('peer-joined', data));
       this.socket.on('peer-left', (data: PeerLeftEvent) => this.trigger('peer-left', data));
       this.socket.on('signal', (data: SignalEvent) => this.trigger('signal', data));
-      this.socket.on('position-update', (data: PositionUpdateEvent) => this.trigger('position-update', data));
-      this.socket.on('media-state-update', (data: MediaStateUpdateEvent) => this.trigger('media-state-update', data));
-      this.socket.on('status-update', (data: StatusUpdateEvent) => this.trigger('status-update', data));
+      // NOTE: position-update, media-state-update, status-update, screen-share-position-update,
+      // screen-share-resize-update have been removed. These are now handled by Yjs CRDT observers.
       this.socket.on('screen-share-started', (data: ScreenShareStartedBroadcast) => this.trigger('screen-share-started', data));
       this.socket.on('screen-share-stopped', (data: ScreenShareStoppedBroadcast) => this.trigger('screen-share-stopped', data));
-      this.socket.on('screen-share-position-update', (data: ScreenSharePositionUpdateEvent) => this.trigger('screen-share-position-update', data));
-      this.socket.on('screen-share-resize-update', (data: ScreenShareResizeUpdateEvent) => this.trigger('screen-share-resize-update', data));
       this.socket.on('space-info', (data: SpaceInfoEvent) => this.trigger('space-info', data));
     });
   }

@@ -1,6 +1,10 @@
+/**
+ * OpenSpatial Client Entry Point
+ * Minimal orchestration layer that wires modules together.
+ */
 import './index.css';
-// CSS is now loaded - show the page
 document.body.classList.add('loaded');
+
 import { SocketHandler, ConnectionState, ReconnectInfo } from './modules/socket.js';
 import { WebRTCManager } from './modules/webrtc.js';
 import { CanvasManager } from './modules/canvas.js';
@@ -11,35 +15,20 @@ import { SpatialAudio } from './modules/spatial-audio.js';
 import { UIController } from './modules/ui.js';
 import { MinimapManager } from './modules/minimap.js';
 import { CRDTManager } from './modules/crdt.js';
-import type {
-  ConnectedEvent,
-  SpaceStateEvent,
-  SpaceInfoEvent,
-  PeerJoinedEvent,
-  PeerLeftEvent,
-  SignalEvent,
-  ScreenShareStartedBroadcast,
-  ScreenShareStoppedBroadcast,
-  PeerData,
-  ScreenShareData,
-} from '../shared/types/events.js';
+import { MediaControls } from './modules/media-controls.js';
+import { SpaceSession } from './modules/space-session.js';
+import type { SpaceInfoEvent } from '../shared/types/events.js';
+import type { AppState, PendingShareInfo } from '../shared/types/state.js';
+import type { PeerData } from '../shared/types/events.js';
 
-// Pending share info for late-joining peers
-interface PendingShareInfo {
-  shareId: string;
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}
+// ==================== Application State ====================
 
-// Application state
-const state = {
+const state: AppState = {
   username: '',
   spaceId: '',
-  peerId: null as string | null,
+  peerId: null,
   peers: new Map<string, PeerData>(),
-  localStream: null as MediaStream | null,
+  localStream: null,
   screenStreams: new Map<string, MediaStream>(),
   pendingShareIds: new Map<string, (string | PendingShareInfo)[]>(),
   isMuted: false,
@@ -47,31 +36,52 @@ const state = {
   status: '',
 };
 
-// Initialize modules
+// ==================== Module Instances ====================
+
+let crdt: CRDTManager | null = null;
+let webrtc: WebRTCManager | null = null;
+
 const socket = new SocketHandler();
 const canvas = new CanvasManager();
 const avatars = new AvatarManager(state);
+const spatialAudio = new SpatialAudio();
+spatialAudio.setAvatarManager(avatars);
+const ui = new UIController(state);
+
+// Create managers with CRDT/WebRTC accessors
+const mediaControls = new MediaControls({
+  state,
+  socket,
+  avatars,
+  screenShare: null as unknown as ScreenShareManager, // Will be set after init
+  textNote: null as unknown as TextNoteManager,
+  ui,
+  getCRDT: () => crdt,
+  getWebRTC: () => webrtc,
+});
+
 const screenShare = new ScreenShareManager(
   state,
   (shareId, x, y) => crdt?.updateScreenSharePosition(shareId, x, y),
   (shareId, width, height) => crdt?.updateScreenShareSize(shareId, width, height),
-  (shareId) => stopScreenShare(shareId)
+  (shareId) => mediaControls.stopScreenShare(shareId)
 );
+
 const textNote = new TextNoteManager(
   state,
   (noteId, x, y) => crdt?.updateTextNotePosition(noteId, x, y),
   (noteId, width, height) => crdt?.updateTextNoteSize(noteId, width, height),
   (noteId, content) => crdt?.updateTextNoteContent(noteId, content),
   (noteId, fontSize, fontFamily, color) => crdt?.updateTextNoteStyle(noteId, fontSize, fontFamily, color),
-  (noteId) => removeTextNote(noteId)
+  (noteId) => mediaControls.removeTextNote(noteId)
 );
-const spatialAudio = new SpatialAudio();
-spatialAudio.setAvatarManager(avatars);
-const ui = new UIController(state);
-let webrtc: WebRTCManager | null = null;
-let crdt: CRDTManager | null = null;
 
-// DOM elements
+// Update mediaControls with actual instances
+(mediaControls as unknown as { deps: { screenShare: ScreenShareManager; textNote: TextNoteManager } }).deps.screenShare = screenShare;
+(mediaControls as unknown as { deps: { screenShare: ScreenShareManager; textNote: TextNoteManager } }).deps.textNote = textNote;
+
+// ==================== DOM Elements ====================
+
 const landingPage = document.getElementById('landing-page') as HTMLElement;
 const joinModal = document.getElementById('join-modal') as HTMLElement;
 const joinForm = document.getElementById('join-form') as HTMLFormElement;
@@ -82,61 +92,54 @@ const spaceNameLabel = document.getElementById('space-name-label') as HTMLElemen
 const spaceParticipants = document.getElementById('space-participants') as HTMLElement;
 const joinError = document.getElementById('join-error') as HTMLElement;
 
-// Preview socket for pre-join space info
+// ==================== Space Session ====================
+
+const spaceSession = new SpaceSession(
+  {
+    state,
+    socket,
+    canvas,
+    avatars,
+    screenShare,
+    textNote,
+    spatialAudio,
+    ui,
+    mediaControls,
+    getCRDT: () => crdt,
+    setCRDT: (c) => { crdt = c; },
+    getWebRTC: () => webrtc,
+    setWebRTC: (w) => { webrtc = w; },
+    createWebRTC: () => {
+      const w = new WebRTCManager(socket, state);
+      w.setManagers(avatars, screenShare, spatialAudio);
+      return w;
+    },
+    createCRDT: (spaceId) => new CRDTManager(spaceId),
+  },
+  {
+    joinModal,
+    canvasContainer,
+    joinForm,
+    usernameInput,
+    spaceIdInput,
+    joinError,
+  }
+);
+
+// ==================== Preview Socket ====================
+
 let previewSocket: SocketHandler | null = null;
-
-// localStorage key for remembering username
 const STORAGE_KEY_USERNAME = 'openspatial-username';
-
-// Initialize
-function init(): void {
-  setupEventListeners();
-  canvas.init();
-
-  const minimap = new MinimapManager(canvas, 4000, 4000);
-  minimap.init();
-
-  // Restore saved username from localStorage
-  const savedUsername = localStorage.getItem(STORAGE_KEY_USERNAME);
-  if (savedUsername) {
-    usernameInput.value = savedUsername;
-  }
-
-  // Route based on URL: / = landing page, /s/:spaceId = join modal
-  const pathMatch = window.location.pathname.match(/^\/s\/(.+)$/);
-  if (pathMatch) {
-    // Space page - show join modal
-    const spaceId = decodeURIComponent(pathMatch[1]);
-    spaceIdInput.value = spaceId;
-    document.title = `${spaceId} - OpenSpatial`;
-    
-    // Display space name
-    spaceNameLabel.textContent = spaceId;
-    
-    landingPage.classList.add('hidden');
-    joinModal.classList.remove('hidden');
-    usernameInput.focus();
-    
-    // Query space info for participant count
-    querySpaceInfo(spaceId);
-  } else {
-    // Landing page - already visible by default
-    landingPage.classList.remove('hidden');
-    joinModal.classList.add('hidden');
-  }
-}
 
 async function querySpaceInfo(spaceId: string): Promise<void> {
   previewSocket = new SocketHandler();
-  
+
   previewSocket.on('space-info', (data: SpaceInfoEvent) => {
     if (!data.exists) {
-      // Space doesn't exist in production - show error
       showSpaceNotFoundError(spaceId);
     } else {
       displaySpaceParticipants(data.participants);
     }
-    // Disconnect preview socket after getting info
     previewSocket?.disconnect();
     previewSocket = null;
   });
@@ -151,11 +154,17 @@ async function querySpaceInfo(spaceId: string): Promise<void> {
 }
 
 function showSpaceNotFoundError(spaceId: string): void {
-  // Hide join form elements, show error
   spaceParticipants.innerHTML = '';
-  showJoinError(`Space "${spaceId}" doesn't exist. An admin needs to create it first.`);
-  
-  // Disable join button
+  joinError.innerHTML = `
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <circle cx="12" cy="12" r="10"></circle>
+      <line x1="12" y1="8" x2="12" y2="12"></line>
+      <line x1="12" y1="16" x2="12.01" y2="16"></line>
+    </svg>
+    <span>Space "${spaceId}" doesn't exist. An admin needs to create it first.</span>
+  `;
+  joinError.classList.remove('hidden');
+
   const submitButton = joinForm.querySelector('button[type="submit"]') as HTMLButtonElement;
   if (submitButton) {
     submitButton.disabled = true;
@@ -166,9 +175,7 @@ function displaySpaceParticipants(participants: string[]): void {
   if (participants.length === 0) {
     spaceParticipants.innerHTML = '<span>No one here yet — be the first!</span>';
   } else {
-    const names = participants.map(name => 
-      `<span class="participant-name">${name}</span>`
-    ).join('');
+    const names = participants.map((name) => `<span class="participant-name">${name}</span>`).join('');
     const label = participants.length === 1 ? 'Here now:' : `${participants.length} people here:`;
     spaceParticipants.innerHTML = `
       <span>${label}</span>
@@ -177,70 +184,10 @@ function displaySpaceParticipants(participants: string[]): void {
   }
 }
 
-function showJoinError(message: string): void {
-  joinError.innerHTML = `
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-      <circle cx="12" cy="12" r="10"></circle>
-      <line x1="12" y1="8" x2="12" y2="12"></line>
-      <line x1="12" y1="16" x2="12.01" y2="16"></line>
-    </svg>
-    <span>${message}</span>
-  `;
-  joinError.classList.remove('hidden');
-}
+// ==================== Connection State ====================
 
-function hideJoinError(): void {
-  joinError.classList.add('hidden');
-}
-
-function setupEventListeners(): void {
-  joinForm.addEventListener('submit', handleJoin);
-  
-  // Landing page space form
-  const landingSpaceForm = document.getElementById('landing-space-form');
-  if (landingSpaceForm) {
-    landingSpaceForm.addEventListener('submit', (e) => {
-      e.preventDefault();
-      const input = document.getElementById('landing-space-input') as HTMLInputElement;
-      const spaceName = input.value.trim() || 'demo'; // Default to 'demo' if empty
-      window.location.href = `/s/${encodeURIComponent(spaceName)}`;
-    });
-  }
-
-  document.getElementById('btn-mic')!.addEventListener('click', toggleMic);
-  document.getElementById('btn-camera')!.addEventListener('click', toggleCamera);
-  document.getElementById('btn-screen')!.addEventListener('click', startScreenShare);
-  document.getElementById('btn-note')!.addEventListener('click', createTextNote);
-  document.getElementById('btn-leave')!.addEventListener('click', leaveSpace);
-
-  socket.on('connected', handleConnected);
-  socket.on('peer-joined', handlePeerJoined);
-  socket.on('peer-left', handlePeerLeft);
-  socket.on('signal', handleSignal);
-  // Note: position-update, media-state-update, status-update now handled by CRDT observers
-  socket.on('screen-share-started', handleScreenShareStarted);
-  socket.on('screen-share-stopped', handleScreenShareStopped);
-  // Note: screen-share-position-update, screen-share-resize-update now handled by CRDT observers
-  socket.on('space-state', handleSpaceState);
-  socket.on('reconnected', handleReconnected);
-
-  // Set up connection state handler for UI feedback
-  socket.onConnectionStateChange(handleConnectionStateChange);
-
-  // Browser offline/online detection for immediate feedback
-  window.addEventListener('offline', () => {
-    console.log('Browser went offline');
-    ui.showDisconnected();
-  });
-
-  window.addEventListener('online', () => {
-    console.log('Browser came back online');
-    ui.showConnected();
-  });
-}
-
-function handleConnectionStateChange(state: ConnectionState, info?: ReconnectInfo): void {
-  switch (state) {
+function handleConnectionStateChange(connectionState: ConnectionState, info?: ReconnectInfo): void {
+  switch (connectionState) {
     case 'disconnected':
       ui.showDisconnected();
       break;
@@ -255,484 +202,79 @@ function handleConnectionStateChange(state: ConnectionState, info?: ReconnectInf
   }
 }
 
-function handleReconnected(): void {
-  console.log('Reconnected - rejoining space');
-  ui.showConnected();
+// ==================== Event Listeners ====================
 
-  // Re-emit join-space to rejoin the room after reconnection
-  if (state.spaceId && state.username) {
-    socket.emit('join-space', {
-      spaceId: state.spaceId,
-      username: state.username,
-    });
-  }
-}
+function setupEventListeners(): void {
+  joinForm.addEventListener('submit', (e) => spaceSession.handleJoin(e));
 
-async function handleJoin(e: Event): Promise<void> {
-  e.preventDefault();
-  hideJoinError();
-
-  state.username = usernameInput.value.trim();
-  state.spaceId = spaceIdInput.value.trim();
-
-  if (!state.username || !state.spaceId) return;
-
-  // Save username to localStorage for next time
-  localStorage.setItem(STORAGE_KEY_USERNAME, state.username);
-
-  try {
-    const constraints: MediaStreamConstraints = {
-      video: {
-        facingMode: 'user',
-        width: { ideal: 640 },
-        height: { ideal: 480 },
-      },
-      audio: true,
-    };
-
-    try {
-      state.localStream = await navigator.mediaDevices.getUserMedia(constraints);
-    } catch (mediaError) {
-      const err = mediaError as DOMException;
-      console.error('getUserMedia error:', err.name, err.message);
-
-      if (err.name === 'NotAllowedError') {
-        showJoinError('Camera/microphone access was denied. Please grant permission and try again.');
-      } else if (err.name === 'NotFoundError') {
-        showJoinError('No camera or microphone found on this device.');
-      } else if (err.name === 'NotReadableError') {
-        showJoinError('Camera/microphone is already in use by another application.');
-      } else if (err.name === 'OverconstrainedError') {
-        console.log('Retrying with basic constraints...');
-        state.localStream = await navigator.mediaDevices.getUserMedia({
-          video: true,
-          audio: true,
-        });
-      } else {
-        showJoinError(`Camera/microphone error: ${err.name}`);
-      }
-
-      if (!state.localStream) return;
-    }
-
-    webrtc = new WebRTCManager(socket, state);
-    webrtc.setManagers(avatars, screenShare, spatialAudio);
-
-    await socket.connect();
-
-    socket.emit('join-space', {
-      spaceId: state.spaceId,
-      username: state.username,
-    });
-  } catch (error) {
-    const err = error as Error;
-    console.error('Failed to join:', err);
-    showJoinError(`Failed to connect: ${err.message}`);
-  }
-}
-
-function handleConnected(data: ConnectedEvent): void {
-  const previousPeerId = state.peerId;
-  const isReconnection = previousPeerId !== null;
-  
-  state.peerId = data.peerId;
-
-  if (isReconnection) {
-    // Reconnection: Clean up stale state
-    console.log(`Reconnected with new peerId: ${data.peerId} (was: ${previousPeerId})`);
-    
-    // Update local avatar's peerId reference
-    avatars.updateLocalPeerId(previousPeerId, data.peerId);
-    
-    // Clear stale remote peers (they may have left while we were disconnected)
-    state.peers.clear();
-    
-    // Close old peer connections - they're invalid now
-    webrtc?.closeAllConnections();
-    
-    // Reconnect CRDT
-    crdt?.destroy();
-    crdt = new CRDTManager(state.spaceId);
-    setupCRDTObservers();
-    
-    updateParticipantCount();
-    return;
-  }
-
-  // First-time join: Show UI and create local avatar
-  joinModal.classList.add('hidden');
-  canvasContainer.classList.remove('hidden');
-
-  const spaceNameEl = document.getElementById('space-name') as HTMLElement;
-  spaceNameEl.textContent = state.spaceId;
-  history.replaceState(null, '', `/s/${encodeURIComponent(state.spaceId)}`);
-  document.title = `${state.spaceId} - OpenSpatial`;
-
-  spaceNameEl.style.cursor = 'pointer';
-  spaceNameEl.title = 'Click to copy invite link';
-  spaceNameEl.addEventListener('click', () => {
-    const permalink = `${window.location.origin}/s/${encodeURIComponent(state.spaceId)}`;
-    navigator.clipboard.writeText(permalink).then(() => {
-      const original = spaceNameEl.textContent;
-      spaceNameEl.textContent = 'Link copied!';
-      setTimeout(() => (spaceNameEl.textContent = original), 1500);
-    });
-  });
-
-  const centerX = 2000;
-  const centerY = 2000;
-  avatars.createLocalAvatar(state.peerId, state.username, state.localStream!, centerX, centerY);
-
-  requestAnimationFrame(() => {
-    requestAnimationFrame(() => {
-      canvas.centerOn(centerX, centerY);
-    });
-  });
-
-  // Initialize CRDT and add local peer to the document
-  crdt = new CRDTManager(state.spaceId);
-  crdt.addPeer(state.peerId, state.username, centerX, centerY);
-  setupCRDTObservers();
-
-  avatars.onPositionChange((peerId, x, y) => {
-    crdt?.updatePosition(peerId, x, y);
-    spatialAudio.updatePositions(avatars.getPositions(), state.peerId!);
-  });
-
-  avatars.onStatusChange((newStatus) => {
-    state.status = newStatus;
-    avatars.updateStatus(state.peerId!, newStatus);
-    crdt?.updateStatus(state.peerId!, newStatus);
-  });
-
-  updateParticipantCount();
-}
-
-// Set up CRDT observers for remote state changes
-function setupCRDTObservers(): void {
-  if (!crdt) return;
-
-  // Observe peer state changes (position, media state, status)
-  // Uses CRDT-driven creation: if avatar doesn't exist, create it from CRDT data
-  crdt.observePeers((peers) => {
-    for (const [peerId, peerState] of peers) {
-      if (peerId === state.peerId) continue; // Skip local peer
-      
-      // CRDT-driven creation: if avatar doesn't exist, create it from CRDT data
-      // This handles the race condition where CRDT state arrives before Socket.io signaling
-      if (!avatars.hasAvatar(peerId)) {
-        console.log(`[CRDT] Creating avatar for ${peerId} from CRDT data`);
-        state.peers.set(peerId, { 
-          username: peerState.username, 
-          position: { x: peerState.x, y: peerState.y },
-          isMuted: peerState.isMuted,
-          isVideoOff: peerState.isVideoOff,
-          isScreenSharing: false
-        });
-        avatars.createRemoteAvatar(peerId, peerState.username, peerState.x, peerState.y);
-        updateParticipantCount();
-        
-        // Initiate WebRTC connection if we have a local stream
-        if (state.localStream && webrtc) {
-          webrtc.createPeerConnection(peerId, true);
-        }
-      }
-      
-      // Update position
-      avatars.updatePosition(peerId, peerState.x, peerState.y);
-      
-      // Update media state
-      avatars.updateMediaState(peerId, peerState.isMuted, peerState.isVideoOff);
-      
-      // Update status (always call to handle clearing status)
-      avatars.updateStatus(peerId, peerState.status);
-    }
-    spatialAudio.updatePositions(avatars.getPositions(), state.peerId!);
-  });
-
-  // Observe screen share state changes
-  crdt.observeScreenShares((shares) => {
-    for (const [shareId, shareState] of shares) {
-      if (shareState.peerId === state.peerId) continue; // Skip local shares
-      
-      // Update position and size
-      screenShare.setPosition(shareId, shareState.x, shareState.y);
-      screenShare.setSize(shareId, shareState.width, shareState.height);
-    }
-  });
-
-  // Observe text note state changes
-  // Track which note IDs we've created DOM elements for
-  const existingNoteIds = new Set<string>();
-  
-  crdt.observeTextNotes((notes) => {
-    // Track which notes exist in CRDT
-    const crdtNoteIds = new Set(notes.keys());
-    
-    // Remove notes that no longer exist in CRDT
-    for (const noteId of existingNoteIds) {
-      if (!crdtNoteIds.has(noteId)) {
-        textNote.removeTextNote(noteId);
-        existingNoteIds.delete(noteId);
-      }
-    }
-    
-    for (const [noteId, noteState] of notes) {
-      // Create if doesn't exist
-      if (!existingNoteIds.has(noteId)) {
-        textNote.createTextNote(
-          noteId,
-          noteState.content,
-          noteState.x,
-          noteState.y,
-          noteState.width,
-          noteState.height,
-          noteState.fontSize,
-          noteState.fontFamily,
-          noteState.color
-        );
-        existingNoteIds.add(noteId);
-      } else {
-        // Update existing note state
-        textNote.setPosition(noteId, noteState.x, noteState.y);
-        textNote.setSize(noteId, noteState.width, noteState.height);
-        textNote.setContent(noteId, noteState.content);
-        textNote.setFontSize(noteId, noteState.fontSize);
-        textNote.setFontFamily(noteId, noteState.fontFamily);
-        textNote.setColor(noteId, noteState.color);
-      }
-    }
-  });
-}
-
-function handleSpaceState(spaceState: SpaceStateEvent): void {
-  for (const [peerId, peerData] of Object.entries(spaceState.peers)) {
-    if (peerId === state.peerId) {
-      // Apply server-assigned position to local avatar and CRDT
-      avatars.setPosition(peerId, peerData.position.x, peerData.position.y);
-      canvas.centerOn(peerData.position.x, peerData.position.y);
-      // Update CRDT with server-assigned position so other peers see it correctly
-      crdt?.updatePosition(peerId, peerData.position.x, peerData.position.y);
-    } else {
-      state.peers.set(peerId, peerData);
-      avatars.createRemoteAvatar(peerId, peerData.username, peerData.position.x, peerData.position.y);
-
-      // Apply existing peer status if set
-      // NOTE: Status is also managed by CRDT, but we apply Socket.io state first
-      // since it arrives faster. CRDT observer will update with latest state.
-      if (peerData.status) {
-        avatars.updateStatus(peerId, peerData.status);
-      }
-
-      // NOTE: Media state (isMuted, isVideoOff) is now managed by CRDT observers.
-      // The server no longer tracks media state, so peerData values are defaults.
-
-      webrtc!.createPeerConnection(peerId, true);
-    }
-  }
-
-  // NOTE: Screen shares are managed by CRDT, not Socket.io
-  // Late-joiners will receive screen share state from CRDT observer
-
-  updateParticipantCount();
-}
-
-function handlePeerJoined(data: PeerJoinedEvent): void {
-  const { peerId, username, position } = data;
-
-  state.peers.set(peerId, { username, position, isMuted: false, isVideoOff: false, isScreenSharing: false });
-  avatars.createRemoteAvatar(peerId, username, position.x, position.y);
-
-  if (state.screenStreams.size > 0 && webrtc) {
-    webrtc.createPeerConnection(peerId, true);
-  }
-
-  updateParticipantCount();
-}
-
-function handlePeerLeft(data: PeerLeftEvent): void {
-  const { peerId } = data;
-
-  state.peers.delete(peerId);
-  avatars.removeAvatar(peerId);
-  screenShare.removeScreenSharesByPeerId(peerId);
-  spatialAudio.removePeer(peerId);
-  webrtc?.closePeerConnection(peerId);
-
-  updateParticipantCount();
-}
-
-function handleSignal(data: SignalEvent): void {
-  webrtc?.handleSignal(data);
-}
-
-// Legacy handlers removed - these are now handled by CRDT observers:
-// - handlePositionUpdate
-// - handleMediaStateUpdate  
-// - handleStatusUpdate
-// - handleScreenSharePositionUpdate
-// - handleScreenShareResizeUpdate
-
-// These handlers are still needed for WebRTC track signaling:
-function handleScreenShareStarted(data: ScreenShareStartedBroadcast): void {
-  const { peerId, shareId } = data;
-  if (!state.pendingShareIds.has(peerId)) {
-    state.pendingShareIds.set(peerId, []);
-  }
-  state.pendingShareIds.get(peerId)!.push(shareId);
-}
-
-function handleScreenShareStopped(data: ScreenShareStoppedBroadcast): void {
-  const { shareId } = data;
-  screenShare.removeScreenShare(shareId);
-  crdt?.removeScreenShare(shareId);
-}
-
-function toggleMic(): void {
-  state.isMuted = !state.isMuted;
-
-  if (state.localStream) {
-    state.localStream.getAudioTracks().forEach((track) => {
-      track.enabled = !state.isMuted;
+  const landingSpaceForm = document.getElementById('landing-space-form');
+  if (landingSpaceForm) {
+    landingSpaceForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const input = document.getElementById('landing-space-input') as HTMLInputElement;
+      const spaceName = input.value.trim() || 'demo';
+      window.location.href = `/s/${encodeURIComponent(spaceName)}`;
     });
   }
 
-  ui.updateMicButton(state.isMuted);
-  avatars.updateMediaState(state.peerId!, state.isMuted, state.isVideoOff);
+  document.getElementById('btn-mic')!.addEventListener('click', () => mediaControls.toggleMic());
+  document.getElementById('btn-camera')!.addEventListener('click', () => mediaControls.toggleCamera());
+  document.getElementById('btn-screen')!.addEventListener('click', () => mediaControls.startScreenShare());
+  document.getElementById('btn-note')!.addEventListener('click', () => mediaControls.createTextNote());
+  document.getElementById('btn-leave')!.addEventListener('click', () => spaceSession.leaveSpace());
 
-  crdt?.updateMediaState(state.peerId!, state.isMuted, state.isVideoOff);
-}
+  socket.on('connected', (data) => spaceSession.handleConnected(data));
+  socket.on('peer-joined', (data) => spaceSession.handlePeerJoined(data));
+  socket.on('peer-left', (data) => spaceSession.handlePeerLeft(data));
+  socket.on('signal', (data) => spaceSession.handleSignal(data));
+  socket.on('screen-share-started', (data) => spaceSession.handleScreenShareStarted(data));
+  socket.on('screen-share-stopped', (data) => spaceSession.handleScreenShareStopped(data));
+  socket.on('space-state', (data) => spaceSession.handleSpaceState(data));
+  socket.on('reconnected', () => spaceSession.handleReconnected());
 
-function toggleCamera(): void {
-  state.isVideoOff = !state.isVideoOff;
+  socket.onConnectionStateChange(handleConnectionStateChange);
 
-  if (state.localStream) {
-    state.localStream.getVideoTracks().forEach((track) => {
-      track.enabled = !state.isVideoOff;
-    });
-  }
-
-  ui.updateCameraButton(state.isVideoOff);
-  avatars.updateMediaState(state.peerId!, state.isMuted, state.isVideoOff);
-
-  crdt?.updateMediaState(state.peerId!, state.isMuted, state.isVideoOff);
-}
-
-
-
-async function startScreenShare(): Promise<void> {
-  try {
-    const stream = await navigator.mediaDevices.getDisplayMedia({
-      video: true,
-      audio: true,
-    });
-
-    const shareId = `${state.peerId}-${stream.id}`;
-    state.screenStreams.set(shareId, stream);
-
-    const localAvatar = avatars.getPosition(state.peerId!);
-    const offsetX = 150 + (state.screenStreams.size - 1) * 50;
-    const x = localAvatar.x + offsetX;
-    const y = localAvatar.y;
-    const width = 480;
-    const height = 320;
-
-    screenShare.createScreenShare(shareId, state.peerId!, state.username, stream, x, y);
-    webrtc?.addScreenTrack(shareId, stream);
-
-    // Add to CRDT for sync
-    crdt?.addScreenShare(shareId, state.peerId!, state.username, x, y, width, height);
-
-    // Still need socket for WebRTC track signaling (position/size is CRDT-only)
-    socket.emit('screen-share-started', { peerId: state.peerId!, shareId });
-
-    stream.getVideoTracks()[0].onended = () => {
-      stopScreenShare(shareId);
-    };
-  } catch (error) {
-    const err = error as Error;
-    if (err.name !== 'NotAllowedError') {
-      console.error('Screen share failed:', err);
-    }
-  }
-}
-
-function stopScreenShare(shareId: string): void {
-  const stream = state.screenStreams.get(shareId);
-  if (stream) {
-    stream.getTracks().forEach((track) => track.stop());
-    state.screenStreams.delete(shareId);
-  }
-
-  screenShare.removeScreenShare(shareId);
-  webrtc?.removeScreenTrack(shareId);
-
-  // Remove from CRDT
-  crdt?.removeScreenShare(shareId);
-
-  // Still need socket for WebRTC track cleanup signaling
-  socket.emit('screen-share-stopped', { peerId: state.peerId!, shareId });
-}
-
-function createTextNote(): void {
-  if (!state.peerId) return;
-  
-  const noteId = `${state.peerId}-note-${Date.now()}`;
-  const localPos = avatars.getPosition(state.peerId);
-  // Place note near the avatar
-  const x = localPos.x + 150;
-  const y = localPos.y - 50;
-  
-  // Add to CRDT (no peerId/username needed anymore)
-  crdt?.addTextNote(noteId, '', x, y, 250, 150);
-}
-
-function removeTextNote(noteId: string): void {
-  textNote.removeTextNote(noteId);
-  crdt?.removeTextNote(noteId);
-}
-
-function leaveSpace(): void {
-  if (state.localStream) {
-    state.localStream.getTracks().forEach((track) => track.stop());
-  }
-  state.screenStreams.forEach((stream) => {
-    stream.getTracks().forEach((track) => track.stop());
+  window.addEventListener('offline', () => {
+    console.log('Browser went offline');
+    ui.showDisconnected();
   });
 
-  // Clean up CRDT: remove local peer and destroy connection
-  if (state.peerId) {
-    crdt?.removePeer(state.peerId);
-  }
-  crdt?.destroy();
-  crdt = null;
-
-  webrtc?.closeAllConnections();
-  socket.disconnect();
-
-  avatars.clear();
-  screenShare.clear();
-  textNote.clear();
-
-  state.peers.clear();
-  state.localStream = null;
-  state.screenStreams.clear();
-  state.peerId = null;
-  state.isMuted = false;
-  state.isVideoOff = false;
-
-  // Keep the space URL so user can easily rejoin
-  document.title = 'OpenSpatial - Virtual Office';
-
-  canvasContainer.classList.add('hidden');
-  joinModal.classList.remove('hidden');
-
-  ui.resetButtons();
+  window.addEventListener('online', () => {
+    console.log('Browser came back online');
+    ui.showConnected();
+  });
 }
 
-function updateParticipantCount(): void {
-  const count = state.peers.size + 1;
-  document.getElementById('participant-count')!.textContent = `${count} participant${count !== 1 ? 's' : ''}`;
+// ==================== Initialization ====================
+
+function init(): void {
+  setupEventListeners();
+  canvas.init();
+
+  const minimap = new MinimapManager(canvas, 4000, 4000);
+  minimap.init();
+
+  const savedUsername = localStorage.getItem(STORAGE_KEY_USERNAME);
+  if (savedUsername) {
+    usernameInput.value = savedUsername;
+  }
+
+  const pathMatch = window.location.pathname.match(/^\/s\/(.+)$/);
+  if (pathMatch) {
+    const spaceId = decodeURIComponent(pathMatch[1]);
+    spaceIdInput.value = spaceId;
+    document.title = `${spaceId} - OpenSpatial`;
+    spaceNameLabel.textContent = spaceId;
+
+    landingPage.classList.add('hidden');
+    joinModal.classList.remove('hidden');
+    usernameInput.focus();
+
+    querySpaceInfo(spaceId);
+  } else {
+    landingPage.classList.remove('hidden');
+    joinModal.classList.add('hidden');
+  }
 }
 
 // Start the app
