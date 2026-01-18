@@ -1,3 +1,34 @@
+@import "tailwindcss";
+
+/* ===== Preserved CSS that Tailwind cannot express ===== */
+
+/* SVG office floor plan background */
+#space {
+  position: absolute;
+  width: 4000px;
+  height: 4000px;
+  left: 0;
+  top: 0;
+  transform-origin: 0 0;
+  background: 
+    url('/client/assets/office-bg.svg') center/cover no-repeat,
+    var(--color-bg-secondary);
+}
+
+.minimap-content {
+  background: 
+    url('/client/assets/office-bg.svg') center/cover no-repeat,
+    var(--color-bg-tertiary);
+}
+
+/* Mirror video for self-view */
+video.self-view {
+  transform: scaleX(-1);
+}
+
+/* ===== Legacy CSS - to be removed incrementally ===== */
+/* TODO: Remove these as components are migrated to Tailwind */
+
 /* ===== Design Tokens ===== */
 :root {
     /* Colors */
@@ -567,19 +598,6 @@ body {
 
 #canvas-container:active {
     cursor: grabbing;
-}
-
-#space {
-    position: absolute;
-    width: 4000px;
-    height: 4000px;
-    left: 0;
-    top: 0;
-    transform-origin: 0 0;
-    /* SVG office floor plan - scales infinitely */
-    background: 
-        url('/client/assets/office-bg.svg') center/cover no-repeat,
-        var(--color-bg-secondary);
 }
 
 /* ===== Space Info ===== */
@@ -1317,10 +1335,6 @@ body {
     position: relative;
     width: 180px;
     height: 180px;
-    /* Match main canvas - same SVG background */
-    background: 
-        url('/client/assets/office-bg.svg') center/cover no-repeat,
-        var(--color-bg-tertiary);
     border: 1px solid var(--color-border);
     border-radius: var(--radius-lg);
     cursor: pointer;
