@@ -2,7 +2,8 @@ import type { SocketHandler } from './socket.js';
 import type { AvatarManager } from './avatar.js';
 import type { ScreenShareManager } from './screenshare.js';
 import type { SpatialAudio } from './spatial-audio.js';
-import type { PeerData, Position, SignalEvent } from '../../shared/types/events.js';
+import type { SignalEvent } from '../../shared/types/events.js';
+import type { WebRTCAppState, PendingShareInfo } from '../../shared/types/state.js';
 
 // Fallback ICE servers if dynamic fetch fails
 const FALLBACK_ICE_SERVERS: RTCIceServer[] = [
@@ -10,25 +11,9 @@ const FALLBACK_ICE_SERVERS: RTCIceServer[] = [
   { urls: 'stun:stun1.l.google.com:19302' },
 ];
 
-interface PendingShareInfo {
-  shareId: string;
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}
-
-interface AppState {
-  peerId: string | null;
-  localStream: MediaStream | null;
-  screenStreams: Map<string, MediaStream>;
-  pendingShareIds: Map<string, (string | PendingShareInfo)[]>;
-  peers: Map<string, PeerData>;
-}
-
 export class WebRTCManager {
   private socket: SocketHandler;
-  private state: AppState;
+  private state: WebRTCAppState;
   private peerConnections = new Map<string, RTCPeerConnection>();
   private screenSenders = new Map<string, Map<string, RTCRtpSender[]>>();
   private webcamStreams = new Map<string, string>();
@@ -40,7 +25,7 @@ export class WebRTCManager {
   private screenShare: ScreenShareManager | null = null;
   private spatialAudio: SpatialAudio | null = null;
 
-  constructor(socket: SocketHandler, state: AppState) {
+  constructor(socket: SocketHandler, state: WebRTCAppState) {
     this.socket = socket;
     this.state = state;
     this.fetchIceServers();

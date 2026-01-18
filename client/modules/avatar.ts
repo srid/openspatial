@@ -1,15 +1,11 @@
 import type { Position } from '../../shared/types/events.js';
+import type { AvatarAppState } from '../../shared/types/state.js';
 
 type PositionChangeCallback = (peerId: string, x: number, y: number) => void;
 type StatusChangeCallback = (status: string) => void;
 
-interface AppState {
-  peerId: string | null;
-  username: string;
-}
-
 export class AvatarManager {
-  private state: AppState;
+  private state: AvatarAppState;
   private avatars = new Map<string, HTMLDivElement>();
   private positions = new Map<string, Position>();
   private positionChangeCallback: PositionChangeCallback | null = null;
@@ -17,7 +13,7 @@ export class AvatarManager {
   private statusPopover: HTMLElement | null = null;
   private space: HTMLElement | null = null;
 
-  constructor(state: AppState) {
+  constructor(state: AvatarAppState) {
     this.state = state;
   }
 

@@ -1,13 +1,11 @@
+import type { CanvasElementAppState } from '../../shared/types/state.js';
+
 type PositionUpdateCallback = (shareId: string, x: number, y: number) => void;
 type ResizeUpdateCallback = (shareId: string, width: number, height: number) => void;
 type CloseCallback = (shareId: string) => void;
 
-interface AppState {
-  peerId: string | null;
-}
-
 export class ScreenShareManager {
-  private state: AppState;
+  private state: CanvasElementAppState;
   private screenShares = new Map<string, HTMLDivElement>();
   private space: HTMLElement | null = null;
   private onPositionUpdate: PositionUpdateCallback | null;
@@ -18,7 +16,7 @@ export class ScreenShareManager {
   private pendingState = new Map<string, { x?: number; y?: number; width?: number; height?: number }>();
 
   constructor(
-    state: AppState,
+    state: CanvasElementAppState,
     onPositionUpdate: PositionUpdateCallback | null,
     onResizeUpdate: ResizeUpdateCallback | null,
     onClose: CloseCallback | null

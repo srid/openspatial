@@ -2,16 +2,13 @@
  * Text Note Manager - Handles text note elements on the canvas.
  * Similar to ScreenShareManager but for editable text content.
  */
+import type { CanvasElementAppState } from '../../shared/types/state.js';
 
 type PositionUpdateCallback = (noteId: string, x: number, y: number) => void;
 type SizeUpdateCallback = (noteId: string, width: number, height: number) => void;
 type ContentUpdateCallback = (noteId: string, content: string) => void;
 type StyleUpdateCallback = (noteId: string, fontSize: 'small' | 'medium' | 'large', fontFamily: 'sans' | 'serif' | 'mono', color: string) => void;
 type CloseCallback = (noteId: string) => void;
-
-interface AppState {
-  peerId: string | null;
-}
 
 const FONT_SIZES = {
   small: '14px',
@@ -34,7 +31,7 @@ const COLOR_PALETTE = [
 ];
 
 export class TextNoteManager {
-  private state: AppState;
+  private state: CanvasElementAppState;
   private textNotes = new Map<string, HTMLDivElement>();
   private space: HTMLElement | null = null;
   private onPositionUpdate: PositionUpdateCallback | null;
@@ -45,7 +42,7 @@ export class TextNoteManager {
   private pendingState = new Map<string, { x?: number; y?: number; width?: number; height?: number; content?: string; fontSize?: 'small' | 'medium' | 'large'; fontFamily?: 'sans' | 'serif' | 'mono'; color?: string }>();
 
   constructor(
-    state: AppState,
+    state: CanvasElementAppState,
     onPositionUpdate: PositionUpdateCallback | null,
     onSizeUpdate: SizeUpdateCallback | null,
     onContentUpdate: ContentUpdateCallback | null,

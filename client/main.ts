@@ -21,17 +21,8 @@ import type {
   ScreenShareStartedBroadcast,
   ScreenShareStoppedBroadcast,
   PeerData,
-  ScreenShareData,
 } from '../shared/types/events.js';
-
-// Pending share info for late-joining peers
-interface PendingShareInfo {
-  shareId: string;
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}
+import type { PendingShareInfo } from '../shared/types/state.js';
 
 // Application state
 const state = {

@@ -42,22 +42,9 @@ export interface SignalEvent {
   };
 }
 
-export interface PositionUpdateEvent {
-  peerId: string;
-  x: number;
-  y: number;
-}
-
-export interface MediaStateUpdateEvent {
-  peerId: string;
-  isMuted: boolean;
-  isVideoOff: boolean;
-}
-
-export interface StatusUpdateEvent {
-  peerId: string;
-  status: string;
-}
+// NOTE: PositionUpdateEvent, MediaStateUpdateEvent, StatusUpdateEvent,
+// ScreenSharePositionUpdateEvent, ScreenShareResizeUpdateEvent have been
+// removed. These state updates are now handled by Yjs CRDT, not Socket.io.
 
 export interface ScreenShareStartedEvent {
   peerId: string;
@@ -68,18 +55,6 @@ export interface ScreenShareStartedEvent {
 export interface ScreenShareStoppedEvent {
   peerId: string;
   shareId: string;
-}
-
-export interface ScreenSharePositionUpdateEvent {
-  shareId: string;
-  x: number;
-  y: number;
-}
-
-export interface ScreenShareResizeUpdateEvent {
-  shareId: string;
-  width: number;
-  height: number;
 }
 
 // ==================== Socket Events (Server -> Client) ====================

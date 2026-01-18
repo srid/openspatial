@@ -1,17 +1,14 @@
-interface AppState {
-  isMuted: boolean;
-  isVideoOff: boolean;
-}
+import type { UIAppState } from '../../shared/types/state.js';
 
 export class UIController {
-  private state: AppState;
+  private state: UIAppState;
   private btnMic: HTMLButtonElement;
   private btnCamera: HTMLButtonElement;
   private btnScreen: HTMLButtonElement;
   private connectionStatus: HTMLElement;
   private hideConnectionTimeout: number | null = null;
 
-  constructor(state: AppState) {
+  constructor(state: UIAppState) {
     this.state = state;
     this.btnMic = document.getElementById('btn-mic') as HTMLButtonElement;
     this.btnCamera = document.getElementById('btn-camera') as HTMLButtonElement;
