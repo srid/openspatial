@@ -18,7 +18,7 @@ import type {
 // ScreenSharePositionUpdateEvent, ScreenShareResizeUpdateEvent have been
 // removed. These state updates are now handled by Yjs CRDT, not Socket.io.
 
-// Union type of all possible client events
+/** Events that the client can emit to the server. */
 type ClientEventMap = {
   'join-space': JoinSpaceEvent;
   'signal': SignalEvent;
@@ -27,7 +27,7 @@ type ClientEventMap = {
   'get-space-info': GetSpaceInfoEvent;
 };
 
-// Union type of all possible server events
+/** Events that the server can emit to the client. */
 type ServerEventMap = {
   'connected': ConnectedEvent;
   'space-state': SpaceStateEvent;
@@ -42,16 +42,29 @@ type ServerEventMap = {
 type EventHandler<T> = (data: T) => void;
 type AnyHandler = EventHandler<unknown>;
 
-// Connection state for UI feedback
+/** Connection state for UI feedback. */
 export type ConnectionState = 'connecting' | 'connected' | 'disconnected' | 'reconnecting';
 
+/** Information about reconnection attempts. */
 export interface ReconnectInfo {
   attempt: number;
   maxAttempts: number;
 }
 
+/** Callback for connection state changes. */
 export type ConnectionStateCallback = (state: ConnectionState, info?: ReconnectInfo) => void;
 
+/**
+ * SocketHandler manages the Socket.io connection to the signaling server.
+ * 
+ * Handles:
+ * - Connection lifecycle (connect, disconnect, reconnection)
+ * - WebRTC signaling relay
+ * - Space join/leave events
+ * - Screen share start/stop notifications
+ * 
+ * Note: Position, media state, and status updates are handled by CRDT, not Socket.io.
+ */
 export class SocketHandler {
   private socket: Socket | null = null;
   private handlers = new Map<string, AnyHandler[]>();
