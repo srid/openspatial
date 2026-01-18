@@ -55,6 +55,7 @@ export interface User {
 
   // Actions
   leave(): Promise<void>;
+  rejoin(): Promise<void>;
   mute(): Promise<void>;
   unmute(): Promise<void>;
   toggleWebcam(): Promise<void>;

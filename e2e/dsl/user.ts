@@ -35,6 +35,18 @@ export class UserImpl implements User {
     await this.page.click('#btn-leave');
   }
 
+  /**
+   * Rejoin the same space in the same page context (SPA navigation).
+   * This tests the leave→rejoin flow without page reload.
+   */
+  async rejoin(): Promise<void> {
+    // Fill in username (should be preserved) and submit join form
+    await this.page.fill('#username', this.name);
+    await this.page.locator('#join-form').evaluate((form: HTMLFormElement) => form.requestSubmit());
+    // Wait for control bar to confirm we're back in the space
+    await this.page.locator('#control-bar').waitFor({ state: 'visible', timeout: 10000 });
+  }
+
   async mute(): Promise<void> {
     await this.page.click('#btn-mic');
   }
