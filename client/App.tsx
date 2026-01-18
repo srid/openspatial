@@ -16,7 +16,7 @@ import {
   connection,
   peersStore,
   participantCount,
-  type AppView 
+  AppView 
 } from './stores/app';
 
 // Bridge to existing modules - will be set from main.tsx
@@ -46,11 +46,11 @@ export const App: Component = () => {
       const spaceId = decodeURIComponent(pathMatch[1]);
       user.setSpaceId(spaceId);
       document.title = `${spaceId} - OpenSpatial`;
-      ui.setCurrentView('join');
+      ui.setCurrentView(AppView.Join);
       ui.setIsLoadingParticipants(true);
       bridge?.querySpaceInfo(spaceId);
     } else {
-      ui.setCurrentView('landing');
+      ui.setCurrentView(AppView.Landing);
     }
   });
 
@@ -69,12 +69,12 @@ export const App: Component = () => {
   return (
     <>
       {/* Landing Page */}
-      <Show when={ui.currentView() === 'landing'}>
+      <Show when={ui.currentView() === AppView.Landing}>
         <LandingPage onEnterSpace={handleEnterSpace} />
       </Show>
 
       {/* Join Modal */}
-      <Show when={ui.currentView() === 'join'}>
+      <Show when={ui.currentView() === AppView.Join}>
         <JoinModal
           spaceId={user.spaceId()}
           participants={ui.spaceParticipants()}
@@ -87,7 +87,7 @@ export const App: Component = () => {
       </Show>
 
       {/* Space View */}
-      <Show when={ui.currentView() === 'space'}>
+      <Show when={ui.currentView() === AppView.Space}>
         {/* Canvas Container - managed by CanvasManager module */}
         <div id="canvas-container">
           <div id="space">

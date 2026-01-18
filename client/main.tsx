@@ -7,7 +7,7 @@
 import './index.css';
 import { render } from 'solid-js/web';
 import { App, setModuleBridge } from './App';
-import { ui, user, media, connection, peersStore } from './stores/app';
+import { ui, user, media, connection, peersStore, ConnectionStatus, AppView } from './stores/app';
 
 import { SocketHandler, ConnectionState, ReconnectInfo } from './modules/socket.js';
 import { WebRTCManager } from './modules/webrtc.js';
@@ -201,18 +201,18 @@ async function querySpaceInfo(spaceId: string): Promise<void> {
 function handleConnectionStateChange(connectionState: ConnectionState, info?: ReconnectInfo): void {
   switch (connectionState) {
     case 'disconnected':
-      connection.setStatus('disconnected');
+      connection.setStatus(ConnectionStatus.Disconnected);
       uiController.showDisconnected();
       break;
     case 'reconnecting':
-      connection.setStatus('reconnecting');
+      connection.setStatus(ConnectionStatus.Reconnecting);
       if (info) {
         connection.setReconnectInfo(info.attempt, info.maxAttempts);
         uiController.showReconnecting(info.attempt, info.maxAttempts);
       }
       break;
     case 'connected':
-      connection.setStatus('connected');
+      connection.setStatus(ConnectionStatus.Connected);
       uiController.showConnected();
       break;
   }
@@ -244,7 +244,7 @@ setModuleBridge({
     spaceSession.handleJoin(event);
 
     // Switch to space view
-    ui.setCurrentView('space');
+    ui.setCurrentView(AppView.Space);
   },
   
   handleBack: () => {
@@ -271,7 +271,7 @@ setModuleBridge({
   
   leaveSpace: () => {
     spaceSession.leaveSpace();
-    ui.setCurrentView('landing');
+    ui.setCurrentView(AppView.Landing);
   },
   
   querySpaceInfo,
@@ -293,13 +293,13 @@ function setupEventListeners(): void {
 
   window.addEventListener('offline', () => {
     console.log('Browser went offline');
-    connection.setStatus('disconnected');
+    connection.setStatus(ConnectionStatus.Disconnected);
     uiController.showDisconnected();
   });
 
   window.addEventListener('online', () => {
     console.log('Browser came back online');
-    connection.setStatus('connected');
+    connection.setStatus(ConnectionStatus.Connected);
     uiController.showConnected();
   });
 }

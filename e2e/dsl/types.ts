@@ -2,6 +2,11 @@
  * E2E Test DSL - Core Type Definitions
  */
 
+import { ConnectionStatus } from '../../shared/types/state.js';
+
+// Re-export shared types
+export { ConnectionStatus };
+
 export interface Position {
   x: number;
   y: number;
@@ -16,8 +21,6 @@ export interface Rect {
   position: Position;
   size: Size;
 }
-
-export type ConnectionStatus = 'connected' | 'disconnected';
 
 export interface AvatarState {
   isMuted: boolean;

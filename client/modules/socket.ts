@@ -13,6 +13,7 @@ import type {
   ScreenShareStartedBroadcast,
   ScreenShareStoppedBroadcast,
 } from '../../shared/types/events.js';
+import { ConnectionStatus } from '../../shared/types/state.js';
 
 // NOTE: PositionUpdateEvent, MediaStateUpdateEvent, StatusUpdateEvent,
 // ScreenSharePositionUpdateEvent, ScreenShareResizeUpdateEvent have been
@@ -42,8 +43,8 @@ type ServerEventMap = {
 type EventHandler<T> = (data: T) => void;
 type AnyHandler = EventHandler<unknown>;
 
-/** Connection state for UI feedback. */
-export type ConnectionState = 'connecting' | 'connected' | 'disconnected' | 'reconnecting';
+/** Connection state for UI feedback. Uses shared ConnectionStatus enum. */
+export type ConnectionState = ConnectionStatus;
 
 /** Information about reconnection attempts. */
 export interface ReconnectInfo {
@@ -52,7 +53,7 @@ export interface ReconnectInfo {
 }
 
 /** Callback for connection state changes. */
-export type ConnectionStateCallback = (state: ConnectionState, info?: ReconnectInfo) => void;
+export type ConnectionStateCallback = (state: ConnectionStatus, info?: ReconnectInfo) => void;
 
 /**
  * SocketHandler manages the Socket.io connection to the signaling server.
@@ -86,7 +87,7 @@ export class SocketHandler {
 
   connect(): Promise<void> {
     return new Promise((resolve, reject) => {
-      this.notifyConnectionState('connecting');
+      this.notifyConnectionState(ConnectionStatus.Connecting);
 
       this.socket = io(window.location.origin, {
         transports: ['websocket'],
@@ -100,7 +101,7 @@ export class SocketHandler {
 
       this.socket.on('connect', () => {
         console.log('Connected to signaling server');
-        this.notifyConnectionState('connected');
+        this.notifyConnectionState(ConnectionStatus.Connected);
         resolve();
       });
 
@@ -112,12 +113,12 @@ export class SocketHandler {
       // Connection state events
       this.socket.on('disconnect', (reason: string) => {
         console.log('Disconnected from signaling server:', reason);
-        this.notifyConnectionState('disconnected');
+        this.notifyConnectionState(ConnectionStatus.Disconnected);
       });
 
       this.socket.io.on('reconnect_attempt', (attempt: number) => {
         console.log(`Reconnection attempt ${attempt}/${SocketHandler.RECONNECTION_ATTEMPTS}`);
-        this.notifyConnectionState('reconnecting', {
+        this.notifyConnectionState(ConnectionStatus.Reconnecting, {
           attempt,
           maxAttempts: SocketHandler.RECONNECTION_ATTEMPTS,
         });
@@ -125,13 +126,13 @@ export class SocketHandler {
 
       this.socket.io.on('reconnect', () => {
         console.log('Reconnected to signaling server');
-        this.notifyConnectionState('connected');
+        this.notifyConnectionState(ConnectionStatus.Connected);
         this.trigger('reconnected', undefined);
       });
 
       this.socket.io.on('reconnect_failed', () => {
         console.error('Failed to reconnect after maximum attempts');
-        this.notifyConnectionState('disconnected');
+        this.notifyConnectionState(ConnectionStatus.Disconnected);
       });
 
       // Setup event handlers for server events

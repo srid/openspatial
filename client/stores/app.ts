@@ -4,13 +4,15 @@
  */
 import { createSignal, createMemo } from 'solid-js';
 import type { PeerData, Position } from '../../shared/types/events.js';
-import type { PendingShareInfo } from '../../shared/types/state.js';
+import { ConnectionStatus } from '../../shared/types/state.js';
+import type { ScreenShareState, TextNoteState } from '../../shared/yjs-schema.js';
+
+// Re-export for convenience
+export { ConnectionStatus };
 
 // ==================== Connection State ====================
 
-export type ConnectionStatus = 'disconnected' | 'connecting' | 'connected' | 'reconnecting';
-
-const [connectionStatus, setConnectionStatus] = createSignal<ConnectionStatus>('disconnected');
+const [connectionStatus, setConnectionStatus] = createSignal<ConnectionStatus>(ConnectionStatus.Disconnected);
 const [reconnectAttempt, setReconnectAttempt] = createSignal(0);
 const [reconnectMaxAttempts, setReconnectMaxAttempts] = createSignal(0);
 
@@ -102,9 +104,13 @@ export const participantCount = createMemo(() => peers().size + 1); // +1 for se
 
 // ==================== UI State ====================
 
-export type AppView = 'landing' | 'join' | 'space';
+export enum AppView {
+  Landing = 'landing',
+  Join = 'join',
+  Space = 'space',
+}
 
-const [currentView, setCurrentView] = createSignal<AppView>('landing');
+const [currentView, setCurrentView] = createSignal<AppView>(AppView.Landing);
 const [joinError, setJoinError] = createSignal<string | null>(null);
 const [spaceParticipants, setSpaceParticipants] = createSignal<string[]>([]);
 const [isLoadingParticipants, setIsLoadingParticipants] = createSignal(false);
@@ -122,22 +128,19 @@ export const ui = {
 
 // ==================== Screen Shares State ====================
 
-export interface ScreenShareState {
+/**
+ * UI-specific screen share state that extends shared type with runtime identifier.
+ */
+export interface ScreenShareUI extends ScreenShareState {
   shareId: string;
-  peerId: string;
-  username: string;
-  x: number;
-  y: number;
-  width: number;
-  height: number;
 }
 
-const [screenShares, setScreenShares] = createSignal<Map<string, ScreenShareState>>(new Map());
+const [screenShares, setScreenShares] = createSignal<Map<string, ScreenShareUI>>(new Map());
 
 export const screenSharesStore = {
   screenShares,
   setScreenShares,
-  add: (state: ScreenShareState) => {
+  add: (state: ScreenShareUI) => {
     setScreenShares(prev => {
       const next = new Map(prev);
       next.set(state.shareId, state);
@@ -165,26 +168,19 @@ export const screenSharesStore = {
 
 // ==================== Text Notes State ====================
 
-export interface TextNoteState {
+/**
+ * UI-specific text note state that extends shared type with runtime identifier.
+ */
+export interface TextNoteUI extends TextNoteState {
   noteId: string;
-  peerId: string;
-  username: string;
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  content: string;
-  fontSize: number;
-  fontFamily: string;
-  color: string;
 }
 
-const [textNotes, setTextNotes] = createSignal<Map<string, TextNoteState>>(new Map());
+const [textNotes, setTextNotes] = createSignal<Map<string, TextNoteUI>>(new Map());
 
 export const textNotesStore = {
   textNotes,
   setTextNotes,
-  add: (state: TextNoteState) => {
+  add: (state: TextNoteUI) => {
     setTextNotes(prev => {
       const next = new Map(prev);
       next.set(state.noteId, state);
