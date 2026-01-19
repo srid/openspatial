@@ -153,6 +153,18 @@ export class WebRTCManager {
       }
     };
 
+    pc.oniceconnectionstatechange = () => {
+      console.log(`ICE connection state with ${peerId}:`, pc.iceConnectionState);
+    };
+
+    pc.onicegatheringstatechange = () => {
+      console.log(`ICE gathering state with ${peerId}:`, pc.iceGatheringState);
+    };
+
+    pc.onicecandidateerror = (event) => {
+      console.error(`ICE candidate error with ${peerId}:`, event.errorCode, event.errorText, event.url);
+    };
+
     if (initiator) {
       this.createOffer(peerId, pc);
     }
@@ -161,6 +173,12 @@ export class WebRTCManager {
   }
 
   private async createOffer(peerId: string, pc: RTCPeerConnection): Promise<void> {
+    // Prevent duplicate offers: skip if already making offer or not in stable state
+    if (this.makingOffer.get(peerId) || pc.signalingState !== 'stable') {
+      console.log(`Skipping offer to ${peerId}: makingOffer=${this.makingOffer.get(peerId)}, state=${pc.signalingState}`);
+      return;
+    }
+    
     try {
       this.makingOffer.set(peerId, true);
       const offer = await pc.createOffer();
