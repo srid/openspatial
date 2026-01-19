@@ -29,7 +29,14 @@ export class WebRTCManager {
   constructor(socket: SocketHandler, state: WebRTCAppState) {
     this.socket = socket;
     this.state = state;
-    this.fetchIceServers();
+  }
+
+  /**
+   * Initialize the WebRTC manager by fetching ICE servers.
+   * Must be called after construction and before creating peer connections.
+   */
+  async init(): Promise<void> {
+    await this.fetchIceServers();
   }
 
   /**

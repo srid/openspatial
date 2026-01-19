@@ -109,8 +109,9 @@ const spaceSession = new SpaceSession(
     setCRDT: (c) => { crdt = c; },
     getWebRTC: () => webrtc,
     setWebRTC: (w) => { webrtc = w; },
-    createWebRTC: () => {
+    createWebRTC: async () => {
       const w = new WebRTCManager(socket, state);
+      await w.init();
       w.setManagers(avatars, screenShare, spatialAudio);
       return w;
     },

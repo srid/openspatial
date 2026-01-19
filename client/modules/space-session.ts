@@ -41,7 +41,7 @@ export interface SpaceSessionDeps {
   setCRDT: (crdt: CRDTManager | null) => void;
   getWebRTC: () => WebRTCManager | null;
   setWebRTC: (webrtc: WebRTCManager) => void;
-  createWebRTC: () => WebRTCManager;
+  createWebRTC: () => Promise<WebRTCManager>;
   createCRDT: (spaceId: string) => CRDTManager;
 }
 
@@ -124,7 +124,7 @@ export class SpaceSession {
         if (!state.localStream) return;
       }
 
-      const webrtc = this.deps.createWebRTC();
+      const webrtc = await this.deps.createWebRTC();
       this.deps.setWebRTC(webrtc);
 
       await socket.connect();
