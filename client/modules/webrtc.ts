@@ -19,6 +19,7 @@ export class WebRTCManager {
   private webcamStreams = new Map<string, string>();
   private screenShareStreams = new Map<string, string>();
   private makingOffer = new Map<string, boolean>();
+  private pendingCandidates = new Map<string, RTCIceCandidateInit[]>();
   private iceServers: RTCIceServer[] = FALLBACK_ICE_SERVERS;
   
   private avatars: AvatarManager | null = null;
@@ -99,6 +100,12 @@ export class WebRTCManager {
     };
 
     pc.onnegotiationneeded = async () => {
+      // Skip if already making offer or not in stable state
+      if (this.makingOffer.get(peerId) || pc.signalingState !== 'stable') {
+        console.log(`Skipping negotiation for ${peerId}: makingOffer=${this.makingOffer.get(peerId)}, state=${pc.signalingState}`);
+        return;
+      }
+      
       try {
         this.makingOffer.set(peerId, true);
         await pc.setLocalDescription();
@@ -227,6 +234,8 @@ export class WebRTCManager {
         } else {
           await pc.setRemoteDescription(new RTCSessionDescription(signal.sdp as RTCSessionDescriptionInit));
         }
+        // Flush any pending ICE candidates after setting remote description
+        await this.flushPendingCandidates(from, pc);
 
         const answer = await pc.createAnswer();
         await pc.setLocalDescription(answer);
@@ -246,18 +255,44 @@ export class WebRTCManager {
       if (pc && pc.signalingState === 'have-local-offer') {
         try {
           await pc.setRemoteDescription(new RTCSessionDescription(signal.sdp as RTCSessionDescriptionInit));
+          // Flush any pending ICE candidates
+          await this.flushPendingCandidates(from, pc);
         } catch (error) {
           console.error('Error setting answer:', error);
         }
       }
     } else if (signal.type === 'candidate') {
       if (pc) {
-        try {
-          await pc.addIceCandidate(new RTCIceCandidate(signal.candidate as RTCIceCandidateInit));
-        } catch (error) {
-          console.error('Error adding ICE candidate:', error);
+        // Queue candidates if remote description not yet set
+        if (!pc.remoteDescription) {
+          if (!this.pendingCandidates.has(from)) {
+            this.pendingCandidates.set(from, []);
+          }
+          this.pendingCandidates.get(from)!.push(signal.candidate as RTCIceCandidateInit);
+          console.log(`Queued ICE candidate for ${from} (no remote description yet)`);
+        } else {
+          try {
+            await pc.addIceCandidate(new RTCIceCandidate(signal.candidate as RTCIceCandidateInit));
+          } catch (error) {
+            console.error('Error adding ICE candidate:', error);
+          }
         }
       }
+    }
+  }
+
+  private async flushPendingCandidates(peerId: string, pc: RTCPeerConnection): Promise<void> {
+    const candidates = this.pendingCandidates.get(peerId);
+    if (candidates && candidates.length > 0) {
+      console.log(`Flushing ${candidates.length} pending ICE candidates for ${peerId}`);
+      for (const candidate of candidates) {
+        try {
+          await pc.addIceCandidate(new RTCIceCandidate(candidate));
+        } catch (error) {
+          console.error('Error adding queued ICE candidate:', error);
+        }
+      }
+      this.pendingCandidates.delete(peerId);
     }
   }
 

@@ -42,6 +42,7 @@ in
     turn = {
       enable = true;
       domain = domain;
+      externalIP = "46.62.227.127";
       # Create this file with: openssl rand -hex 32 > /etc/openspatial/turn-secret
       secretFile = "/etc/openspatial/turn-secret";
     };

@@ -69,6 +69,11 @@ in
         default = 65535;
         description = "Maximum port for TURN relay";
       };
+
+      externalIP = lib.mkOption {
+        type = lib.types.str;
+        description = "External/public IP address for TURN server NAT traversal";
+      };
     };
   };
 
@@ -88,7 +93,7 @@ in
           HTTPS = if cfg.https then "1" else "0";
           DATA_DIR = cfg.dataDir;
         } // lib.optionalAttrs cfg.turn.enable {
-          TURN_HOST = cfg.turn.domain;
+          TURN_HOST = cfg.turn.externalIP;  # Use IP directly since domain may be behind Cloudflare
           TURN_PORT = toString cfg.turn.port;
         };
 
@@ -129,6 +134,11 @@ in
 
     # Coturn service when turn.enable is true
     (lib.mkIf cfg.turn.enable {
+      # Create log directory for coturn
+      systemd.tmpfiles.rules = [
+        "d /var/log/coturn 0755 turnserver turnserver -"
+      ];
+
       services.coturn = {
         enable = true;
         realm = cfg.turn.domain;
@@ -143,6 +153,10 @@ in
         extraConfig = ''
           fingerprint
           lt-cred-mech
+          relay-ip=${cfg.turn.externalIP}
+          external-ip=${cfg.turn.externalIP}
+          verbose
+          syslog
         '';
       };
 
