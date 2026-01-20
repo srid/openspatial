@@ -13,6 +13,7 @@ import type { UIController } from './ui.js';
 import type { CanvasManager } from './canvas.js';
 import type { SocketHandler } from './socket.js';
 import type { MediaControls } from './media-controls.js';
+import { playJoinSound, playLeaveSound } from './notifications.js';
 import type { AppState } from '../../shared/types/state.js';
 import type {
   ConnectedEvent,
@@ -283,6 +284,7 @@ export class SpaceSession {
     }
 
     this.updateParticipantCount();
+    playJoinSound();
   }
 
   /**
@@ -299,6 +301,7 @@ export class SpaceSession {
     this.deps.getWebRTC()?.closePeerConnection(peerId);
 
     this.updateParticipantCount();
+    playLeaveSound();
   }
 
   /**
