@@ -59,28 +59,27 @@ export abstract class DraggableElementManager<T extends HTMLElement = HTMLDivEle
 
     dragHandle.style.cursor = 'grab';
 
-    const onMouseDown = (e: MouseEvent) => {
+    const startDrag = (clientX: number, clientY: number, target: HTMLElement) => {
       // Don't start drag if clicking on interactive elements
-      const target = e.target as HTMLElement;
       if (target.closest('button, input, textarea, select, [contenteditable]')) {
-        return;
+        return false;
       }
 
-      e.stopPropagation();
       isDragging = true;
-      startX = e.clientX;
-      startY = e.clientY;
+      startX = clientX;
+      startY = clientY;
       initialLeft = parseFloat(element.style.left) || 0;
       initialTop = parseFloat(element.style.top) || 0;
       dragHandle.style.cursor = 'grabbing';
       element.style.zIndex = '20';
+      return true;
     };
 
-    const onMouseMove = (e: MouseEvent) => {
+    const moveDrag = (clientX: number, clientY: number) => {
       if (!isDragging) return;
 
-      const deltaX = e.clientX - startX;
-      const deltaY = e.clientY - startY;
+      const deltaX = clientX - startX;
+      const deltaY = clientY - startY;
       const newX = Math.max(0, initialLeft + deltaX);
       const newY = Math.max(0, initialTop + deltaY);
 
@@ -88,7 +87,7 @@ export abstract class DraggableElementManager<T extends HTMLElement = HTMLDivEle
       element.style.top = `${newY}px`;
     };
 
-    const onMouseUp = () => {
+    const endDrag = () => {
       if (isDragging) {
         isDragging = false;
         dragHandle.style.cursor = 'grab';
@@ -107,9 +106,50 @@ export abstract class DraggableElementManager<T extends HTMLElement = HTMLDivEle
       }
     };
 
+    // Mouse event handlers
+    const onMouseDown = (e: MouseEvent) => {
+      if (startDrag(e.clientX, e.clientY, e.target as HTMLElement)) {
+        e.stopPropagation();
+      }
+    };
+
+    const onMouseMove = (e: MouseEvent) => {
+      moveDrag(e.clientX, e.clientY);
+    };
+
+    const onMouseUp = () => {
+      endDrag();
+    };
+
+    // Touch event handlers for mobile
+    const onTouchStart = (e: TouchEvent) => {
+      if (e.touches.length !== 1) return; // Only handle single touch
+      const touch = e.touches[0];
+      if (startDrag(touch.clientX, touch.clientY, e.target as HTMLElement)) {
+        e.stopPropagation();
+      }
+    };
+
+    const onTouchMove = (e: TouchEvent) => {
+      if (!isDragging || e.touches.length !== 1) return;
+      const touch = e.touches[0];
+      moveDrag(touch.clientX, touch.clientY);
+      e.preventDefault(); // Prevent scrolling while dragging
+    };
+
+    const onTouchEnd = () => {
+      endDrag();
+    };
+
+    // Register mouse events
     dragHandle.addEventListener('mousedown', onMouseDown);
     document.addEventListener('mousemove', onMouseMove);
     document.addEventListener('mouseup', onMouseUp);
+
+    // Register touch events for mobile
+    dragHandle.addEventListener('touchstart', onTouchStart, { passive: true });
+    document.addEventListener('touchmove', onTouchMove, { passive: false });
+    document.addEventListener('touchend', onTouchEnd);
   }
 
   /**

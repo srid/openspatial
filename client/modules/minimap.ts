@@ -42,27 +42,49 @@ export class MinimapManager {
   private setupEvents(): void {
     const content = this.element!.querySelector('.minimap-content') as HTMLElement;
 
+    // Mouse events
     content.addEventListener('mousedown', (e) => {
       e.stopPropagation();
       this.isDragging = true;
-      this.panToMinimapPosition(e);
+      this.panToMinimapPosition(e.clientX, e.clientY);
     });
 
     document.addEventListener('mousemove', (e) => {
       if (this.isDragging) {
-        this.panToMinimapPosition(e);
+        this.panToMinimapPosition(e.clientX, e.clientY);
       }
     });
 
     document.addEventListener('mouseup', () => {
       this.isDragging = false;
     });
+
+    // Touch events for mobile/tablet
+    content.addEventListener('touchstart', (e) => {
+      if (e.touches.length === 1) {
+        e.stopPropagation();
+        this.isDragging = true;
+        const touch = e.touches[0];
+        this.panToMinimapPosition(touch.clientX, touch.clientY);
+      }
+    }, { passive: true });
+
+    document.addEventListener('touchmove', (e) => {
+      if (this.isDragging && e.touches.length === 1) {
+        const touch = e.touches[0];
+        this.panToMinimapPosition(touch.clientX, touch.clientY);
+      }
+    }, { passive: true });
+
+    document.addEventListener('touchend', () => {
+      this.isDragging = false;
+    });
   }
 
-  private panToMinimapPosition(e: MouseEvent): void {
+  private panToMinimapPosition(clientX: number, clientY: number): void {
     const rect = this.element!.querySelector('.minimap-content')!.getBoundingClientRect();
-    const x = (e.clientX - rect.left) / this.scale;
-    const y = (e.clientY - rect.top) / this.scale;
+    const x = (clientX - rect.left) / this.scale;
+    const y = (clientY - rect.top) / this.scale;
 
     const clampedX = Math.max(0, Math.min(this.spaceWidth, x));
     const clampedY = Math.max(0, Math.min(this.spaceHeight, y));

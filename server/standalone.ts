@@ -79,7 +79,11 @@ const io = new Server(server, {
     cors: {
         origin: '*',
         methods: ['GET', 'POST']
-    }
+    },
+    // Aggressive ping settings for mobile disconnect detection
+    // Mobile browsers don't reliably fire disconnect events on tab close
+    pingTimeout: 10000,    // Wait 10s for pong response (default: 20000)
+    pingInterval: 5000,    // Ping every 5s (default: 25000)
 });
 
 attachSignaling(io);

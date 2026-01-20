@@ -67,6 +67,7 @@ export interface User {
   stopScreenShare(): Promise<void>;
   resizeScreenShare(rect: Rect): Promise<void>;
   dragAvatar(delta: { dx: number; dy: number }): Promise<void>;
+  touchDragAvatar(delta: { dx: number; dy: number }): Promise<void>;
   goOffline(): Promise<void>;
   goOnline(): Promise<void>;
   

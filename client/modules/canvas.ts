@@ -21,6 +21,7 @@ export class CanvasManager {
   }
 
   private setupPanning(): void {
+    // Mouse panning
     this.container!.addEventListener('mousedown', (e) => {
       if (e.target === this.container || e.target === this.space) {
         this.isDragging = true;
@@ -52,6 +53,38 @@ export class CanvasManager {
       if (this.container) {
         this.container.style.cursor = 'grab';
       }
+    });
+
+    // Touch panning for mobile (two-finger pan, single touch on empty space)
+    this.container!.addEventListener('touchstart', (e) => {
+      // Only start panning if touching the container/space directly (not an element)
+      if (e.target === this.container || e.target === this.space) {
+        if (e.touches.length === 1) {
+          this.isDragging = true;
+          this.startX = e.touches[0].pageX;
+          this.startY = e.touches[0].pageY;
+        }
+      }
+    }, { passive: true });
+
+    document.addEventListener('touchmove', (e) => {
+      if (!this.isDragging || e.touches.length !== 1) return;
+
+      const deltaX = e.touches[0].pageX - this.startX;
+      const deltaY = e.touches[0].pageY - this.startY;
+
+      this.offsetX += deltaX;
+      this.offsetY += deltaY;
+
+      this.clampOffset();
+      this.updateTransform();
+
+      this.startX = e.touches[0].pageX;
+      this.startY = e.touches[0].pageY;
+    }, { passive: true });
+
+    document.addEventListener('touchend', () => {
+      this.isDragging = false;
     });
   }
 
