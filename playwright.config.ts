@@ -15,9 +15,26 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium',
+      testIgnore: '**/mobile.spec.ts', // Skip mobile-specific tests
       use: {
         ...devices['Desktop Chrome'],
         // Grant permissions for media
+        permissions: ['camera', 'microphone'],
+        ignoreHTTPSErrors: true,
+        launchOptions: {
+          args: [
+            '--use-fake-device-for-media-stream',
+            '--use-fake-ui-for-media-stream',
+            '--ignore-certificate-errors',
+          ],
+        },
+      },
+    },
+    {
+      name: 'mobile',
+      testMatch: '**/mobile.spec.ts', // Only run mobile-specific tests
+      use: {
+        ...devices['Pixel 5'],
         permissions: ['camera', 'microphone'],
         ignoreHTTPSErrors: true,
         launchOptions: {

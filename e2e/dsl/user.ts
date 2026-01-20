@@ -147,6 +147,46 @@ export class UserImpl implements User {
     await this.page.waitForTimeout(1000);
   }
 
+  async touchDragAvatar(delta: { dx: number; dy: number }): Promise<void> {
+    const avatar = this.page.locator('.avatar.self');
+    const box = await avatar.boundingBox();
+    if (!box) return;
+
+    const startX = box.x + box.width / 2;
+    const startY = box.y + box.height / 2;
+    const endX = startX + delta.dx;
+    const endY = startY + delta.dy;
+
+    // Use CDP (Chrome DevTools Protocol) for reliable touch simulation
+    const client = await this.page.context().newCDPSession(this.page);
+    
+    // Touch start
+    await client.send('Input.dispatchTouchEvent', {
+      type: 'touchStart',
+      touchPoints: [{ x: startX, y: startY }],
+    });
+
+    // Touch move in steps
+    const steps = 10;
+    for (let i = 1; i <= steps; i++) {
+      const x = startX + (endX - startX) * (i / steps);
+      const y = startY + (endY - startY) * (i / steps);
+      await client.send('Input.dispatchTouchEvent', {
+        type: 'touchMove',
+        touchPoints: [{ x, y }],
+      });
+    }
+
+    // Touch end
+    await client.send('Input.dispatchTouchEvent', {
+      type: 'touchEnd',
+      touchPoints: [],
+    });
+
+    // Wait for CRDT sync
+    await this.page.waitForTimeout(1000);
+  }
+
   async goOffline(): Promise<void> {
     await this.page.evaluate(() => {
       window.dispatchEvent(new Event('offline'));

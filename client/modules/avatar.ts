@@ -179,22 +179,21 @@ export class AvatarManager {
     let startX = 0, startY = 0;
     let initialLeft = 0, initialTop = 0;
 
-    avatar.addEventListener('mousedown', (e) => {
-      e.stopPropagation();
+    const startDrag = (clientX: number, clientY: number) => {
       isDragging = true;
-      startX = e.clientX;
-      startY = e.clientY;
+      startX = clientX;
+      startY = clientY;
       initialLeft = parseInt(avatar.style.left) || 0;
       initialTop = parseInt(avatar.style.top) || 0;
       avatar.style.cursor = 'grabbing';
       avatar.style.zIndex = '20';
-    });
+    };
 
-    document.addEventListener('mousemove', (e) => {
+    const moveDrag = (clientX: number, clientY: number) => {
       if (!isDragging) return;
 
-      const deltaX = e.clientX - startX;
-      const deltaY = e.clientY - startY;
+      const deltaX = clientX - startX;
+      const deltaY = clientY - startY;
 
       const newLeft = initialLeft + deltaX;
       const newTop = initialTop + deltaY;
@@ -209,14 +208,47 @@ export class AvatarManager {
       if (this.positionChangeCallback) {
         this.positionChangeCallback(peerId, newX, newY);
       }
-    });
+    };
 
-    document.addEventListener('mouseup', () => {
+    const endDrag = () => {
       if (isDragging) {
         isDragging = false;
         avatar.style.cursor = 'grab';
         avatar.style.zIndex = '10';
       }
+    };
+
+    // Mouse events
+    avatar.addEventListener('mousedown', (e) => {
+      e.stopPropagation();
+      startDrag(e.clientX, e.clientY);
+    });
+
+    document.addEventListener('mousemove', (e) => {
+      moveDrag(e.clientX, e.clientY);
+    });
+
+    document.addEventListener('mouseup', () => {
+      endDrag();
+    });
+
+    // Touch events for mobile
+    avatar.addEventListener('touchstart', (e) => {
+      if (e.touches.length !== 1) return;
+      e.stopPropagation();
+      const touch = e.touches[0];
+      startDrag(touch.clientX, touch.clientY);
+    }, { passive: true });
+
+    document.addEventListener('touchmove', (e) => {
+      if (!isDragging || e.touches.length !== 1) return;
+      const touch = e.touches[0];
+      moveDrag(touch.clientX, touch.clientY);
+      e.preventDefault(); // Prevent scrolling while dragging
+    }, { passive: false });
+
+    document.addEventListener('touchend', () => {
+      endDrag();
     });
   }
 

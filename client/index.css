@@ -1297,6 +1297,11 @@ body {
         width: 44px;
         height: 44px;
     }
+    
+    /* Hide minimap on mobile to prevent overlap with controls */
+    .minimap {
+        display: none;
+    }
 }
 
 /* ===== Minimap ===== */

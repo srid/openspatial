@@ -15,7 +15,10 @@ function socketPlugin() {
         cors: {
           origin: '*',
           methods: ['GET', 'POST']
-        }
+        },
+        // Aggressive ping settings for mobile disconnect detection
+        pingTimeout: 10000,
+        pingInterval: 5000,
       });
 
       attachSignaling(io);
