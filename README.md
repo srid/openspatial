@@ -35,12 +35,16 @@ shared/           # Shared code (client + server)
   types/events.ts   # Socket event types (the type safety contract)
 
 client/           # Browser code (bundled by Vite)
-  main.ts           # Entry point
-  modules/          # UI components and handlers
+  main.tsx          # Entry point (Solid.js)
+  components/       # Solid.js UI components
+  modules/          # Core logic modules
+  stores/           # Solid.js reactive stores
 
 server/           # Node.js server
   signaling.ts      # Socket.io signaling (shared between dev & prod)
   standalone.ts     # Production entry point
+  yjs-server.ts     # Yjs WebSocket server with SQLite persistence
+  db.ts             # Kysely SQLite database operations
 ```
 
 ## Type Safety
@@ -49,6 +53,7 @@ All socket events are typed in `shared/types/events.ts`. Both client and server 
 
 ## Architecture
 
+- **Frontend**: Solid.js with Tailwind CSS
 - **Dev**: `npm run dev` runs Vite with signaling attached via plugin
 - **Prod**: `npm start` runs `server/standalone.ts` which serves static files + signaling
 - **Both** import signaling from `server/signaling.ts` and types from `shared/types/events.ts`
@@ -64,7 +69,7 @@ All socket events are typed in `shared/types/events.ts`. Both client and server 
 | **Status Update** | CRDT (Yjs) | Synced via y-websocket, persisted in `peers` map |
 | **Screen Share Tracks** | Socket.io + WebRTC | Socket.io for start/stop signaling, WebRTC for video |
 | **Screen Share State** (position/size) | CRDT (Yjs) | Synced via y-websocket, persisted in `screenShares` map |
-| **Text Notes** | CRDT (Yjs) | Synced via y-websocket, persisted in `textNotes` map |
+| **Text Notes** | CRDT (Yjs) + SQLite | Synced via y-websocket, **persisted to SQLite** for durability |
 | **Audio/Video Streams** | WebRTC (P2P) | Direct peer-to-peer mesh, spatial audio panning |
 | **Screen Share Video** | WebRTC (P2P) | Video frames sent directly between browsers |
 
@@ -74,9 +79,9 @@ All real-time state synchronization uses Yjs with y-websocket:
 
 - **`peers`** - Avatar positions, media state, status messages
 - **`screenShares`** - Screen share positions and sizes
-- **`textNotes`** - Text note content, position, size, and styling
+- **`textNotes`** - Text note content, position, size, and styling (persisted to SQLite)
 
-Server-side cleanup removes orphaned entries when peers disconnect.
+Server-side cleanup removes orphaned entries when peers disconnect. Text notes are hydrated from SQLite when a space is re-joined.
 
 ## Deployment
 

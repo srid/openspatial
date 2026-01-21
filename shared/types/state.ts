@@ -6,6 +6,16 @@
 import type { PeerData } from './events.js';
 
 /**
+ * Connection status for WebSocket.
+ */
+export enum ConnectionStatus {
+  Disconnected = 'disconnected',
+  Connecting = 'connecting',
+  Connected = 'connected',
+  Reconnecting = 'reconnecting',
+}
+
+/**
  * Base application state shared across modules.
  * Different modules may only need subsets of this state.
  */
