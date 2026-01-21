@@ -15,6 +15,7 @@ import type { SocketHandler } from './socket.js';
 import type { MediaControls } from './media-controls.js';
 import { playJoinSound, playLeaveSound } from './notifications.js';
 import type { AppState } from '../../shared/types/state.js';
+import { collections, type PeerUI, type ScreenShareUI, type TextNoteUI } from '../stores/app.js';
 import type {
   ConnectedEvent,
   SpaceStateEvent,
@@ -422,6 +423,21 @@ export class SpaceSession {
         avatars.updateStatus(peerId, peerState.status);
       }
       spatialAudio.updatePositions(avatars.getPositions(), state.peerId!);
+      
+      // Sync to Solid signals for reactive UI
+      const peersMap = new Map<string, PeerUI>();
+      for (const [peerId, peerState] of peers) {
+        if (peerId === state.peerId) continue;
+        peersMap.set(peerId, {
+          peerId,
+          username: peerState.username,
+          position: { x: peerState.x, y: peerState.y },
+          isMuted: peerState.isMuted,
+          isVideoOff: peerState.isVideoOff,
+          isScreenSharing: false,
+        });
+      }
+      collections.setPeers(peersMap);
     });
 
     // Observe screen share state changes
@@ -431,6 +447,20 @@ export class SpaceSession {
         screenShare.setPosition(shareId, shareState.x, shareState.y);
         screenShare.setSize(shareId, shareState.width, shareState.height);
       }
+      
+      // Sync to Solid signals for reactive UI
+      const sharesMap = new Map<string, ScreenShareUI>();
+      for (const [shareId, shareState] of shares) {
+        sharesMap.set(shareId, {
+          shareId,
+          ownerId: shareState.peerId,
+          ownerName: shareState.username,
+          position: { x: shareState.x, y: shareState.y },
+          width: shareState.width,
+          height: shareState.height,
+        });
+      }
+      collections.setScreenShares(sharesMap);
     });
 
     // Observe text note state changes
@@ -467,6 +497,24 @@ export class SpaceSession {
           textNote.setColor(noteId, noteState.color);
         }
       }
+      
+      // Sync to Solid signals for reactive UI
+      const notesMap = new Map<string, TextNoteUI>();
+      for (const [noteId, noteState] of notes) {
+        const ownerId = noteId.split('-note-')[0];
+        notesMap.set(noteId, {
+          noteId,
+          ownerId,
+          content: noteState.content,
+          position: { x: noteState.x, y: noteState.y },
+          width: noteState.width,
+          height: noteState.height,
+          fontSize: noteState.fontSize === 'small' ? 12 : noteState.fontSize === 'large' ? 18 : 14,
+          fontFamily: noteState.fontFamily,
+          color: noteState.color,
+        });
+      }
+      collections.setTextNotes(notesMap);
     });
   }
 

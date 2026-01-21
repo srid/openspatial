@@ -7,16 +7,7 @@ import { ui, AppView } from '../stores/app';
 import { LandingPage } from './LandingPage';
 import { JoinModal } from './JoinModal';
 import { SpaceCanvas } from './SpaceCanvas';
-
-interface ModuleBridge {
-  handleEnterSpace: (spaceId: string) => void;
-  handleJoin: (username: string) => void;
-  toggleMic: () => void;
-  toggleCamera: () => void;
-  shareScreen: () => void;
-  addNote: () => void;
-  leaveSpace: () => void;
-}
+import type { ModuleBridge } from '../types/bridge';
 
 interface AppProps {
   bridge: ModuleBridge;

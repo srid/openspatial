@@ -54,13 +54,11 @@ const spatialAudio = new SpatialAudio();
 spatialAudio.setAvatarManager(avatars);
 const uiController = new UIController(state);
 
-// Create managers with CRDT/WebRTC accessors
+// Create mediaControls first (screenShare/textNote added via setters)
 const mediaControls = new MediaControls({
   state,
   socket,
   avatars,
-  screenShare: null as unknown as ScreenShareManager,
-  textNote: null as unknown as TextNoteManager,
   ui: uiController,
   getCRDT: () => crdt,
   getWebRTC: () => webrtc,
@@ -82,21 +80,11 @@ const textNote = new TextNoteManager(
   (noteId) => mediaControls.removeTextNote(noteId)
 );
 
-// Update mediaControls with actual instances
-(mediaControls as unknown as { deps: { screenShare: ScreenShareManager; textNote: TextNoteManager } }).deps.screenShare = screenShare;
-(mediaControls as unknown as { deps: { screenShare: ScreenShareManager; textNote: TextNoteManager } }).deps.textNote = textNote;
+// Wire up deferred dependencies using setters
+mediaControls.setScreenShare(screenShare);
+mediaControls.setTextNote(textNote);
 
 // ==================== Space Session ====================
-
-// Create DOM handles via query at action-time (Late-Look Pattern)
-const getDOMHandles = () => ({
-  joinModal: document.getElementById('join-modal') as HTMLElement,
-  canvasContainer: document.getElementById('canvas-container') as HTMLElement,
-  joinForm: document.getElementById('join-form') as HTMLFormElement,
-  usernameInput: document.getElementById('username') as HTMLInputElement,
-  spaceIdInput: document.getElementById('space-id') as HTMLInputElement,
-  joinError: document.getElementById('join-error') as HTMLElement,
-});
 
 // SpaceSession needs DOM handles - we'll create a proxy that fetches lazily
 const spaceSession = new SpaceSession(
