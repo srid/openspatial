@@ -87,9 +87,7 @@ test.describe('mobile UI', () => {
     await expect(micButton).toHaveClass(/muted/);
   });
 
-  // SKIPPED: CDP touchEvent simulation doesn't reliably trigger canvas pan handlers
-  // because dispatchTouchEvent targets may not match e.target === container checks
-  test.skip('canvas touch pan works', async ({ page }) => {
+  test('canvas touch pan works', async ({ page }) => {
     // Navigate to a space and join
     await page.goto('/s/mobile-pan-test');
     await page.fill('#username', 'PanTester');
@@ -97,37 +95,60 @@ test.describe('mobile UI', () => {
     await page.locator('#control-bar').waitFor({ state: 'visible', timeout: 10000 });
     
     // Get the canvas container
-    const container = page.locator('#canvas-container');
     const space = page.locator('#space');
     
     // Get initial transform
     const initialTransform = await space.evaluate((el) => el.style.transform);
     
-    // Perform touch pan using CDP
-    const box = await container.boundingBox();
-    if (box) {
-      const client = await page.context().newCDPSession(page);
-      const startX = box.x + box.width / 2;
-      const startY = box.y + box.height / 2;
+    // Perform touch pan by dispatching synthetic touch events directly in the page
+    await page.evaluate(() => {
+      const container = document.getElementById('canvas-container');
+      if (!container) return;
       
-      await client.send('Input.dispatchTouchEvent', {
-        type: 'touchStart',
-        touchPoints: [{ x: startX, y: startY }],
+      const rect = container.getBoundingClientRect();
+      const startX = rect.left + rect.width / 2;
+      const startY = rect.top + rect.height / 2;
+      
+      const createTouch = (x: number, y: number) => new Touch({
+        identifier: 1,
+        target: container,
+        clientX: x,
+        clientY: y,
+        pageX: x,
+        pageY: y,
       });
       
-      // Pan by moving touch
+      // Touch start
+      const startTouch = createTouch(startX, startY);
+      container.dispatchEvent(new TouchEvent('touchstart', {
+        bubbles: true,
+        cancelable: true,
+        touches: [startTouch],
+        targetTouches: [startTouch],
+        changedTouches: [startTouch],
+      }));
+      
+      // Touch move (pan 100px in each direction)
       for (let i = 1; i <= 5; i++) {
-        await client.send('Input.dispatchTouchEvent', {
-          type: 'touchMove',
-          touchPoints: [{ x: startX + i * 20, y: startY + i * 20 }],
-        });
+        const moveTouch = createTouch(startX + i * 20, startY + i * 20);
+        document.dispatchEvent(new TouchEvent('touchmove', {
+          bubbles: true,
+          cancelable: true,
+          touches: [moveTouch],
+          targetTouches: [moveTouch],
+          changedTouches: [moveTouch],
+        }));
       }
       
-      await client.send('Input.dispatchTouchEvent', {
-        type: 'touchEnd',
-        touchPoints: [],
-      });
-    }
+      // Touch end
+      document.dispatchEvent(new TouchEvent('touchend', {
+        bubbles: true,
+        cancelable: true,
+        touches: [],
+        targetTouches: [],
+        changedTouches: [],
+      }));
+    });
     
     await page.waitForTimeout(500);
     
