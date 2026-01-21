@@ -215,6 +215,8 @@ const moduleBridge = {
   
   leaveSpace: () => {
     spaceSession.leaveSpace();
+    // Reset canvas state for rejoin
+    canvasInitialized = false;
     // Stay on Join view so user can rejoin the same space
     ui.setCurrentView(AppView.Join);
   },
