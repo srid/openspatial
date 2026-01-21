@@ -17,36 +17,39 @@ export class UIController {
   }
 
   updateMicButton(isMuted: boolean): void {
+    if (!this.btnMic) return;
     const iconOn = this.btnMic.querySelector('.icon-on') as HTMLElement;
     const iconOff = this.btnMic.querySelector('.icon-off') as HTMLElement;
 
     if (isMuted) {
-      iconOn.classList.add('hidden');
-      iconOff.classList.remove('hidden');
+      iconOn?.classList.add('hidden');
+      iconOff?.classList.remove('hidden');
       this.btnMic.classList.add('muted');
     } else {
-      iconOn.classList.remove('hidden');
-      iconOff.classList.add('hidden');
+      iconOn?.classList.remove('hidden');
+      iconOff?.classList.add('hidden');
       this.btnMic.classList.remove('muted');
     }
   }
 
   updateCameraButton(isVideoOff: boolean): void {
+    if (!this.btnCamera) return;
     const iconOn = this.btnCamera.querySelector('.icon-on') as HTMLElement;
     const iconOff = this.btnCamera.querySelector('.icon-off') as HTMLElement;
 
     if (isVideoOff) {
-      iconOn.classList.add('hidden');
-      iconOff.classList.remove('hidden');
+      iconOn?.classList.add('hidden');
+      iconOff?.classList.remove('hidden');
       this.btnCamera.classList.add('muted');
     } else {
-      iconOn.classList.remove('hidden');
-      iconOff.classList.add('hidden');
+      iconOn?.classList.remove('hidden');
+      iconOff?.classList.add('hidden');
       this.btnCamera.classList.remove('muted');
     }
   }
 
   updateScreenButton(isSharing: boolean): void {
+    if (!this.btnScreen) return;
     if (isSharing) {
       this.btnScreen.classList.add('active');
     } else {
@@ -69,6 +72,7 @@ export class UIController {
   }
 
   showDisconnected(): void {
+    if (!this.connectionStatus) return;
     this.clearHideTimeout();
     this.connectionStatus.className = 'connection-status disconnected';
     this.connectionStatus.innerHTML = `
@@ -86,6 +90,7 @@ export class UIController {
   }
 
   showReconnecting(attempt: number, maxAttempts: number): void {
+    if (!this.connectionStatus) return;
     this.clearHideTimeout();
     this.connectionStatus.className = 'connection-status reconnecting';
     this.connectionStatus.innerHTML = `
@@ -97,6 +102,8 @@ export class UIController {
   }
 
   showConnected(): void {
+    // Guard: connectionStatus may not exist if Space view isn't rendered yet
+    if (!this.connectionStatus) return;
     this.clearHideTimeout();
     this.connectionStatus.className = 'connection-status connected';
     this.connectionStatus.innerHTML = `
@@ -111,6 +118,7 @@ export class UIController {
   }
 
   hideConnectionStatus(): void {
+    if (!this.connectionStatus) return;
     this.clearHideTimeout();
     this.connectionStatus.className = 'connection-status hidden';
     this.connectionStatus.innerHTML = '';

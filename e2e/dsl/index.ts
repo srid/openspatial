@@ -57,6 +57,10 @@ interface ScenarioOptions {
 export function scenario(name: string, spaceId: string, fn: ScenarioFn): void {
   test(name, async ({ browser }) => {
     const contexts: BrowserContext[] = [];
+    
+    // Add unique suffix to ensure test isolation across runs
+    // This prevents CRDT state pollution where data from previous runs persists
+    const uniqueSpaceId = `${spaceId}-${Date.now()}`;
 
     const contextFactory = async () => {
       return await browser.newContext({
@@ -66,7 +70,7 @@ export function scenario(name: string, spaceId: string, fn: ScenarioFn): void {
     };
 
     const createUser = (userName: string): UserBuilder => {
-      return new UserBuilderImpl(userName, contextFactory, spaceId, contexts);
+      return new UserBuilderImpl(userName, contextFactory, uniqueSpaceId, contexts);
     };
 
     try {

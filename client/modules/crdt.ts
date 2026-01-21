@@ -37,12 +37,12 @@ export class CRDTManager {
     this.screenShares.observe(() => this.notifyScreenSharesChange());
     this.textNotes.observe(() => this.notifyTextNotesChange());
     
-    this.provider.on('status', ({ status }: { status: string }) => {
-      console.log(`[CRDT] Connection status: ${status}`);
+    this.provider.on('status', (_event: { status: string }) => {
+      // Connection status changed
     });
     
-    this.provider.on('synced', ({ synced }: { synced: boolean }) => {
-      console.log(`[CRDT] Synced: ${synced}, peers: ${this.peers.size}`);
+    this.provider.on('synced', (_event: { synced: boolean }) => {
+      // Sync complete
     });
   }
 
@@ -52,7 +52,6 @@ export class CRDTManager {
    */
   async waitForSync(timeoutMs: number = 5000): Promise<void> {
     if (this.provider.synced) {
-      console.log('[CRDT] Already synced');
       return;
     }
     

@@ -149,13 +149,19 @@ export class MediaControls {
     const { state, avatars } = this.deps;
     const crdt = this.deps.getCRDT();
 
-    if (!state.peerId) return;
+    console.log('[MediaControls] createTextNote called', { peerId: state.peerId, hasCRDT: !!crdt });
+
+    if (!state.peerId) {
+      console.log('[MediaControls] No peerId, returning early');
+      return;
+    }
 
     const noteId = `${state.peerId}-note-${Date.now()}`;
     const localPos = avatars.getPosition(state.peerId);
     const x = localPos.x + 150;
     const y = localPos.y - 50;
 
+    console.log('[MediaControls] Adding text note', { noteId, x, y });
     crdt?.addTextNote(noteId, '', x, y, 250, 150);
   }
 

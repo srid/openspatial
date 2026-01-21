@@ -18,7 +18,12 @@ export class AvatarManager {
   }
 
   createLocalAvatar(peerId: string, username: string, stream: MediaStream, x: number, y: number): void {
+    // Lazily get #space - it may not exist until Space view is rendered
     this.space = document.getElementById('space');
+    if (!this.space) {
+      console.error('[AvatarManager] Cannot create local avatar - #space element not found');
+      return;
+    }
 
     const avatar = this.createAvatarElement(peerId, username, true);
     avatar.classList.add('self');
@@ -32,7 +37,7 @@ export class AvatarManager {
     const container = avatar.querySelector('.avatar-video-container') as HTMLElement;
     container.appendChild(video);
 
-    this.space!.appendChild(avatar);
+    this.space.appendChild(avatar);
     this.avatars.set(peerId, avatar);
 
     this.setPosition(peerId, x, y);

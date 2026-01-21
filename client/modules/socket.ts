@@ -66,6 +66,8 @@ export type ConnectionStateCallback = (state: ConnectionState, info?: ReconnectI
  * Note: Position, media state, and status updates are handled by CRDT, not Socket.io.
  */
 export class SocketHandler {
+  private static instanceCounter = 0;
+  private instanceId: number;
   private socket: Socket | null = null;
   private handlers = new Map<string, AnyHandler[]>();
   private connectionStateCallback: ConnectionStateCallback | null = null;
@@ -73,6 +75,11 @@ export class SocketHandler {
   private static readonly RECONNECTION_ATTEMPTS = 5;
   private static readonly RECONNECTION_DELAY = 1000;
   private static readonly RECONNECTION_DELAY_MAX = 10000;
+
+  constructor() {
+    this.instanceId = ++SocketHandler.instanceCounter;
+    console.log(`[Socket] Created SocketHandler instance #${this.instanceId}`);
+  }
 
   onConnectionStateChange(callback: ConnectionStateCallback): void {
     this.connectionStateCallback = callback;
@@ -99,9 +106,10 @@ export class SocketHandler {
       });
 
       this.socket.on('connect', () => {
-        console.log('Connected to signaling server');
+        console.log(`[Socket#${this.instanceId}] Connected to signaling server`);
         this.notifyConnectionState('connected');
         resolve();
+        console.log(`[Socket#${this.instanceId}] resolve() called for connect()`);
       });
 
       this.socket.on('connect_error', (error: Error) => {
@@ -135,7 +143,10 @@ export class SocketHandler {
       });
 
       // Setup event handlers for server events
-      this.socket.on('connected', (data: ConnectedEvent) => this.trigger('connected', data));
+      this.socket.on('connected', (data: ConnectedEvent) => {
+        console.log('[Socket] Received "connected" event from server:', data);
+        this.trigger('connected', data);
+      });
       this.socket.on('space-state', (data: SpaceStateEvent) => this.trigger('space-state', data));
       this.socket.on('peer-joined', (data: PeerJoinedEvent) => this.trigger('peer-joined', data));
       this.socket.on('peer-left', (data: PeerLeftEvent) => this.trigger('peer-left', data));
@@ -168,6 +179,7 @@ export class SocketHandler {
   }
 
   private trigger(event: string, data: unknown): void {
+    console.log(`[Socket] Triggering event: ${event}`, this.handlers.has(event) ? `(${this.handlers.get(event)!.length} handlers)` : '(no handlers)');
     if (this.handlers.has(event)) {
       this.handlers.get(event)!.forEach((handler) => handler(data));
     }

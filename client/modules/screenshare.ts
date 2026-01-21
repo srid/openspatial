@@ -44,7 +44,12 @@ export class ScreenShareManager {
   }
 
   createScreenShare(shareId: string, peerId: string, username: string, stream: MediaStream, x: number, y: number): void {
+    // Lazily get #space - it may not exist until Space view is rendered
     this.space = document.getElementById('space');
+    if (!this.space) {
+      console.error('[ScreenShare] Cannot create screen share - #space element not found');
+      return;
+    }
 
     this.removeScreenShare(shareId);
 
@@ -153,7 +158,7 @@ export class ScreenShareManager {
       }
     });
 
-    this.space!.appendChild(element);
+    this.space.appendChild(element);
     this.screenShares.set(shareId, element);
     
     // Apply any pending CRDT state that arrived before the element was created

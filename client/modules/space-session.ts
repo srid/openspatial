@@ -143,38 +143,43 @@ export class SpaceSession {
 
   /**
    * Handle successful connection (first join or reconnection).
+   * @param previousPeerId - The peer ID before this connection (null for first join, old ID for reconnection)
    */
-  handleConnected(data: ConnectedEvent): void {
+  handleConnected(data: ConnectedEvent, previousPeerId: string | null = null): void {
     const { state, canvas, avatars, spatialAudio } = this.deps;
-    const previousPeerId = state.peerId;
-    const isReconnection = previousPeerId !== null;
+    const isReconnection = previousPeerId !== null && previousPeerId !== data.peerId;
 
+    // Note: state.peerId is already set by the caller (for WebRTC signaling timing)
+    // We only verify it's correct here
     state.peerId = data.peerId;
 
     if (isReconnection) {
-      this.handleReconnection(previousPeerId, data.peerId);
+      this.handleReconnection(previousPeerId!, data.peerId);
       return;
     }
 
-    // First-time join
-    this.dom.joinModal.classList.add('hidden');
-    this.dom.canvasContainer.classList.remove('hidden');
+    // First-time join - guard DOM manipulation (Solid.js may have already transitioned views)
+    const joinModal = this.dom.joinModal;
+    const canvasContainer = this.dom.canvasContainer;
+    if (joinModal) joinModal.classList.add('hidden');
+    if (canvasContainer) canvasContainer.classList.remove('hidden');
 
-    const spaceNameEl = document.getElementById('space-name') as HTMLElement;
-    spaceNameEl.textContent = state.spaceId;
+    const spaceNameEl = document.getElementById('space-name');
+    if (spaceNameEl) {
+      spaceNameEl.textContent = state.spaceId;
+      spaceNameEl.style.cursor = 'pointer';
+      spaceNameEl.title = 'Click to copy invite link';
+      spaceNameEl.addEventListener('click', () => {
+        const permalink = `${window.location.origin}/s/${encodeURIComponent(state.spaceId)}`;
+        navigator.clipboard.writeText(permalink).then(() => {
+          const original = spaceNameEl.textContent;
+          spaceNameEl.textContent = 'Link copied!';
+          setTimeout(() => (spaceNameEl.textContent = original), 1500);
+        });
+      });
+    }
     history.replaceState(null, '', `/s/${encodeURIComponent(state.spaceId)}`);
     document.title = `${state.spaceId} - OpenSpatial`;
-
-    spaceNameEl.style.cursor = 'pointer';
-    spaceNameEl.title = 'Click to copy invite link';
-    spaceNameEl.addEventListener('click', () => {
-      const permalink = `${window.location.origin}/s/${encodeURIComponent(state.spaceId)}`;
-      navigator.clipboard.writeText(permalink).then(() => {
-        const original = spaceNameEl.textContent;
-        spaceNameEl.textContent = 'Link copied!';
-        setTimeout(() => (spaceNameEl.textContent = original), 1500);
-      });
-    });
 
     const centerX = 2000;
     const centerY = 2000;
@@ -240,9 +245,8 @@ export class SpaceSession {
     }
   }
 
-  /**
-   * Handle initial space state from server.
-   */
+  // Property to handle race condition when space-state arrives before handleConnected sets state.peerId
+  // (no longer needed: pendingPeerId - state.peerId is set immediately in 'connected' handler)
   handleSpaceState(spaceState: SpaceStateEvent): void {
     const { state, canvas, avatars } = this.deps;
     const crdt = this.deps.getCRDT();
@@ -374,8 +378,10 @@ export class SpaceSession {
 
     document.title = 'OpenSpatial - Virtual Office';
 
-    this.dom.canvasContainer.classList.add('hidden');
-    this.dom.joinModal.classList.remove('hidden');
+    const canvasContainer = this.dom.canvasContainer;
+    const joinModal = this.dom.joinModal;
+    if (canvasContainer) canvasContainer.classList.add('hidden');
+    if (joinModal) joinModal.classList.remove('hidden');
 
     ui.resetButtons();
   }
@@ -465,7 +471,9 @@ export class SpaceSession {
   }
 
   private showJoinError(message: string): void {
-    this.dom.joinError.innerHTML = `
+    const joinError = this.dom.joinError;
+    if (!joinError) return; // Element may not exist in Solid.js conditional rendering
+    joinError.innerHTML = `
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <circle cx="12" cy="12" r="10"></circle>
         <line x1="12" y1="8" x2="12" y2="12"></line>
@@ -473,15 +481,17 @@ export class SpaceSession {
       </svg>
       <span>${message}</span>
     `;
-    this.dom.joinError.classList.remove('hidden');
+    joinError.classList.remove('hidden');
   }
 
   private hideJoinError(): void {
-    this.dom.joinError.classList.add('hidden');
+    const joinError = this.dom.joinError;
+    if (joinError) joinError.classList.add('hidden');
   }
 
   private updateParticipantCount(): void {
     const count = this.deps.state.peers.size + 1;
-    document.getElementById('participant-count')!.textContent = `${count} participant${count !== 1 ? 's' : ''}`;
+    const el = document.getElementById('participant-count');
+    if (el) el.textContent = `${count} participant${count !== 1 ? 's' : ''}`;
   }
 }
