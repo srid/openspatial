@@ -33,8 +33,8 @@ export class ScreenShareManager {
         const shareId = element.dataset.shareId;
         const peerId = element.dataset.peerId;
         
-        // Only emit resize for local screen shares
-        if (shareId && peerId === this.state.peerId && this.onResizeUpdate) {
+        // Emit resize for all screen shares (anyone can resize)
+        if (shareId && this.onResizeUpdate) {
           const width = element.offsetWidth;
           const height = element.offsetHeight;
           this.onResizeUpdate(shareId, width, height);
@@ -59,11 +59,9 @@ export class ScreenShareManager {
     element.style.width = '480px';
     element.style.height = '320px';
     
-    // Enable CSS resize for local screen shares only
-    if (isLocal) {
-      element.style.resize = 'both';
-      element.style.overflow = 'hidden';
-    }
+    // Enable CSS resize for all screen shares (anyone can resize)
+    element.style.resize = 'both';
+    element.style.overflow = 'hidden';
 
     element.innerHTML = `
       <div class="screen-share-header">
@@ -99,10 +97,8 @@ export class ScreenShareManager {
     video.muted = isLocal;
     element.appendChild(video);
 
-    // Only allow drag for local screen shares (owner only)
-    if (isLocal) {
-      this.setupDrag(element, shareId);
-    }
+    // Allow drag for all screen shares (anyone can move)
+    this.setupDrag(element, shareId);
 
     const closeBtn = element.querySelector('.screen-share-close') as HTMLButtonElement;
     const copyBtn = element.querySelector('.screen-share-copy') as HTMLButtonElement;
@@ -170,8 +166,8 @@ export class ScreenShareManager {
       this.pendingState.delete(shareId);
     }
     
-    // Observe resize for local screen shares
-    if (isLocal && this.resizeObserver) {
+    // Observe resize for all screen shares
+    if (this.resizeObserver) {
       this.resizeObserver.observe(element);
     }
     

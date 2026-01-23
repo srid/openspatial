@@ -118,16 +118,45 @@ export class UserImpl implements User {
     await closeBtn.click();
   }
 
-  async resizeScreenShare(rect: Rect): Promise<void> {
-    const screenShare = this.page.locator('.screen-share:has-text("Your Screen")');
+  async resizeScreenShare(rectOrOwner: Rect | string, sizeArg?: { width: number; height: number }): Promise<void> {
+    // Handle both old signature (Rect) and new signature (owner, size)
+    let screenShare;
+    let size: { width: number; height: number };
+    
+    if (typeof rectOrOwner === 'string') {
+      // New signature: resizeScreenShare(owner, { width, height })
+      const owner = rectOrOwner;
+      const labelText = owner === this.name ? 'Your Screen' : `${owner}'s Screen`;
+      screenShare = this.page.locator('.screen-share', { hasText: labelText });
+      size = sizeArg!;
+    } else {
+      // Old signature: resizeScreenShare(Rect) - for local screen share
+      screenShare = this.page.locator('.screen-share:has-text("Your Screen")');
+      size = rectOrOwner.size;
+    }
     
     // Set width/height directly in style and trigger resize by updating the element
-    await screenShare.evaluate((el: HTMLElement, size: { width: number; height: number }) => {
-      el.style.width = `${size.width}px`;
-      el.style.height = `${size.height}px`;
-    }, { width: rect.size.width, height: rect.size.height });
+    await screenShare.evaluate((el: HTMLElement, s: { width: number; height: number }) => {
+      el.style.width = `${s.width}px`;
+      el.style.height = `${s.height}px`;
+    }, size);
     
     await this.page.waitForTimeout(SYNC_WAIT);
+  }
+
+  async dragScreenShare(owner: string, delta: { dx: number; dy: number }): Promise<void> {
+    const labelText = owner === this.name ? 'Your Screen' : `${owner}'s Screen`;
+    const screenShare = this.page.locator('.screen-share', { hasText: labelText });
+    const header = screenShare.locator('.screen-share-header');
+    
+    const box = await header.boundingBox();
+    if (box) {
+      await this.page.mouse.move(box.x + 5, box.y + 5);
+      await this.page.mouse.down();
+      await this.page.mouse.move(box.x + 5 + delta.dx, box.y + 5 + delta.dy, { steps: 5 });
+      await this.page.mouse.up();
+    }
+    await this.page.waitForTimeout(1000);
   }
 
   async dragAvatar(delta: { dx: number; dy: number }): Promise<void> {

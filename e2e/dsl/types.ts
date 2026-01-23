@@ -66,6 +66,8 @@ export interface User {
   startScreenShare(opts?: { color?: string }): Promise<ScreenShareInfo>;
   stopScreenShare(): Promise<void>;
   resizeScreenShare(rect: Rect): Promise<void>;
+  resizeScreenShare(owner: string, size: { width: number; height: number }): Promise<void>;
+  dragScreenShare(owner: string, delta: { dx: number; dy: number }): Promise<void>;
   dragAvatar(delta: { dx: number; dy: number }): Promise<void>;
   touchDragAvatar(delta: { dx: number; dy: number }): Promise<void>;
   goOffline(): Promise<void>;

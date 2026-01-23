@@ -418,10 +418,9 @@ export class SpaceSession {
       spatialAudio.updatePositions(avatars.getPositions(), state.peerId!);
     });
 
-    // Observe screen share state changes
+    // Observe screen share state changes (anyone can move/resize any share)
     crdt.observeScreenShares((shares) => {
       for (const [shareId, shareState] of shares) {
-        if (shareState.peerId === state.peerId) continue;
         screenShare.setPosition(shareId, shareState.x, shareState.y);
         screenShare.setSize(shareId, shareState.width, shareState.height);
       }
