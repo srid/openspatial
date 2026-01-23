@@ -115,8 +115,6 @@ const spaceSession = new SpaceSession(
     get joinModal() { return document.getElementById('join-modal') as HTMLElement; },
     get canvasContainer() { return document.getElementById('canvas-container') as HTMLElement; },
     get joinForm() { return document.getElementById('join-form') as HTMLFormElement; },
-    get usernameInput() { return document.getElementById('username') as HTMLInputElement; },
-    get spaceIdInput() { return document.getElementById('space-id') as HTMLInputElement; },
     get joinError() { return document.getElementById('join-error') as HTMLElement; },
   }
 );
@@ -184,15 +182,8 @@ const moduleBridge = {
     user.setUsername(username);
     localStorage.setItem(STORAGE_KEY_USERNAME, username);
     
-    // Set the input values (SpaceSession reads from DOM)
-    // Must set BOTH inputs explicitly - Solid reactivity may not have updated DOM yet
-    const usernameInput = document.getElementById('username') as HTMLInputElement;
-    const spaceIdInput = document.getElementById('space-id') as HTMLInputElement;
-    if (usernameInput) usernameInput.value = username;
-    if (spaceIdInput) spaceIdInput.value = user.spaceId();
-    
     // Initiate join - view transition happens in 'connected' callback
-    spaceSession.handleJoin(new Event('submit'));
+    spaceSession.handleJoin(username, user.spaceId());
   },
   
   toggleMic: () => {
@@ -315,6 +306,3 @@ function init(): void {
 
 // Start the app
 init();
-
-// Export for WebRTC module to access
-export { avatars, screenShare, spatialAudio };

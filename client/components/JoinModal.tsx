@@ -4,7 +4,7 @@
 
 import { Component, Show } from 'solid-js';
 import { ui, spaceInfo, user } from '../stores/app';
-import { HomeIcon, ArrowRightIcon, SpinnerIcon } from './Icons';
+import { HomeIcon, ArrowRightIcon, ArrowLeftIcon, SpinnerIcon } from './Icons';
 
 interface JoinModalProps {
   onJoin: (username: string) => void;
@@ -48,11 +48,7 @@ export const JoinModal: Component<JoinModalProps> = (props) => {
                 </>
               }
             >
-              <span>
-                {spaceInfo.participants().length === 0
-                  ? 'No one here yet'
-                  : `${spaceInfo.participants().join(', ')} here`}
-              </span>
+              <span>{spaceInfo.participants().join(', ')} here</span>
             </Show>
           </div>
         </div>
@@ -84,9 +80,7 @@ export const JoinModal: Component<JoinModalProps> = (props) => {
           </button>
         </form>
         <a href="/" class="back-link">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M19 12H5M12 19l-7-7 7-7" />
-          </svg>
+          <ArrowLeftIcon size={16} />
           <span>Back to home</span>
         </a>
       </div>

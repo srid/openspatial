@@ -2,7 +2,7 @@
  * Space canvas component — container for avatars, screen shares, notes
  */
 
-import { Component, For } from 'solid-js';
+import { Component } from 'solid-js';
 import { collections, user } from '../stores/app';
 import { ControlBar } from './ControlBar';
 import { ConnectionStatusBanner } from './ConnectionStatus';

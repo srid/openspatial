@@ -54,10 +54,9 @@ interface DOMElements {
   joinModal: HTMLElement;
   canvasContainer: HTMLElement;
   joinForm: HTMLFormElement;
-  usernameInput: HTMLInputElement;
-  spaceIdInput: HTMLInputElement;
   joinError: HTMLElement;
 }
+
 
 /**
  * SpaceSession manages the lifecycle of joining and leaving a space.
@@ -76,20 +75,21 @@ export class SpaceSession {
 
   /**
    * Handle join form submission.
+   * @param username - The user's display name
+   * @param spaceId - The space to join
    */
-  async handleJoin(e: Event): Promise<void> {
-    e.preventDefault();
+  async handleJoin(username: string, spaceId: string): Promise<void> {
     this.hideJoinError();
 
     const { state, socket } = this.deps;
-    const { usernameInput, spaceIdInput } = this.dom;
 
-    state.username = usernameInput.value.trim();
-    state.spaceId = spaceIdInput.value.trim();
+    state.username = username;
+    state.spaceId = spaceId;
 
     if (!state.username || !state.spaceId) return;
 
     localStorage.setItem(SpaceSession.STORAGE_KEY_USERNAME, state.username);
+
 
     try {
       const constraints: MediaStreamConstraints = {
