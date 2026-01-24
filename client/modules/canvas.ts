@@ -55,15 +55,30 @@ export class CanvasManager {
       }
     });
 
-    // Touch panning for mobile (two-finger pan, single touch on empty space)
-    this.container!.addEventListener('touchstart', (e) => {
-      // Only start panning if touching the container/space directly (not an element)
-      if (e.target === this.container || e.target === this.space) {
-        if (e.touches.length === 1) {
-          this.isDragging = true;
-          this.startX = e.touches[0].pageX;
-          this.startY = e.touches[0].pageY;
-        }
+    // Touch panning for mobile (single touch on empty space)
+    // Use document listener to capture CDP simulated events
+    document.addEventListener('touchstart', (e) => {
+      // Only process if touch is within our container
+      if (!this.container || e.touches.length !== 1) return;
+      
+      const touch = e.touches[0];
+      const containerRect = this.container.getBoundingClientRect();
+      const isInContainer = 
+        touch.clientX >= containerRect.left &&
+        touch.clientX <= containerRect.right &&
+        touch.clientY >= containerRect.top &&
+        touch.clientY <= containerRect.bottom;
+      
+      if (!isInContainer) return;
+      
+      // Only start panning if NOT touching a draggable element
+      const target = e.target as HTMLElement;
+      const isDraggable = target.closest('.avatar, .screen-share, .text-note');
+      
+      if (!isDraggable) {
+        this.isDragging = true;
+        this.startX = touch.pageX;
+        this.startY = touch.pageY;
       }
     }, { passive: true });
 

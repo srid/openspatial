@@ -14,13 +14,14 @@ import type { AppState } from '../../shared/types/state.js';
 
 /**
  * Dependencies required by MediaControls.
+ * screenShare and textNote are optional at construction time to avoid circular dependencies.
  */
 export interface MediaControlsDeps {
   state: AppState;
   socket: SocketHandler;
   avatars: AvatarManager;
-  screenShare: ScreenShareManager;
-  textNote: TextNoteManager;
+  screenShare?: ScreenShareManager;
+  textNote?: TextNoteManager;
   ui: UIController;
   getCRDT: () => CRDTManager | null;
   getWebRTC: () => WebRTCManager | null;
@@ -34,6 +35,16 @@ export class MediaControls {
 
   constructor(deps: MediaControlsDeps) {
     this.deps = deps;
+  }
+
+  /** Set screen share manager (for deferred initialization). */
+  setScreenShare(screenShare: ScreenShareManager): void {
+    this.deps.screenShare = screenShare;
+  }
+
+  /** Set text note manager (for deferred initialization). */
+  setTextNote(textNote: TextNoteManager): void {
+    this.deps.textNote = textNote;
   }
 
   /**
@@ -100,7 +111,7 @@ export class MediaControls {
       const width = 480;
       const height = 320;
 
-      screenShare.createScreenShare(shareId, state.peerId!, state.username, stream, x, y);
+      screenShare?.createScreenShare(shareId, state.peerId!, state.username, stream, x, y);
       webrtc?.addScreenTrack(shareId, stream);
 
       // Add to CRDT for sync
@@ -134,7 +145,7 @@ export class MediaControls {
       state.screenStreams.delete(shareId);
     }
 
-    screenShare.removeScreenShare(shareId);
+    screenShare?.removeScreenShare(shareId);
     webrtc?.removeScreenTrack(shareId);
     crdt?.removeScreenShare(shareId);
 
@@ -149,13 +160,19 @@ export class MediaControls {
     const { state, avatars } = this.deps;
     const crdt = this.deps.getCRDT();
 
-    if (!state.peerId) return;
+    console.log('[MediaControls] createTextNote called', { peerId: state.peerId, hasCRDT: !!crdt });
+
+    if (!state.peerId) {
+      console.log('[MediaControls] No peerId, returning early');
+      return;
+    }
 
     const noteId = `${state.peerId}-note-${Date.now()}`;
     const localPos = avatars.getPosition(state.peerId);
     const x = localPos.x + 150;
     const y = localPos.y - 50;
 
+    console.log('[MediaControls] Adding text note', { noteId, x, y });
     crdt?.addTextNote(noteId, '', x, y, 250, 150);
   }
 
@@ -166,7 +183,7 @@ export class MediaControls {
     const { textNote } = this.deps;
     const crdt = this.deps.getCRDT();
 
-    textNote.removeTextNote(noteId);
+    textNote?.removeTextNote(noteId);
     crdt?.removeTextNote(noteId);
   }
 }

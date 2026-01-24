@@ -1,4 +1,5 @@
 import { defineConfig } from 'vite';
+import solid from 'vite-plugin-solid';
 import basicSsl from '@vitejs/plugin-basic-ssl';
 import { Server } from 'socket.io';
 import os from 'os';
@@ -69,6 +70,7 @@ function spaFallbackPlugin() {
 
 export default defineConfig({
   plugins: [
+    solid(),
     basicSsl({ domains: ['localhost', hostname] }),
     spaFallbackPlugin(),
     socketPlugin(),
@@ -76,9 +78,11 @@ export default defineConfig({
   ],
   server: {
     host: '0.0.0.0',
+    port: 5173,
     https: true,
     hmr: {
-      host: hostname
+      host: hostname,
+      port: 5173
     }
   }
 });

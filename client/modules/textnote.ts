@@ -55,7 +55,7 @@ export class TextNoteManager {
     this.onContentUpdate = onContentUpdate;
     this.onStyleUpdate = onStyleUpdate;
     this.onClose = onClose;
-    this.space = document.getElementById('space');
+    // Don't get #space here - it may not exist yet in Solid.js architecture
   }
 
   createTextNote(
@@ -195,7 +195,13 @@ export class TextNoteManager {
     // All notes are now draggable
     this.setupDrag(element, noteId, header);
 
-    this.space!.appendChild(element);
+    // Lazily get #space - it may not exist until Space view is rendered
+    const space = document.getElementById('space');
+    if (!space) {
+      console.error('[TextNote] Cannot create text note - #space element not found');
+      return;
+    }
+    space.appendChild(element);
     this.textNotes.set(noteId, element);
 
     // Apply any pending state

@@ -1,9 +1,15 @@
 /**
- * OpenSpatial Client Entry Point
- * Minimal orchestration layer that wires modules together.
+ * OpenSpatial Client Entry Point (Solid.js)
+ * Bridges reactive UI components to existing domain modules.
  */
+import { render } from 'solid-js/web';
 import './index.css';
 document.body.classList.add('loaded');
+
+import { App } from './components/App';
+import { ui, AppView, connection, ConnectionStatus, user, spaceInfo } from './stores/app';
+
+// ==================== Module Imports ====================
 
 import { SocketHandler, ConnectionState, ReconnectInfo } from './modules/socket.js';
 import { WebRTCManager } from './modules/webrtc.js';
@@ -17,9 +23,8 @@ import { MinimapManager } from './modules/minimap.js';
 import { CRDTManager } from './modules/crdt.js';
 import { MediaControls } from './modules/media-controls.js';
 import { SpaceSession } from './modules/space-session.js';
-import type { SpaceInfoEvent } from '../shared/types/events.js';
+import type { SpaceInfoEvent, PeerData } from '../shared/types/events.js';
 import type { AppState, PendingShareInfo } from '../shared/types/state.js';
-import type { PeerData } from '../shared/types/events.js';
 
 // ==================== Application State ====================
 
@@ -40,22 +45,21 @@ const state: AppState = {
 
 let crdt: CRDTManager | null = null;
 let webrtc: WebRTCManager | null = null;
+let canvasInitialized = false;
 
 const socket = new SocketHandler();
 const canvas = new CanvasManager();
 const avatars = new AvatarManager(state);
 const spatialAudio = new SpatialAudio();
 spatialAudio.setAvatarManager(avatars);
-const ui = new UIController(state);
+const uiController = new UIController(state);
 
-// Create managers with CRDT/WebRTC accessors
+// Create mediaControls first (screenShare/textNote added via setters)
 const mediaControls = new MediaControls({
   state,
   socket,
   avatars,
-  screenShare: null as unknown as ScreenShareManager, // Will be set after init
-  textNote: null as unknown as TextNoteManager,
-  ui,
+  ui: uiController,
   getCRDT: () => crdt,
   getWebRTC: () => webrtc,
 });
@@ -76,24 +80,13 @@ const textNote = new TextNoteManager(
   (noteId) => mediaControls.removeTextNote(noteId)
 );
 
-// Update mediaControls with actual instances
-(mediaControls as unknown as { deps: { screenShare: ScreenShareManager; textNote: TextNoteManager } }).deps.screenShare = screenShare;
-(mediaControls as unknown as { deps: { screenShare: ScreenShareManager; textNote: TextNoteManager } }).deps.textNote = textNote;
-
-// ==================== DOM Elements ====================
-
-const landingPage = document.getElementById('landing-page') as HTMLElement;
-const joinModal = document.getElementById('join-modal') as HTMLElement;
-const joinForm = document.getElementById('join-form') as HTMLFormElement;
-const canvasContainer = document.getElementById('canvas-container') as HTMLElement;
-const usernameInput = document.getElementById('username') as HTMLInputElement;
-const spaceIdInput = document.getElementById('space-id') as HTMLInputElement;
-const spaceNameLabel = document.getElementById('space-name-label') as HTMLElement;
-const spaceParticipants = document.getElementById('space-participants') as HTMLElement;
-const joinError = document.getElementById('join-error') as HTMLElement;
+// Wire up deferred dependencies using setters
+mediaControls.setScreenShare(screenShare);
+mediaControls.setTextNote(textNote);
 
 // ==================== Space Session ====================
 
+// SpaceSession needs DOM handles - we'll create a proxy that fetches lazily
 const spaceSession = new SpaceSession(
   {
     state,
@@ -103,7 +96,7 @@ const spaceSession = new SpaceSession(
     screenShare,
     textNote,
     spatialAudio,
-    ui,
+    ui: uiController,
     mediaControls,
     getCRDT: () => crdt,
     setCRDT: (c) => { crdt = c; },
@@ -117,13 +110,12 @@ const spaceSession = new SpaceSession(
     },
     createCRDT: (spaceId) => new CRDTManager(spaceId),
   },
+  // Lazy DOM lookup - SpaceSession will access these when needed
   {
-    joinModal,
-    canvasContainer,
-    joinForm,
-    usernameInput,
-    spaceIdInput,
-    joinError,
+    get joinModal() { return document.getElementById('join-modal') as HTMLElement; },
+    get canvasContainer() { return document.getElementById('canvas-container') as HTMLElement; },
+    get joinForm() { return document.getElementById('join-form') as HTMLFormElement; },
+    get joinError() { return document.getElementById('join-error') as HTMLElement; },
   }
 );
 
@@ -137,9 +129,11 @@ async function querySpaceInfo(spaceId: string): Promise<void> {
 
   previewSocket.on('space-info', (data: SpaceInfoEvent) => {
     if (!data.exists) {
-      showSpaceNotFoundError(spaceId);
+      spaceInfo.setExists(false);
+      ui.setJoinError(`Space "${spaceId}" doesn't exist. An admin needs to create it first.`);
     } else {
-      displaySpaceParticipants(data.participants);
+      spaceInfo.setExists(true);
+      spaceInfo.setParticipants(data.participants);
     }
     previewSocket?.disconnect();
     previewSocket = null;
@@ -150,38 +144,7 @@ async function querySpaceInfo(spaceId: string): Promise<void> {
     previewSocket.emit('get-space-info', { spaceId });
   } catch (error) {
     console.error('Failed to query space info:', error);
-    spaceParticipants.innerHTML = '<span>Unable to check participants</span>';
-  }
-}
-
-function showSpaceNotFoundError(spaceId: string): void {
-  spaceParticipants.innerHTML = '';
-  joinError.innerHTML = `
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-      <circle cx="12" cy="12" r="10"></circle>
-      <line x1="12" y1="8" x2="12" y2="12"></line>
-      <line x1="12" y1="16" x2="12.01" y2="16"></line>
-    </svg>
-    <span>Space "${spaceId}" doesn't exist. An admin needs to create it first.</span>
-  `;
-  joinError.classList.remove('hidden');
-
-  const submitButton = joinForm.querySelector('button[type="submit"]') as HTMLButtonElement;
-  if (submitButton) {
-    submitButton.disabled = true;
-  }
-}
-
-function displaySpaceParticipants(participants: string[]): void {
-  if (participants.length === 0) {
-    spaceParticipants.innerHTML = '<span>No one here yet — be the first!</span>';
-  } else {
-    const names = participants.map((name) => `<span class="participant-name">${name}</span>`).join('');
-    const label = participants.length === 1 ? 'Here now:' : `${participants.length} people here:`;
-    spaceParticipants.innerHTML = `
-      <span>${label}</span>
-      <div class="participant-list">${names}</div>
-    `;
+    spaceInfo.setParticipants([]);
   }
 }
 
@@ -190,41 +153,99 @@ function displaySpaceParticipants(participants: string[]): void {
 function handleConnectionStateChange(connectionState: ConnectionState, info?: ReconnectInfo): void {
   switch (connectionState) {
     case 'disconnected':
-      ui.showDisconnected();
+      connection.setStatus(ConnectionStatus.Disconnected);
+      uiController.showDisconnected();
       break;
     case 'reconnecting':
+      connection.setStatus(ConnectionStatus.Reconnecting);
       if (info) {
-        ui.showReconnecting(info.attempt, info.maxAttempts);
+        connection.setReconnectInfo(info.attempt, info.maxAttempts);
+        uiController.showReconnecting(info.attempt, info.maxAttempts);
       }
       break;
     case 'connected':
-      ui.showConnected();
+      connection.setStatus(ConnectionStatus.Connected);
+      uiController.showConnected();
       break;
   }
 }
 
+// ==================== Module Bridge ====================
+
+const moduleBridge = {
+  handleEnterSpace: (spaceId: string) => {
+    window.location.href = `/s/${encodeURIComponent(spaceId)}`;
+  },
+  
+  handleJoin: (username: string) => {
+    // Sync to store
+    user.setUsername(username);
+    localStorage.setItem(STORAGE_KEY_USERNAME, username);
+    
+    // Initiate join - view transition happens in 'connected' callback
+    spaceSession.handleJoin(username, user.spaceId());
+  },
+  
+  toggleMic: () => {
+    mediaControls.toggleMic();
+    user.setIsMuted(!user.isMuted());
+  },
+  
+  toggleCamera: () => {
+    mediaControls.toggleCamera();
+    user.setIsVideoOff(!user.isVideoOff());
+  },
+  
+  shareScreen: () => {
+    mediaControls.startScreenShare();
+  },
+  
+  addNote: () => {
+    mediaControls.createTextNote();
+  },
+  
+  leaveSpace: () => {
+    spaceSession.leaveSpace();
+    // Reset canvas state for rejoin
+    canvasInitialized = false;
+    // Stay on Join view so user can rejoin the same space
+    ui.setCurrentView(AppView.Join);
+  },
+};
+
 // ==================== Event Listeners ====================
 
 function setupEventListeners(): void {
-  joinForm.addEventListener('submit', (e) => spaceSession.handleJoin(e));
-
-  const landingSpaceForm = document.getElementById('landing-space-form');
-  if (landingSpaceForm) {
-    landingSpaceForm.addEventListener('submit', (e) => {
-      e.preventDefault();
-      const input = document.getElementById('landing-space-input') as HTMLInputElement;
-      const spaceName = input.value.trim() || 'demo';
-      window.location.href = `/s/${encodeURIComponent(spaceName)}`;
-    });
-  }
-
-  document.getElementById('btn-mic')!.addEventListener('click', () => mediaControls.toggleMic());
-  document.getElementById('btn-camera')!.addEventListener('click', () => mediaControls.toggleCamera());
-  document.getElementById('btn-screen')!.addEventListener('click', () => mediaControls.startScreenShare());
-  document.getElementById('btn-note')!.addEventListener('click', () => mediaControls.createTextNote());
-  document.getElementById('btn-leave')!.addEventListener('click', () => spaceSession.leaveSpace());
-
-  socket.on('connected', (data) => spaceSession.handleConnected(data));
+  socket.on('connected', (data) => {
+    user.setPeerId(data.peerId);
+    
+    // Store previous peerId BEFORE updating, for reconnection detection
+    const previousPeerId = state.peerId;
+    
+    // Set state.peerId IMMEDIATELY - this is required for WebRTC signaling
+    // which may happen before requestAnimationFrame callback runs
+    state.peerId = data.peerId;
+    
+    // Transition to space view BEFORE handleConnected
+    // This renders #canvas-container and #space where avatars are created
+    ui.setCurrentView(AppView.Space);
+    
+    // Initialize canvas modules (only once)
+    if (!canvasInitialized) {
+      canvasInitialized = true;
+      // Use requestAnimationFrame to ensure Solid has rendered the DOM
+      requestAnimationFrame(() => {
+        canvas.init();
+        const minimap = new MinimapManager(canvas, 4000, 4000);
+        minimap.init();
+        
+        // Now that canvas is ready, handle the connected event (pass previousPeerId for reconnection detection)
+        spaceSession.handleConnected(data, previousPeerId);
+      });
+    } else {
+      spaceSession.handleConnected(data, previousPeerId);
+    }
+  });
   socket.on('peer-joined', (data) => spaceSession.handlePeerJoined(data));
   socket.on('peer-left', (data) => spaceSession.handlePeerLeft(data));
   socket.on('signal', (data) => spaceSession.handleSignal(data));
@@ -237,49 +258,51 @@ function setupEventListeners(): void {
 
   window.addEventListener('offline', () => {
     console.log('Browser went offline');
-    ui.showDisconnected();
+    connection.setStatus(ConnectionStatus.Disconnected);
   });
 
   window.addEventListener('online', () => {
     console.log('Browser came back online');
-    ui.showConnected();
+    connection.setStatus(ConnectionStatus.Connected);
   });
 }
 
 // ==================== Initialization ====================
 
 function init(): void {
-  setupEventListeners();
-  canvas.init();
-
-  const minimap = new MinimapManager(canvas, 4000, 4000);
-  minimap.init();
-
-  const savedUsername = localStorage.getItem(STORAGE_KEY_USERNAME);
-  if (savedUsername) {
-    usernameInput.value = savedUsername;
+  // Render Solid.js app
+  const appRoot = document.getElementById('app-root');
+  if (appRoot) {
+    render(() => <App bridge={moduleBridge} />, appRoot);
+  } else {
+    console.error('No #app-root found');
+    return;
   }
 
+  setupEventListeners();
+  // NOTE: canvas.init() and minimap.init() are deferred to handleJoin
+  // because #canvas-container only exists when view is Space
+
+  // Restore saved username
+  const savedUsername = localStorage.getItem(STORAGE_KEY_USERNAME);
+  if (savedUsername) {
+    user.setUsername(savedUsername);
+  }
+
+  // Route based on URL
   const pathMatch = window.location.pathname.match(/^\/s\/(.+)$/);
   if (pathMatch) {
     const spaceId = decodeURIComponent(pathMatch[1]);
-    spaceIdInput.value = spaceId;
+    user.setSpaceId(spaceId);
+    spaceInfo.setName(spaceId);
     document.title = `${spaceId} - OpenSpatial`;
-    spaceNameLabel.textContent = spaceId;
-
-    landingPage.classList.add('hidden');
-    joinModal.classList.remove('hidden');
-    usernameInput.focus();
-
+    
+    ui.setCurrentView(AppView.Join);
     querySpaceInfo(spaceId);
   } else {
-    landingPage.classList.remove('hidden');
-    joinModal.classList.add('hidden');
+    ui.setCurrentView(AppView.Landing);
   }
 }
 
 // Start the app
 init();
-
-// Export for WebRTC module to access
-export { avatars, screenShare, spatialAudio };

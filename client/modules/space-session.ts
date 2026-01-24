@@ -15,6 +15,7 @@ import type { SocketHandler } from './socket.js';
 import type { MediaControls } from './media-controls.js';
 import { playJoinSound, playLeaveSound } from './notifications.js';
 import type { AppState } from '../../shared/types/state.js';
+import { collections, type PeerUI, type ScreenShareUI, type TextNoteUI } from '../stores/app.js';
 import type {
   ConnectedEvent,
   SpaceStateEvent,
@@ -53,10 +54,9 @@ interface DOMElements {
   joinModal: HTMLElement;
   canvasContainer: HTMLElement;
   joinForm: HTMLFormElement;
-  usernameInput: HTMLInputElement;
-  spaceIdInput: HTMLInputElement;
   joinError: HTMLElement;
 }
+
 
 /**
  * SpaceSession manages the lifecycle of joining and leaving a space.
@@ -75,20 +75,21 @@ export class SpaceSession {
 
   /**
    * Handle join form submission.
+   * @param username - The user's display name
+   * @param spaceId - The space to join
    */
-  async handleJoin(e: Event): Promise<void> {
-    e.preventDefault();
+  async handleJoin(username: string, spaceId: string): Promise<void> {
     this.hideJoinError();
 
     const { state, socket } = this.deps;
-    const { usernameInput, spaceIdInput } = this.dom;
 
-    state.username = usernameInput.value.trim();
-    state.spaceId = spaceIdInput.value.trim();
+    state.username = username;
+    state.spaceId = spaceId;
 
     if (!state.username || !state.spaceId) return;
 
     localStorage.setItem(SpaceSession.STORAGE_KEY_USERNAME, state.username);
+
 
     try {
       const constraints: MediaStreamConstraints = {
@@ -143,38 +144,43 @@ export class SpaceSession {
 
   /**
    * Handle successful connection (first join or reconnection).
+   * @param previousPeerId - The peer ID before this connection (null for first join, old ID for reconnection)
    */
-  handleConnected(data: ConnectedEvent): void {
+  handleConnected(data: ConnectedEvent, previousPeerId: string | null = null): void {
     const { state, canvas, avatars, spatialAudio } = this.deps;
-    const previousPeerId = state.peerId;
-    const isReconnection = previousPeerId !== null;
+    const isReconnection = previousPeerId !== null && previousPeerId !== data.peerId;
 
+    // Note: state.peerId is already set by the caller (for WebRTC signaling timing)
+    // We only verify it's correct here
     state.peerId = data.peerId;
 
     if (isReconnection) {
-      this.handleReconnection(previousPeerId, data.peerId);
+      this.handleReconnection(previousPeerId!, data.peerId);
       return;
     }
 
-    // First-time join
-    this.dom.joinModal.classList.add('hidden');
-    this.dom.canvasContainer.classList.remove('hidden');
+    // First-time join - guard DOM manipulation (Solid.js may have already transitioned views)
+    const joinModal = this.dom.joinModal;
+    const canvasContainer = this.dom.canvasContainer;
+    if (joinModal) joinModal.classList.add('hidden');
+    if (canvasContainer) canvasContainer.classList.remove('hidden');
 
-    const spaceNameEl = document.getElementById('space-name') as HTMLElement;
-    spaceNameEl.textContent = state.spaceId;
+    const spaceNameEl = document.getElementById('space-name');
+    if (spaceNameEl) {
+      spaceNameEl.textContent = state.spaceId;
+      spaceNameEl.style.cursor = 'pointer';
+      spaceNameEl.title = 'Click to copy invite link';
+      spaceNameEl.addEventListener('click', () => {
+        const permalink = `${window.location.origin}/s/${encodeURIComponent(state.spaceId)}`;
+        navigator.clipboard.writeText(permalink).then(() => {
+          const original = spaceNameEl.textContent;
+          spaceNameEl.textContent = 'Link copied!';
+          setTimeout(() => (spaceNameEl.textContent = original), 1500);
+        });
+      });
+    }
     history.replaceState(null, '', `/s/${encodeURIComponent(state.spaceId)}`);
     document.title = `${state.spaceId} - OpenSpatial`;
-
-    spaceNameEl.style.cursor = 'pointer';
-    spaceNameEl.title = 'Click to copy invite link';
-    spaceNameEl.addEventListener('click', () => {
-      const permalink = `${window.location.origin}/s/${encodeURIComponent(state.spaceId)}`;
-      navigator.clipboard.writeText(permalink).then(() => {
-        const original = spaceNameEl.textContent;
-        spaceNameEl.textContent = 'Link copied!';
-        setTimeout(() => (spaceNameEl.textContent = original), 1500);
-      });
-    });
 
     const centerX = 2000;
     const centerY = 2000;
@@ -240,9 +246,8 @@ export class SpaceSession {
     }
   }
 
-  /**
-   * Handle initial space state from server.
-   */
+  // Property to handle race condition when space-state arrives before handleConnected sets state.peerId
+  // (no longer needed: pendingPeerId - state.peerId is set immediately in 'connected' handler)
   handleSpaceState(spaceState: SpaceStateEvent): void {
     const { state, canvas, avatars } = this.deps;
     const crdt = this.deps.getCRDT();
@@ -374,8 +379,10 @@ export class SpaceSession {
 
     document.title = 'OpenSpatial - Virtual Office';
 
-    this.dom.canvasContainer.classList.add('hidden');
-    this.dom.joinModal.classList.remove('hidden');
+    const canvasContainer = this.dom.canvasContainer;
+    const joinModal = this.dom.joinModal;
+    if (canvasContainer) canvasContainer.classList.add('hidden');
+    if (joinModal) joinModal.classList.remove('hidden');
 
     ui.resetButtons();
   }
@@ -416,6 +423,21 @@ export class SpaceSession {
         avatars.updateStatus(peerId, peerState.status);
       }
       spatialAudio.updatePositions(avatars.getPositions(), state.peerId!);
+      
+      // Sync to Solid signals for reactive UI
+      const peersMap = new Map<string, PeerUI>();
+      for (const [peerId, peerState] of peers) {
+        if (peerId === state.peerId) continue;
+        peersMap.set(peerId, {
+          peerId,
+          username: peerState.username,
+          position: { x: peerState.x, y: peerState.y },
+          isMuted: peerState.isMuted,
+          isVideoOff: peerState.isVideoOff,
+          isScreenSharing: false,
+        });
+      }
+      collections.setPeers(peersMap);
     });
 
     // Observe screen share state changes (anyone can move/resize any share)
@@ -424,6 +446,20 @@ export class SpaceSession {
         screenShare.setPosition(shareId, shareState.x, shareState.y);
         screenShare.setSize(shareId, shareState.width, shareState.height);
       }
+      
+      // Sync to Solid signals for reactive UI
+      const sharesMap = new Map<string, ScreenShareUI>();
+      for (const [shareId, shareState] of shares) {
+        sharesMap.set(shareId, {
+          shareId,
+          ownerId: shareState.peerId,
+          ownerName: shareState.username,
+          position: { x: shareState.x, y: shareState.y },
+          width: shareState.width,
+          height: shareState.height,
+        });
+      }
+      collections.setScreenShares(sharesMap);
     });
 
     // Observe text note state changes
@@ -460,11 +496,31 @@ export class SpaceSession {
           textNote.setColor(noteId, noteState.color);
         }
       }
+      
+      // Sync to Solid signals for reactive UI
+      const notesMap = new Map<string, TextNoteUI>();
+      for (const [noteId, noteState] of notes) {
+        const ownerId = noteId.split('-note-')[0];
+        notesMap.set(noteId, {
+          noteId,
+          ownerId,
+          content: noteState.content,
+          position: { x: noteState.x, y: noteState.y },
+          width: noteState.width,
+          height: noteState.height,
+          fontSize: noteState.fontSize === 'small' ? 12 : noteState.fontSize === 'large' ? 18 : 14,
+          fontFamily: noteState.fontFamily,
+          color: noteState.color,
+        });
+      }
+      collections.setTextNotes(notesMap);
     });
   }
 
   private showJoinError(message: string): void {
-    this.dom.joinError.innerHTML = `
+    const joinError = this.dom.joinError;
+    if (!joinError) return; // Element may not exist in Solid.js conditional rendering
+    joinError.innerHTML = `
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <circle cx="12" cy="12" r="10"></circle>
         <line x1="12" y1="8" x2="12" y2="12"></line>
@@ -472,15 +528,17 @@ export class SpaceSession {
       </svg>
       <span>${message}</span>
     `;
-    this.dom.joinError.classList.remove('hidden');
+    joinError.classList.remove('hidden');
   }
 
   private hideJoinError(): void {
-    this.dom.joinError.classList.add('hidden');
+    const joinError = this.dom.joinError;
+    if (joinError) joinError.classList.add('hidden');
   }
 
   private updateParticipantCount(): void {
     const count = this.deps.state.peers.size + 1;
-    document.getElementById('participant-count')!.textContent = `${count} participant${count !== 1 ? 's' : ''}`;
+    const el = document.getElementById('participant-count');
+    if (el) el.textContent = `${count} participant${count !== 1 ? 's' : ''}`;
   }
 }
