@@ -12,7 +12,21 @@ export function checkBrowser(): void {
   if (!isChrome) {
     const warningDiv = document.createElement("div");
     warningDiv.className = "browser-warning";
-    warningDiv.textContent = "Warning: This application is tested on Chrome only. You may experience issues on other browsers.";
+
+    // Create text span
+    const textSpan = document.createElement("span");
+    textSpan.textContent = "Warning: This application is tested on Chrome only. You may experience issues on other browsers.";
+    warningDiv.appendChild(textSpan);
+
+    // Create close button
+    const closeBtn = document.createElement("button");
+    closeBtn.className = "browser-warning-close";
+    closeBtn.innerHTML = "&times;"; // Use entity for X
+    closeBtn.onclick = () => {
+      warningDiv.remove();
+    };
+    warningDiv.appendChild(closeBtn);
+
     document.body.appendChild(warningDiv);
   }
 }
