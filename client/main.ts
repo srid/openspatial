@@ -5,6 +5,7 @@
 import './index.css';
 document.body.classList.add('loaded');
 
+import { checkBrowser } from './modules/browser-check.js';
 import { SocketHandler, ConnectionState, ReconnectInfo } from './modules/socket.js';
 import { WebRTCManager } from './modules/webrtc.js';
 import { CanvasManager } from './modules/canvas.js';
@@ -249,6 +250,7 @@ function setupEventListeners(): void {
 // ==================== Initialization ====================
 
 function init(): void {
+  checkBrowser();
   setupEventListeners();
   canvas.init();
 
