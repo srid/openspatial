@@ -35,16 +35,25 @@ in
     enable = true;
     port = 3000;
     https = false;  # nginx handles TLS
+    domain = domain;
 
     # Spaces to create on startup
     spaces = [ "demo" "jusnix" "actualism" "vinoth" ];
     
     turn = {
       enable = true;
-      domain = domain;
       externalIP = "46.62.227.127";
       # Create this file with: openssl rand -hex 32 > /etc/openspatial/turn-secret
       secretFile = "/etc/openspatial/turn-secret";
+    };
+
+    notifications.slack = {
+      enable = true;
+      # Create webhook at api.slack.com/apps → Incoming Webhooks
+      # Save the URL to: /etc/openspatial/slack-webhook
+      webhookUrlFile = "/etc/openspatial/slack-webhook";
+      # Only notify for these spaces
+      spaces = [ "jusnix" ];
     };
   };
 

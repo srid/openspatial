@@ -16,7 +16,13 @@ nix run .#redeploy -- root@<server-ip>
 
 ```bash
 ssh root@<server-ip>
+
+# TURN secret
 openssl rand -hex 32 > /etc/openspatial/turn-secret
+
+# Slack webhook (get from api.slack.com/apps → Incoming Webhooks)
+echo "https://hooks.slack.com/services/YOUR/WEBHOOK/URL" > /etc/openspatial/slack-webhook
+
 systemctl restart openspatial coturn
 ```
 

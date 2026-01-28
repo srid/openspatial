@@ -3,6 +3,7 @@ import type { Server, Socket } from 'socket.io';
 import * as Y from 'yjs';
 // @ts-expect-error - y-websocket utils has no types
 import { docs } from 'y-websocket/bin/utils';
+import { notifySpaceActive, notifySpaceEmpty } from './notifier/index.js';
 import type {
   JoinSpaceEvent,
   SignalEvent,
@@ -97,6 +98,7 @@ export function attachSignaling(io: Server): void {
       socket.join(spaceId);
 
       const space = getSpace(spaceId);
+      const wasEmpty = space.peers.size === 0;
       const position = {
         x: 1800 + Math.random() * 400,
         y: 1800 + Math.random() * 400,
@@ -124,6 +126,11 @@ export function attachSignaling(io: Server): void {
       socket.to(spaceId).emit('peer-joined', peerJoined);
 
       console.log(`[Signaling] ${username} joined space ${spaceId} (${space.peers.size} peers)`);
+      
+      // Notify external services when space becomes active (first user)
+      if (wasEmpty) {
+        notifySpaceActive(spaceId, username);
+      }
     });
 
     // Route signals to specific peer, not broadcast
@@ -202,6 +209,8 @@ export function attachSignaling(io: Server): void {
           socket.to(currentSpace).emit('peer-left', { peerId });
           console.log(`[Signaling] ${currentUsername} left space ${currentSpace} (${space.peers.size} peers)`);
           if (space.peers.size === 0) {
+            // Notify external services when space becomes empty (last user)
+            notifySpaceEmpty(currentSpace);
             spaces.delete(currentSpace);
             console.log(`[Signaling] Space ${currentSpace} deleted (empty)`);
           }
