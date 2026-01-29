@@ -13,6 +13,10 @@ import { runMigrations, ensureDemoSpace } from './db.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
+// Parse command line arguments
+const args = process.argv.slice(2);
+const debug = args.includes('--debug');
+
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
 // HTTPS enabled by default, set HTTPS=0 to disable
@@ -86,10 +90,10 @@ const io = new Server(server, {
     pingInterval: 5000,    // Ping every 5s (default: 25000)
 });
 
-attachSignaling(io);
+attachSignaling(io, debug);
 
 // Attach Yjs WebSocket server for CRDT document synchronization
-attachYjsServer(server);
+attachYjsServer(server, debug);
 
 // Async startup: run migrations and ensure demo space before listening
 const protocol = USE_HTTPS ? 'https' : 'http';
@@ -101,6 +105,9 @@ const protocol = USE_HTTPS ? 'https' : 'http';
         
         server.listen(PORT, '0.0.0.0', () => {
             console.log(`🚀 OpenSpatial running on ${protocol}://0.0.0.0:${PORT}`);
+            if (debug) {
+                console.log('🐞 Debug logging enabled');
+            }
         });
     } catch (err) {
         console.error('Startup failed:', err);

@@ -3,6 +3,7 @@
 let
   cfg = config.services.openspatial;
   openspatial = pkgs.callPackage ./package.nix { };
+  args = lib.optionalString cfg.debug " --debug";
 in
 {
   options.services.openspatial = {
@@ -24,6 +25,12 @@ in
       type = lib.types.bool;
       default = false;
       description = "Open firewall port";
+    };
+
+    debug = lib.mkOption {
+      type = lib.types.bool;
+      default = false;
+      description = "Enable debug logging";
     };
 
     dataDir = lib.mkOption {
@@ -118,11 +125,11 @@ in
             text = ''
               TURN_SECRET="$(cat ${cfg.turn.secretFile})"
               export TURN_SECRET
-              exec ${openspatial}/bin/openspatial
+              exec ${openspatial}/bin/openspatial${args}
             '';
           });
         } else {
-          ExecStart = "${openspatial}/bin/openspatial";
+          ExecStart = "${openspatial}/bin/openspatial${args}";
         });
       };
 
