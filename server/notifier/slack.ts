@@ -12,13 +12,6 @@ export interface SlackConfig {
 
 interface SlackMessage {
   text: string;
-  thread_ts?: string;
-}
-
-interface SlackResponse {
-  ok?: boolean;
-  ts?: string;
-  error?: string;
 }
 
 export class SlackBackend implements NotificationBackend {
@@ -63,34 +56,6 @@ export class SlackBackend implements NotificationBackend {
     } catch (error) {
       console.error(`[Slack] Error sending notification:`, error);
       return null;
-    }
-  }
-  
-  async notifySpaceEmpty(spaceId: string, _originalMessageId: string): Promise<void> {
-    const webhookUrl = this.getWebhookUrl(spaceId);
-    
-    // Note: Slack incoming webhooks don't support threading.
-    // For proper thread replies, we'd need to use the Slack Web API with a bot token.
-    // For now, we send a standalone message indicating the space is empty.
-    const message: SlackMessage = {
-      text: `🔴 Space "${spaceId}" is now empty.`,
-    };
-    
-    try {
-      const response = await fetch(webhookUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(message),
-      });
-      
-      if (!response.ok) {
-        console.error(`[Slack] Failed to send empty notification: ${response.status}`);
-        return;
-      }
-      
-      console.log(`[Slack] Empty notification sent for space ${spaceId}`);
-    } catch (error) {
-      console.error(`[Slack] Error sending empty notification:`, error);
     }
   }
 }

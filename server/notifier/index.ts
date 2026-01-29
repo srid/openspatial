@@ -4,15 +4,8 @@
 import type { NotificationBackend, NotifierConfig, SpaceNotification } from './types.js';
 import { createSlackBackendFromEnv } from './slack.js';
 
-/** Tracks active notifications for threading and cooldown */
-interface ActiveNotification {
-  messageId: string;
-  timestamp: number;
-  backend: NotificationBackend;
-}
-
-/** Global notifier state */
-const activeNotifications = new Map<string, ActiveNotification>();
+/** Tracks notification timestamps for cooldown */
+const lastNotificationTime = new Map<string, number>();
 let notifierConfig: NotifierConfig | null = null;
 
 /**
@@ -68,9 +61,9 @@ export async function notifySpaceActive(spaceId: string, username: string): Prom
   }
   
   // Check cooldown
-  const existing = activeNotifications.get(spaceId);
-  if (existing) {
-    const elapsed = Date.now() - existing.timestamp;
+  const lastTime = lastNotificationTime.get(spaceId);
+  if (lastTime) {
+    const elapsed = Date.now() - lastTime;
     if (elapsed < notifierConfig.cooldownMs) {
       console.log(`[Notifier] Skipping notification for ${spaceId} (cooldown: ${Math.round((notifierConfig.cooldownMs - elapsed) / 1000)}s remaining)`);
       return;
@@ -86,44 +79,10 @@ export async function notifySpaceActive(spaceId: string, username: string): Prom
   // Notify all backends
   for (const backend of notifierConfig.backends) {
     try {
-      const messageId = await backend.notifySpaceActive(notification);
-      if (messageId) {
-        activeNotifications.set(spaceId, {
-          messageId,
-          timestamp: Date.now(),
-          backend,
-        });
-      }
+      await backend.notifySpaceActive(notification);
+      lastNotificationTime.set(spaceId, Date.now());
     } catch (error) {
       console.error(`[Notifier] Error in ${backend.name} backend:`, error);
     }
   }
-}
-
-/**
- * Notify that a space became empty (last user left).
- * Sends as a reply to the original "active" notification when supported.
- */
-export async function notifySpaceEmpty(spaceId: string): Promise<void> {
-  if (!notifierConfig || notifierConfig.backends.length === 0) {
-    return;
-  }
-  
-  const existing = activeNotifications.get(spaceId);
-  if (!existing) {
-    // No active notification to reply to - this happens if:
-    // - The server restarted while space was active
-    // - Notifications were disabled when space became active
-    console.log(`[Notifier] No active notification found for ${spaceId}, skipping empty notification`);
-    return;
-  }
-  
-  try {
-    await existing.backend.notifySpaceEmpty(spaceId, existing.messageId);
-  } catch (error) {
-    console.error(`[Notifier] Error sending empty notification:`, error);
-  }
-  
-  // Keep the notification in the map for cooldown purposes
-  // It will be overwritten when the space becomes active again
 }

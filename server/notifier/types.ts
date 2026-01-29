@@ -19,16 +19,9 @@ export interface NotificationBackend {
   
   /**
    * Notify that a space became active.
-   * @returns A message identifier for threading replies (backend-specific), or null if not supported.
+   * @returns A message identifier (for future features like message editing), or null.
    */
   notifySpaceActive(notification: SpaceNotification): Promise<string | null>;
-  
-  /**
-   * Notify that a space became empty (as a reply to the original message).
-   * @param spaceId The space that became empty
-   * @param originalMessageId The identifier returned by notifySpaceActive() for threading
-   */
-  notifySpaceEmpty(spaceId: string, originalMessageId: string): Promise<void>;
 }
 
 /**
