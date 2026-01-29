@@ -35,32 +35,32 @@ const DEBOUNCE_MS = 2000;
  * Destroy and remove a Y.Doc from cache when all connections close.
  * This forces fresh hydration from SQLite on next connection.
  */
-function destroyDoc(spaceId: string): void {
+function destroyDoc(spaceId: string, debug: boolean): void {
   const doc = docs.get(spaceId) as Y.Doc | undefined;
   if (doc) {
     doc.destroy();
     docs.delete(spaceId);
-    console.log(`[Yjs] Destroyed doc for space ${spaceId}, will re-hydrate on next connection`);
+    if (debug) console.log(`[Yjs] Destroyed doc for space ${spaceId}, will re-hydrate on next connection`);
   }
 }
 
 /**
  * Hydrate a Y.Doc with text notes from SQLite
  */
-async function hydrateFromSQLite(doc: Y.Doc, spaceId: string): Promise<void> {
+async function hydrateFromSQLite(doc: Y.Doc, spaceId: string, debug: boolean): Promise<void> {
   // Check THIS specific doc instance (WeakSet auto-handles destroyed docs)
   if (hydratedDocs.has(doc)) return;
   
   // Only hydrate if this is a valid space
   const space = await getSpace(spaceId);
   if (!space) {
-    console.log(`[Yjs] Space ${spaceId} not found in DB, skipping hydration`);
+    if (debug) console.log(`[Yjs] Space ${spaceId} not found in DB, skipping hydration`);
     return;
   }
   
   const rows = await getTextNotes(spaceId);
   if (rows.length === 0) {
-    console.log(`[Yjs] No text notes to hydrate for space ${spaceId}`);
+    if (debug) console.log(`[Yjs] No text notes to hydrate for space ${spaceId}`);
     hydratedDocs.add(doc);
     return;
   }
@@ -76,7 +76,7 @@ async function hydrateFromSQLite(doc: Y.Doc, spaceId: string): Promise<void> {
   });
   
   hydratedDocs.add(doc);
-  console.log(`[Yjs] Hydrated ${rows.length} text notes for space ${spaceId}`);
+  if (debug) console.log(`[Yjs] Hydrated ${rows.length} text notes for space ${spaceId}`);
 }
 
 /**
@@ -145,7 +145,7 @@ async function flushToSQLite(spaceId: string): Promise<void> {
   }
 }
 
-export function attachYjsServer(server: HttpServer | HttpsServer): void {
+export function attachYjsServer(server: HttpServer | HttpsServer, debug: boolean = false): void {
   // Use noServer mode to manually handle upgrade requests
   // This allows Socket.io to continue handling /socket.io paths
   const wss = new WebSocketServer({ noServer: true });
@@ -177,7 +177,7 @@ export function attachYjsServer(server: HttpServer | HttpsServer): void {
         // Auto-create space (for dev/testing)
         try {
           await createSpace(spaceId);
-          console.log(`[Yjs] Auto-created space: ${spaceId}`);
+          if (debug) console.log(`[Yjs] Auto-created space: ${spaceId}`);
           space = await getSpace(spaceId);
         } catch (e) {
           // Space might have been created by another connection
@@ -186,13 +186,13 @@ export function attachYjsServer(server: HttpServer | HttpsServer): void {
       }
       
       if (!space) {
-        console.log(`[Yjs] Rejecting connection to unknown space: ${spaceId}`);
+        if (debug) console.log(`[Yjs] Rejecting connection to unknown space: ${spaceId}`);
         ws.close(4001, `Space "${spaceId}" not found`);
         return;
       }
     }
     
-    console.log(`[Yjs] Client connected to space: ${spaceId}`);
+    if (debug) console.log(`[Yjs] Client connected to space: ${spaceId}`);
     
     // Track connection count for this space
     const currentCount = connectionCounts.get(spaceId) || 0;
@@ -200,7 +200,7 @@ export function attachYjsServer(server: HttpServer | HttpsServer): void {
     
     // Handle disconnect: flush to SQLite and destroy doc if this was the last connection
     ws.on('close', async () => {
-      console.log(`[Yjs] Client disconnected from space: ${spaceId}`);
+      if (debug) console.log(`[Yjs] Client disconnected from space: ${spaceId}`);
       
       // Cancel any pending debounce timeout
       const timeout = writeTimeouts.get(spaceId);
@@ -217,7 +217,7 @@ export function attachYjsServer(server: HttpServer | HttpsServer): void {
       if (count <= 1) {
         // Last connection closed - destroy doc so next connection gets fresh hydration
         connectionCounts.delete(spaceId);
-        destroyDoc(spaceId);
+        destroyDoc(spaceId, debug);
       } else {
         connectionCounts.set(spaceId, count - 1);
       }
@@ -228,7 +228,7 @@ export function attachYjsServer(server: HttpServer | HttpsServer): void {
     const doc = getYDoc(spaceId) as Y.Doc;
     
     // Hydrate from SQLite BEFORE connecting client to the doc
-    await hydrateFromSQLite(doc, spaceId);
+    await hydrateFromSQLite(doc, spaceId, debug);
     
     // Set up persistence observer (only once per doc instance)
     if (!observedDocs.has(doc)) {
@@ -240,5 +240,5 @@ export function attachYjsServer(server: HttpServer | HttpsServer): void {
     setupWSConnection(ws, req, { docName: spaceId });
   });
 
-  console.log('[Yjs] WebSocket server attached at /yjs (with SQLite persistence)');
+  if (debug) console.log('[Yjs] WebSocket server attached at /yjs (with SQLite persistence)');
 }

@@ -28,13 +28,13 @@ interface Space {
  * Clean up a peer from the CRDT document when they disconnect.
  * This handles cases like browser refresh where client-side cleanup doesn't run.
  */
-function cleanupCRDTOnDisconnect(spaceId: string, peerId: string): void {
+function cleanupCRDTOnDisconnect(spaceId: string, peerId: string, debug: boolean): void {
   const doc = docs.get(spaceId) as Y.Doc | undefined;
   if (doc) {
     const peers = doc.getMap('peers');
     if (peers.has(peerId)) {
       peers.delete(peerId);
-      console.log(`[CRDT Cleanup] Removed peer ${peerId} from space ${spaceId}`);
+      if (debug) console.log(`[CRDT Cleanup] Removed peer ${peerId} from space ${spaceId}`);
     }
     // Also cleanup any screen shares owned by this peer
     const screenShares = doc.getMap('screenShares');
@@ -42,7 +42,7 @@ function cleanupCRDTOnDisconnect(spaceId: string, peerId: string): void {
       const share = value as { peerId: string };
       if (share.peerId === peerId) {
         screenShares.delete(shareId);
-        console.log(`[CRDT Cleanup] Removed screen share ${shareId} from space ${spaceId}`);
+        if (debug) console.log(`[CRDT Cleanup] Removed screen share ${shareId} from space ${spaceId}`);
       }
     }
     // Note: Text notes are NOT cleaned up on disconnect - they are persisted and shared
@@ -53,7 +53,7 @@ function cleanupCRDTOnDisconnect(spaceId: string, peerId: string): void {
  * Attach Socket.io signaling handlers to a Socket.io server instance.
  * Shared between Vite plugin (dev) and standalone server (prod).
  */
-export function attachSignaling(io: Server): void {
+export function attachSignaling(io: Server, debug: boolean = false): void {
   // Space state management
   const spaces = new Map<string, Space>();
   // Map peerId -> socketId for direct signaling
@@ -133,7 +133,7 @@ export function attachSignaling(io: Server): void {
       if (targetSocketId) {
         io.to(targetSocketId).emit('signal', data);
       } else {
-        console.warn(`[Signaling] Target peer ${to} not found for signal`);
+        if (debug) console.warn(`[Signaling] Target peer ${to} not found for signal`);
       }
     });
 
@@ -197,7 +197,7 @@ export function attachSignaling(io: Server): void {
           }
           
           // Clean up CRDT - remove peer and their screen shares from Yjs document
-          cleanupCRDTOnDisconnect(currentSpace, peerId);
+          cleanupCRDTOnDisconnect(currentSpace, peerId, debug);
           
           socket.to(currentSpace).emit('peer-left', { peerId });
           console.log(`[Signaling] ${currentUsername} left space ${currentSpace} (${space.peers.size} peers)`);
