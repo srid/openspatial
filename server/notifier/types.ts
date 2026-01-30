@@ -41,11 +41,4 @@ export interface NotifierConfig {
    * List of space IDs to notify for. Null means notify for all spaces.
    */
   allowedSpaces: string[] | null;
-  
-  /**
-   * Map of spaceId to backend-specific destination.
-   * For Slack: webhook URL. For Discord: webhook URL. For email: address.
-   * If not specified for a space, uses the backend's default destination.
-   */
-  spaceDestinationMap?: Record<string, string>;
 }

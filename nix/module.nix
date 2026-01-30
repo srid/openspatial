@@ -88,12 +88,7 @@ in
           description = "Path to file containing default Slack webhook URL (keep secret)";
         };
 
-        spaceDestinationMap = lib.mkOption {
-          type = lib.types.attrsOf lib.types.str;
-          default = {};
-          example = { "team" = "https://hooks.slack.com/..."; };
-          description = "Map of spaceId to specific Slack webhook URL. Falls back to webhookUrlFile.";
-        };
+
 
         cooldownSeconds = lib.mkOption {
           type = lib.types.int;
@@ -132,8 +127,6 @@ in
         } // lib.optionalAttrs cfg.notifications.slack.enable {
           SLACK_BASE_URL = "${if cfg.https then "https" else "http"}://${cfg.domain}";
           SLACK_COOLDOWN_MS = toString (cfg.notifications.slack.cooldownSeconds * 1000);
-        } // lib.optionalAttrs (cfg.notifications.slack.enable && cfg.notifications.slack.spaceDestinationMap != {}) {
-          SLACK_SPACE_DESTINATION_MAP = builtins.toJSON cfg.notifications.slack.spaceDestinationMap;
         } // lib.optionalAttrs (cfg.notifications.slack.enable && cfg.notifications.slack.spaces != []) {
           SLACK_SPACES = lib.concatStringsSep "," cfg.notifications.slack.spaces;
         };

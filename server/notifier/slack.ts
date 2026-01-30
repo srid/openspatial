@@ -4,10 +4,8 @@
 import type { NotificationBackend, SpaceNotification } from './types.js';
 
 export interface SlackConfig {
-  /** Default webhook URL (used when no space-specific destination) */
-  defaultWebhookUrl: string;
-  /** Map of spaceId to specific webhook URL */
-  spaceDestinationMap?: Record<string, string>;
+  /** Slack incoming webhook URL */
+  webhookUrl: string;
 }
 
 interface SlackMessage {
@@ -19,13 +17,7 @@ export class SlackBackend implements NotificationBackend {
   
   constructor(private config: SlackConfig) {}
   
-  private getWebhookUrl(spaceId: string): string {
-    return this.config.spaceDestinationMap?.[spaceId] ?? this.config.defaultWebhookUrl;
-  }
-  
   async notifySpaceActive(notification: SpaceNotification): Promise<string | null> {
-    const webhookUrl = this.getWebhookUrl(notification.spaceId);
-    
     const message: SlackMessage = {
       text: [
         `🟢 Space "${notification.spaceId}" is now active!`,
@@ -35,7 +27,7 @@ export class SlackBackend implements NotificationBackend {
     };
     
     try {
-      const response = await fetch(webhookUrl, {
+      const response = await fetch(this.config.webhookUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(message),
@@ -70,19 +62,5 @@ export function createSlackBackendFromEnv(): SlackBackend | null {
     return null;
   }
   
-  // Parse space destination map from JSON env var
-  let spaceDestinationMap: Record<string, string> | undefined;
-  const mapJson = process.env.SLACK_SPACE_DESTINATION_MAP;
-  if (mapJson) {
-    try {
-      spaceDestinationMap = JSON.parse(mapJson);
-    } catch (e) {
-      console.error('[Slack] Failed to parse SLACK_SPACE_DESTINATION_MAP:', e);
-    }
-  }
-  
-  return new SlackBackend({
-    defaultWebhookUrl: webhookUrl,
-    spaceDestinationMap,
-  });
+  return new SlackBackend({ webhookUrl });
 }

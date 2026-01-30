@@ -80,7 +80,7 @@ Server-side cleanup removes orphaned entries when peers disconnect.
 
 ## Slack Notifications
 
-Get notified in Slack when spaces become active or empty.
+Get notified in Slack when spaces become active.
 
 ### Setup
 
