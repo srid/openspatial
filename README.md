@@ -78,6 +78,40 @@ All real-time state synchronization uses Yjs with y-websocket:
 
 Server-side cleanup removes orphaned entries when peers disconnect.
 
+## Slack Notifications
+
+Get notified in Slack when spaces become active.
+
+### Setup
+
+1. Go to [api.slack.com/apps](https://api.slack.com/apps) → **Create New App** → **From scratch**
+2. Name it (e.g., "OpenSpatial") and select your workspace
+3. Click **Incoming Webhooks** → Toggle **Activate** to ON
+4. Click **Add New Webhook to Workspace** → Select channel → **Allow**
+5. Copy the webhook URL
+
+### Local Development
+
+```bash
+SLACK_WEBHOOK_URL="https://hooks.slack.com/services/..." \
+SLACK_BASE_URL="https://localhost:5173" \
+npm run dev
+```
+
+### NixOS Module
+
+```nix
+services.openspatial = {
+  enable = true;
+  domain = "spatial.example.com";  # Used for TURN realm and Slack links
+  notifications.slack = {
+    enable = true;
+    webhookUrlFile = "/run/secrets/slack-webhook";  # Keep secret!
+    spaces = [ "jusnix" ];  # Only notify for these spaces (empty = all)
+  };
+};
+```
+
 ## Deployment
 
 For production deployment to Hetzner Cloud with NixOS, TURN server, and Let's Encrypt SSL, see [deploy/README.md](./deploy/README.md).

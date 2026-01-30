@@ -39,13 +39,16 @@ in
       description = "List of space IDs to ensure exist on startup";
     };
 
+    domain = lib.mkOption {
+      type = lib.types.str;
+      example = "spatial.example.com";
+      description = "Public domain for the service (used for TURN realm and notification links)";
+    };
+
     turn = {
       enable = lib.mkEnableOption "bundled coturn TURN server for NAT traversal";
 
-      domain = lib.mkOption {
-        type = lib.types.str;
-        description = "Public domain/hostname for TURN server (clients connect to this)";
-      };
+
 
       port = lib.mkOption {
         type = lib.types.port;
@@ -75,6 +78,32 @@ in
         description = "External/public IP address for TURN server NAT traversal";
       };
     };
+
+    notifications = {
+      slack = {
+        enable = lib.mkEnableOption "Slack notifications when spaces become active/empty";
+
+        webhookUrlFile = lib.mkOption {
+          type = lib.types.path;
+          description = "Path to file containing default Slack webhook URL (keep secret)";
+        };
+
+
+
+        cooldownSeconds = lib.mkOption {
+          type = lib.types.int;
+          default = 60;
+          description = "Minimum seconds between notifications for the same space";
+        };
+
+        spaces = lib.mkOption {
+          type = lib.types.listOf lib.types.str;
+          default = [];
+          example = [ "jusnix" "team" ];
+          description = "List of space IDs to notify for. Empty list means notify for all spaces.";
+        };
+      };
+    };
   };
 
   config = lib.mkIf cfg.enable (lib.mkMerge [
@@ -95,9 +124,31 @@ in
         } // lib.optionalAttrs cfg.turn.enable {
           TURN_HOST = cfg.turn.externalIP;  # Use IP directly since domain may be behind Cloudflare
           TURN_PORT = toString cfg.turn.port;
+        } // lib.optionalAttrs cfg.notifications.slack.enable {
+          SLACK_BASE_URL = "${if cfg.https then "https" else "http"}://${cfg.domain}";
+          SLACK_COOLDOWN_MS = toString (cfg.notifications.slack.cooldownSeconds * 1000);
+        } // lib.optionalAttrs (cfg.notifications.slack.enable && cfg.notifications.slack.spaces != []) {
+          SLACK_SPACES = lib.concatStringsSep "," cfg.notifications.slack.spaces;
         };
 
-        serviceConfig = {
+        serviceConfig = let
+          # Build wrapper script when secrets need to be loaded from files
+          needsWrapper = cfg.turn.enable || cfg.notifications.slack.enable;
+          wrapperScript = pkgs.writeShellApplication {
+            name = "openspatial-start";
+            text = ''
+              ${lib.optionalString cfg.turn.enable ''
+                TURN_SECRET="$(cat ${cfg.turn.secretFile})"
+                export TURN_SECRET
+              ''}
+              ${lib.optionalString cfg.notifications.slack.enable ''
+                SLACK_WEBHOOK_URL="$(cat ${cfg.notifications.slack.webhookUrlFile})"
+                export SLACK_WEBHOOK_URL
+              ''}
+              exec ${openspatial}/bin/openspatial
+            '';
+          };
+        in {
           Type = "simple";
           Restart = "on-failure";
           DynamicUser = true;
@@ -111,19 +162,10 @@ in
               ${openspatial}/bin/openspatial-cli create ${lib.concatStringsSep " " cfg.spaces}
             '';
           }));
-        } // (if cfg.turn.enable then {
-          # Wrapper script that loads TURN_SECRET from file before starting
-          ExecStart = lib.getExe (pkgs.writeShellApplication {
-            name = "openspatial-start";
-            text = ''
-              TURN_SECRET="$(cat ${cfg.turn.secretFile})"
-              export TURN_SECRET
-              exec ${openspatial}/bin/openspatial
-            '';
-          });
-        } else {
-          ExecStart = "${openspatial}/bin/openspatial";
-        });
+          ExecStart = if needsWrapper
+            then lib.getExe wrapperScript
+            else "${openspatial}/bin/openspatial";
+        };
       };
 
       networking.firewall.allowedTCPPorts = lib.mkIf cfg.openFirewall [ cfg.port ];
@@ -141,7 +183,7 @@ in
 
       services.coturn = {
         enable = true;
-        realm = cfg.turn.domain;
+        realm = cfg.domain;
         listening-port = cfg.turn.port;
         min-port = cfg.turn.minPort;
         max-port = cfg.turn.maxPort;

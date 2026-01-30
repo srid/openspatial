@@ -9,6 +9,7 @@ import { attachYjsServer } from './yjs-server.js';
 import { getIceServers } from './turn-config.js';
 import { validateSpace } from './spaces.js';
 import { runMigrations, ensureDemoSpace } from './db.js';
+import { initNotifier } from './notifier/index.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -98,6 +99,7 @@ const protocol = USE_HTTPS ? 'https' : 'http';
     try {
         await runMigrations();
         await ensureDemoSpace();
+        initNotifier();
         
         server.listen(PORT, '0.0.0.0', () => {
             console.log(`🚀 OpenSpatial running on ${protocol}://0.0.0.0:${PORT}`);
