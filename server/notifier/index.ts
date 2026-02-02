@@ -73,7 +73,7 @@ export async function notifySpaceActive(spaceId: string, username: string): Prom
   const notification: SpaceNotification = {
     spaceId,
     username,
-    joinUrl: notifierConfig.baseUrl ? `${notifierConfig.baseUrl}/${spaceId}` : spaceId,
+    joinUrl: notifierConfig.baseUrl ? `${notifierConfig.baseUrl}/s/${spaceId}` : spaceId,
   };
   
   // Notify all backends
