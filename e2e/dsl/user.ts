@@ -495,12 +495,4 @@ export class UserImpl implements User {
     }
     return 'connected';
   }
-
-  async isBackgroundTunePlaying(): Promise<boolean> {
-    return await this.page.evaluate(() => {
-      // Access the exported function from background-tune module
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      return (window as any).__backgroundTunePlaying === true;
-    });
-  }
 }

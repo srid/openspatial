@@ -96,7 +96,6 @@ export interface User {
   avatarOf(name: string): AvatarView;
   participantCount(): Promise<number>;
   connectionStatus(): Promise<ConnectionStatus>;
-  isBackgroundTunePlaying(): Promise<boolean>;
 }
 
 export interface AvatarView {
