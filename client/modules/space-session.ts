@@ -14,6 +14,7 @@ import type { CanvasManager } from './canvas.js';
 import type { SocketHandler } from './socket.js';
 import type { MediaControls } from './media-controls.js';
 import { playJoinSound, playLeaveSound } from './notifications.js';
+import { updateBackgroundTune, stopBackgroundTune } from './background-tune.js';
 import type { AppState } from '../../shared/types/state.js';
 import type {
   ConnectedEvent,
@@ -378,6 +379,7 @@ export class SpaceSession {
     this.dom.joinModal.classList.remove('hidden');
 
     ui.resetButtons();
+    stopBackgroundTune();
   }
 
   /**
@@ -482,5 +484,6 @@ export class SpaceSession {
   private updateParticipantCount(): void {
     const count = this.deps.state.peers.size + 1;
     document.getElementById('participant-count')!.textContent = `${count} participant${count !== 1 ? 's' : ''}`;
+    updateBackgroundTune(count);
   }
 }
