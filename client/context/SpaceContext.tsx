@@ -252,7 +252,12 @@ export const SpaceProvider: ParentComponent = (props) => {
     });
     
     textNotesMap.observe(() => {
-      setTextNotes(new Map(textNotesMap!.entries()));
+      // Deep-clone to create new object references for SolidJS reactivity
+      const clonedMap = new Map<string, TextNoteState>();
+      textNotesMap!.forEach((value, key) => {
+        clonedMap.set(key, { ...value });
+      });
+      setTextNotes(clonedMap);
     });
     
     yprovider.on('status', ({ status }: { status: string }) => {
@@ -264,10 +269,15 @@ export const SpaceProvider: ParentComponent = (props) => {
       setCrdtSynced(isSynced);
       
       if (isSynced) {
+        // Deep-clone to create new object references for SolidJS reactivity
+        const clonedTextNotes = new Map<string, TextNoteState>();
+        textNotesMap!.forEach((value, key) => {
+          clonedTextNotes.set(key, { ...value });
+        });
         batch(() => {
           setPeers(new Map(peersMap!.entries()));
           setScreenShares(new Map(screenSharesMap!.entries()));
-          setTextNotes(new Map(textNotesMap!.entries()));
+          setTextNotes(clonedTextNotes);
         });
       }
     });

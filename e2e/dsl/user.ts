@@ -255,6 +255,8 @@ export class UserImpl implements User {
     const note = this.page.locator('.text-note').first();
     const textarea = note.locator('.text-note-textarea');
     await textarea.fill(content);
+    // Blur to exit editing mode so CRDT content shows for other users' edits
+    await textarea.blur();
     await this.page.waitForTimeout(SYNC_WAIT);
   }
 

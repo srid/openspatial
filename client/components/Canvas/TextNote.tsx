@@ -55,16 +55,24 @@ export const TextNote: Component<TextNoteProps> = (props) => {
   
   const note = createMemo(() => ctx.textNotes().get(props.noteId));
   
-  // Sync local content from CRDT when not actively editing
-  // This ensures remote changes are visible  
+  // Local content is what the user is actively typing
+  // Display content shows CRDT when not editing, local when editing
   createEffect(() => {
     const n = note();
-    const editing = isEditing();
-    // Explicitly read n.content to track it for reactivity
     const crdtContent = n?.content ?? '';
-    if (!editing) {
+    // Initialize local content from CRDT when first loaded
+    if (localContent() === '' && crdtContent !== '') {
       setLocalContent(crdtContent);
     }
+  });
+  
+  // What actually shows in the textarea - CRDT when not editing, localContent when editing
+  const displayContent = createMemo(() => {
+    if (isEditing()) {
+      return localContent();
+    }
+    // When not editing, show CRDT content directly
+    return note()?.content ?? '';
   });
   
   onMount(() => {
@@ -349,7 +357,7 @@ export const TextNote: Component<TextNoteProps> = (props) => {
             <textarea
               ref={textareaRef}
               class="text-note-textarea"
-              value={localContent()}
+              value={displayContent()}
               onInput={handleContentChange}
               onFocus={handleFocus}
               onBlur={handleBlur}
