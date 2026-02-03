@@ -39,11 +39,13 @@ export const Avatar: Component<AvatarProps> = (props) => {
     }
   });
   
-  onMount(() => {
+  // Callback ref to setup drag when element is ready
+  const setAvatarRef = (el: HTMLDivElement) => {
+    avatarRef = el;
     if (props.isLocal && avatarRef) {
       setupDrag();
     }
-  });
+  };
   
   function setupDrag() {
     if (!avatarRef || !props.isLocal) return;
@@ -115,8 +117,8 @@ export const Avatar: Component<AvatarProps> = (props) => {
       setIsDragging(false);
     };
     
-    avatarRef.addEventListener('touchstart', handleTouchStart, { passive: true });
-    document.addEventListener('touchmove', handleTouchMove, { passive: true });
+    avatarRef.addEventListener('touchstart', handleTouchStart);
+    document.addEventListener('touchmove', handleTouchMove);
     document.addEventListener('touchend', handleTouchEnd);
     
     onCleanup(() => {
@@ -133,7 +135,7 @@ export const Avatar: Component<AvatarProps> = (props) => {
     <Show when={peer()}>
       {(p) => (
         <div
-          ref={avatarRef}
+          ref={setAvatarRef}
           class="avatar"
           classList={{
             'self': props.isLocal,

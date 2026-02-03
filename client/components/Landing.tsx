@@ -2,9 +2,19 @@
  * Landing Page Component
  * Matches the existing HTML structure in index.html for E2E compatibility.
  */
-import { Component } from 'solid-js';
+import { Component, createSignal, Show, onMount } from 'solid-js';
 
 export const Landing: Component = () => {
+  const [showBrowserWarning, setShowBrowserWarning] = createSignal(false);
+  
+  onMount(() => {
+    // Check if browser is Chrome
+    const isChrome = /Chrome/.test(navigator.userAgent) && !/Edge|Edg/.test(navigator.userAgent);
+    if (!isChrome) {
+      setShowBrowserWarning(true);
+    }
+  });
+  
   const handleSubmit = (e: Event) => {
     e.preventDefault();
     const input = document.getElementById('landing-space-input') as HTMLInputElement;
@@ -14,6 +24,12 @@ export const Landing: Component = () => {
   
   return (
     <div id="landing-page" class="landing-page">
+      <Show when={showBrowserWarning()}>
+        <div class="browser-warning">
+          <span>Warning: This application is tested on Chrome only. You may experience issues on other browsers.</span>
+          <button class="browser-warning-close" onClick={() => setShowBrowserWarning(false)}>×</button>
+        </div>
+      </Show>
       <div class="landing-content">
         {/* Hero Section */}
         <div class="landing-hero">

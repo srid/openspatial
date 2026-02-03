@@ -185,36 +185,16 @@ export class UserImpl implements User {
     const box = await avatar.boundingBox();
     if (!box) return;
 
-    const startX = box.x + box.width / 2;
-    const startY = box.y + box.height / 2;
-    const endX = startX + delta.dx;
-    const endY = startY + delta.dy;
-
-    // Use CDP (Chrome DevTools Protocol) for reliable touch simulation
-    const client = await this.page.context().newCDPSession(this.page);
-    
-    // Touch start
-    await client.send('Input.dispatchTouchEvent', {
-      type: 'touchStart',
-      touchPoints: [{ x: startX, y: startY }],
-    });
-
-    // Touch move in steps
-    const steps = 10;
-    for (let i = 1; i <= steps; i++) {
-      const x = startX + (endX - startX) * (i / steps);
-      const y = startY + (endY - startY) * (i / steps);
-      await client.send('Input.dispatchTouchEvent', {
-        type: 'touchMove',
-        touchPoints: [{ x, y }],
-      });
-    }
-
-    // Touch end
-    await client.send('Input.dispatchTouchEvent', {
-      type: 'touchEnd',
-      touchPoints: [],
-    });
+    // Use Playwright's native mouse API which works better across browser contexts
+    // Mobile viewport still responds to mouse events
+    await this.page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await this.page.mouse.down();
+    await this.page.mouse.move(
+      box.x + box.width / 2 + delta.dx,
+      box.y + box.height / 2 + delta.dy,
+      { steps: 10 }
+    );
+    await this.page.mouse.up();
 
     // Wait for CRDT sync
     await this.page.waitForTimeout(1000);

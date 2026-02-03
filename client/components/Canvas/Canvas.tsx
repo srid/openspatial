@@ -141,8 +141,8 @@ export const Canvas: Component = () => {
       setIsDragging(false);
     };
     
-    containerRef.addEventListener('touchstart', handleTouchStart, { passive: true });
-    document.addEventListener('touchmove', handleTouchMove, { passive: true });
+    containerRef.addEventListener('touchstart', handleTouchStart);
+    document.addEventListener('touchmove', handleTouchMove);
     document.addEventListener('touchend', handleTouchEnd);
     
     onCleanup(() => {

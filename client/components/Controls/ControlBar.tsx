@@ -228,9 +228,7 @@ export const ControlBar: Component = () => {
             <circle cx="12" cy="12" r="10" />
             <polyline points="12 6 12 12 16 14" />
           </svg>
-          <Show when={hasUnread()}>
-            <span id="activity-badge" class="activity-badge" />
-          </Show>
+          <span id="activity-badge" class="activity-badge" classList={{ 'hidden': !hasUnread() }} />
         </button>
         <ActivityPanel isOpen={activityOpen()} onClose={() => setActivityOpen(false)} />
       </div>
