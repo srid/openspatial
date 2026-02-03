@@ -136,10 +136,12 @@ export class UserImpl implements User {
       size = rectOrOwner.size;
     }
     
-    // Set width/height directly in style and trigger resize by updating the element
+    // Dispatch test-resize event to trigger CRDT update via component
     await screenShare.evaluate((el: HTMLElement, s: { width: number; height: number }) => {
-      el.style.width = `${s.width}px`;
-      el.style.height = `${s.height}px`;
+      el.dispatchEvent(new CustomEvent('test-resize', { 
+        detail: s,
+        bubbles: true 
+      }));
     }, size);
     
     await this.page.waitForTimeout(SYNC_WAIT);
@@ -344,28 +346,15 @@ export class UserImpl implements User {
 
   async resizeTextNote(size: { width: number; height: number }): Promise<void> {
     const note = this.page.locator('.text-note').first();
-    // Trigger resize by interacting with the resize handle
-    const resizeHandle = note.locator('.text-note-resize-handle');
     
-    // If no resize handle, use evaluate to set size directly and trigger CRDT update
-    if (await resizeHandle.count() === 0) {
-      // Set size via style and dispatch a mouseup to trigger update
-      await note.evaluate((el: HTMLElement, s: { width: number; height: number }) => {
-        el.style.width = `${s.width}px`;
-        el.style.height = `${s.height}px`;
-        // Trigger the resize observer or dispatch event
-        el.dispatchEvent(new Event('mouseup', { bubbles: true }));
-      }, size);
-    } else {
-      // Use the resize handle if available
-      const box = await resizeHandle.boundingBox();
-      if (box) {
-        await this.page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-        await this.page.mouse.down();
-        await this.page.mouse.move(box.x + size.width, box.y + size.height, { steps: 5 });
-        await this.page.mouse.up();
-      }
-    }
+    // Dispatch test-resize event to trigger CRDT update via component
+    await note.evaluate((el: HTMLElement, s: { width: number; height: number }) => {
+      el.dispatchEvent(new CustomEvent('test-resize', { 
+        detail: s,
+        bubbles: true 
+      }));
+    }, size);
+    
     await this.page.waitForTimeout(SYNC_WAIT);
   }
 

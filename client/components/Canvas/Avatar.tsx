@@ -133,11 +133,13 @@ export const Avatar: Component<AvatarProps> = (props) => {
           ref={avatarRef}
           class="avatar"
           classList={{
-            'local': props.isLocal,
+            'self': props.isLocal,
             'dragging': isDragging(),
           }}
           style={{
-            transform: `translate(${p().x}px, ${p().y}px)`,
+            position: 'absolute',
+            left: `${p().x}px`,
+            top: `${p().y}px`,
           }}
           data-peer-id={props.peerId}
         >

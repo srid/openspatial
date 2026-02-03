@@ -36,6 +36,7 @@ export const ScreenShare: Component<ScreenShareProps> = (props) => {
   
   const [isDraggingSignal, setIsDraggingSignal] = createSignal(false);
   const [isResizingSignal, setIsResizingSignal] = createSignal(false);
+  const [copySuccess, setCopySuccess] = createSignal(false);
   
   const share = createMemo(() => ctx.screenShares().get(props.shareId));
   const stream = createMemo(() => ctx.screenShareStreams().get(props.shareId));
@@ -59,6 +60,12 @@ export const ScreenShare: Component<ScreenShareProps> = (props) => {
     if (containerRef && headerRef) {
       setupDrag();
       setupResize();
+      
+      // Listen for test-resize events from e2e tests
+      containerRef.addEventListener('test-resize', ((e: CustomEvent) => {
+        const { width, height } = e.detail;
+        ctx.updateScreenShareSize(props.shareId, width, height);
+      }) as EventListener);
     }
   });
   
@@ -166,6 +173,37 @@ export const ScreenShare: Component<ScreenShareProps> = (props) => {
     ctx.emitSocket('screen-share-stopped', { shareId: props.shareId });
   }
   
+  async function handleCopySnapshot() {
+    if (!videoRef) return;
+    
+    try {
+      const canvas = document.createElement('canvas');
+      canvas.width = videoRef.videoWidth;
+      canvas.height = videoRef.videoHeight;
+      
+      const ctx2d = canvas.getContext('2d');
+      if (!ctx2d) return;
+      
+      ctx2d.drawImage(videoRef, 0, 0);
+      
+      const blob = await new Promise<Blob | null>(resolve =>
+        canvas.toBlob(resolve, 'image/png')
+      );
+      
+      if (blob) {
+        await navigator.clipboard.write([
+          new ClipboardItem({ 'image/png': blob })
+        ]);
+        
+        // Visual feedback
+        setCopySuccess(true);
+        setTimeout(() => setCopySuccess(false), 2000);
+      }
+    } catch (err) {
+      console.error('Failed to copy snapshot:', err);
+    }
+  }
+  
   return (
     <Show when={share()}>
       {(s) => (
@@ -177,7 +215,9 @@ export const ScreenShare: Component<ScreenShareProps> = (props) => {
             'resizing': isResizingSignal(),
           }}
           style={{
-            transform: `translate(${s().x}px, ${s().y}px)`,
+            position: 'absolute',
+            left: `${s().x}px`,
+            top: `${s().y}px`,
             width: `${s().width}px`,
             height: `${s().height}px`,
           }}
@@ -190,16 +230,30 @@ export const ScreenShare: Component<ScreenShareProps> = (props) => {
                 <line x1="8" y1="21" x2="16" y2="21" />
                 <line x1="12" y1="17" x2="12" y2="21" />
               </svg>
-              {s().username}'s screen
+              <span>{isLocal() ? 'Your Screen' : `${s().username}'s Screen`}</span>
             </span>
-            <Show when={isLocal()}>
-              <button class="screen-share-close" onClick={handleClose} title="Stop sharing">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <line x1="18" y1="6" x2="6" y2="18" />
-                  <line x1="6" y1="6" x2="18" y2="18" />
-                </svg>
+            <div style={{ display: 'flex', gap: '4px' }}>
+              <button class="screen-share-copy" onClick={handleCopySnapshot} title="Copy Snapshot">
+                <Show when={!copySuccess()} fallback={
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="20 6 9 17 4 12"></polyline>
+                  </svg>
+                }>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+                    <circle cx="12" cy="13" r="4"></circle>
+                  </svg>
+                </Show>
               </button>
-            </Show>
+              <Show when={isLocal()}>
+                <button class="screen-share-close" onClick={handleClose} title="Stop sharing">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="18" y1="6" x2="6" y2="18" />
+                    <line x1="6" y1="6" x2="18" y2="18" />
+                  </svg>
+                </button>
+              </Show>
+            </div>
           </div>
           <video
             ref={videoRef}

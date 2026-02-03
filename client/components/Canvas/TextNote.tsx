@@ -3,12 +3,32 @@
  * Collaborative text note in the space with header.
  * Uses local state for editing and only syncs to CRDT on blur.
  */
-import { Component, createMemo, Show, createSignal, onMount, onCleanup, createEffect } from 'solid-js';
+import { Component, createMemo, Show, createSignal, onMount, onCleanup, createEffect, For } from 'solid-js';
 import { useSpace } from '@/context/SpaceContext';
 
 interface TextNoteProps {
   noteId: string;
 }
+
+const FONT_SIZES = {
+  small: '14px',
+  medium: '18px',
+  large: '24px',
+} as const;
+
+const FONT_FAMILIES = {
+  sans: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
+  serif: "Georgia, 'Times New Roman', serif",
+  mono: "'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace",
+} as const;
+
+const COLOR_PALETTE = [
+  { name: 'White', value: '#ffffff' },
+  { name: 'Yellow', value: '#fef08a' },
+  { name: 'Cyan', value: '#67e8f9' },
+  { name: 'Pink', value: '#f9a8d4' },
+  { name: 'Green', value: '#86efac' },
+];
 
 export const TextNote: Component<TextNoteProps> = (props) => {
   const ctx = useSpace();
@@ -29,20 +49,34 @@ export const TextNote: Component<TextNoteProps> = (props) => {
   const [isDraggingSignal, setIsDraggingSignal] = createSignal(false);
   const [isEditing, setIsEditing] = createSignal(false);
   const [localContent, setLocalContent] = createSignal('');
+  const [showFontSizeMenu, setShowFontSizeMenu] = createSignal(false);
+  const [showFontFamilyMenu, setShowFontFamilyMenu] = createSignal(false);
+  const [showColorMenu, setShowColorMenu] = createSignal(false);
   
   const note = createMemo(() => ctx.textNotes().get(props.noteId));
   
-  // Initialize local content from CRDT once
+  // Sync local content from CRDT when not actively editing
+  // This ensures remote changes are visible  
   createEffect(() => {
     const n = note();
-    if (n && !isEditing()) {
-      setLocalContent(n.content);
+    const editing = isEditing();
+    // Explicitly read n.content to track it for reactivity
+    const crdtContent = n?.content ?? '';
+    if (!editing) {
+      setLocalContent(crdtContent);
     }
   });
   
   onMount(() => {
     if (containerRef && headerRef) {
       setupDrag();
+      setupResize();
+      
+      // Listen for test-resize events from e2e tests
+      containerRef.addEventListener('test-resize', ((e: CustomEvent) => {
+        const { width, height } = e.detail;
+        ctx.updateTextNoteSize(props.noteId, width, height);
+      }) as EventListener);
     }
   });
   
@@ -50,6 +84,9 @@ export const TextNote: Component<TextNoteProps> = (props) => {
     if (!headerRef) return;
     
     const handleMouseDown = (e: MouseEvent) => {
+      // Don't drag if clicking on a button
+      if ((e.target as HTMLElement).closest('.text-note-btn, .text-note-close')) return;
+      
       e.stopPropagation();
       e.preventDefault();
       
@@ -92,10 +129,37 @@ export const TextNote: Component<TextNoteProps> = (props) => {
     });
   }
   
+  function setupResize() {
+    if (!containerRef) return;
+    
+    // Use ResizeObserver to track size changes
+    const resizeObserver = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        let width: number, height: number;
+        if (entry.borderBoxSize && entry.borderBoxSize.length > 0) {
+          width = entry.borderBoxSize[0].inlineSize;
+          height = entry.borderBoxSize[0].blockSize;
+        } else {
+          const rect = containerRef!.getBoundingClientRect();
+          width = rect.width;
+          height = rect.height;
+        }
+        ctx.updateTextNoteSize(props.noteId, Math.round(width), Math.round(height));
+      }
+    });
+    
+    resizeObserver.observe(containerRef);
+    
+    onCleanup(() => {
+      resizeObserver.disconnect();
+    });
+  }
+  
   function handleContentChange(e: Event) {
     const target = e.target as HTMLTextAreaElement;
     setLocalContent(target.value);
-    // Do NOT update CRDT here - wait for blur
+    // Sync to CRDT immediately for real-time collaboration
+    ctx.updateTextNoteContent(props.noteId, target.value);
   }
   
   function handleFocus() {
@@ -104,13 +168,73 @@ export const TextNote: Component<TextNoteProps> = (props) => {
   
   function handleBlur() {
     setIsEditing(false);
-    // Sync to CRDT only on blur
+    // Ensure final content is synced when leaving field
     ctx.updateTextNoteContent(props.noteId, localContent());
   }
   
   function handleClose() {
     ctx.removeTextNote(props.noteId);
   }
+  
+  function handleFontSizeClick(e: MouseEvent) {
+    e.stopPropagation();
+    setShowFontSizeMenu(!showFontSizeMenu());
+    setShowFontFamilyMenu(false);
+    setShowColorMenu(false);
+  }
+  
+  function handleFontFamilyClick(e: MouseEvent) {
+    e.stopPropagation();
+    setShowFontFamilyMenu(!showFontFamilyMenu());
+    setShowFontSizeMenu(false);
+    setShowColorMenu(false);
+  }
+  
+  function handleColorClick(e: MouseEvent) {
+    e.stopPropagation();
+    setShowColorMenu(!showColorMenu());
+    setShowFontSizeMenu(false);
+    setShowFontFamilyMenu(false);
+  }
+  
+  function selectFontSize(size: 'small' | 'medium' | 'large') {
+    setShowFontSizeMenu(false);
+    const n = note();
+    if (n) {
+      ctx.updateTextNoteStyle(props.noteId, size, n.fontFamily || 'sans', n.color || '#ffffff');
+    }
+  }
+  
+  function selectFontFamily(family: 'sans' | 'serif' | 'mono') {
+    setShowFontFamilyMenu(false);
+    const n = note();
+    if (n) {
+      ctx.updateTextNoteStyle(props.noteId, n.fontSize || 'medium', family, n.color || '#ffffff');
+    }
+  }
+  
+  function selectColor(color: string) {
+    setShowColorMenu(false);
+    const n = note();
+    if (n) {
+      ctx.updateTextNoteStyle(props.noteId, n.fontSize || 'medium', n.fontFamily || 'sans', color);
+    }
+  }
+  
+  // Close menus when clicking outside
+  createEffect(() => {
+    if (showFontSizeMenu() || showFontFamilyMenu() || showColorMenu()) {
+      const closeMenus = (e: MouseEvent) => {
+        if (!containerRef?.contains(e.target as Node)) {
+          setShowFontSizeMenu(false);
+          setShowFontFamilyMenu(false);
+          setShowColorMenu(false);
+        }
+      };
+      setTimeout(() => document.addEventListener('click', closeMenus), 0);
+      onCleanup(() => document.removeEventListener('click', closeMenus));
+    }
+  });
   
   return (
     <Show when={note()}>
@@ -123,7 +247,9 @@ export const TextNote: Component<TextNoteProps> = (props) => {
             'editing': isEditing(),
           }}
           style={{
-            transform: `translate(${n().x}px, ${n().y}px)`,
+            position: 'absolute',
+            left: `${n().x}px`,
+            top: `${n().y}px`,
             width: `${n().width}px`,
             height: `${n().height}px`,
           }}
@@ -132,14 +258,85 @@ export const TextNote: Component<TextNoteProps> = (props) => {
           <div ref={headerRef} class="text-note-header">
             <span class="text-note-title">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                <polyline points="14,2 14,8 20,8" />
-                <line x1="16" y1="13" x2="8" y2="13" />
-                <line x1="16" y1="17" x2="8" y2="17" />
+                <path d="M12 20h9"></path>
+                <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
               </svg>
               Note
             </span>
             <div class="text-note-controls">
+              {/* Font Size Button */}
+              <div style={{ position: 'relative' }}>
+                <button class="text-note-btn text-note-font-size" onClick={handleFontSizeClick} title="Font size">
+                  A
+                </button>
+                <Show when={showFontSizeMenu()}>
+                  <div class="text-note-menu">
+                    <For each={(['small', 'medium', 'large'] as const)}>
+                      {(size) => (
+                        <button
+                          class="text-note-menu-option"
+                          style={{ 'font-size': FONT_SIZES[size] }}
+                          onClick={(e) => { e.stopPropagation(); selectFontSize(size); }}
+                        >
+                          {size.charAt(0).toUpperCase() + size.slice(1)}
+                        </button>
+                      )}
+                    </For>
+                  </div>
+                </Show>
+              </div>
+              
+              {/* Font Family Button */}
+              <div style={{ position: 'relative' }}>
+                <button class="text-note-btn text-note-font-family" onClick={handleFontFamilyClick} title="Font family">
+                  Aa
+                </button>
+                <Show when={showFontFamilyMenu()}>
+                  <div class="text-note-menu">
+                    <For each={[
+                      { name: 'Sans', value: 'sans' as const },
+                      { name: 'Serif', value: 'serif' as const },
+                      { name: 'Mono', value: 'mono' as const },
+                    ]}>
+                      {(family) => (
+                        <button
+                          class="text-note-menu-option"
+                          style={{ 'font-family': FONT_FAMILIES[family.value] }}
+                          onClick={(e) => { e.stopPropagation(); selectFontFamily(family.value); }}
+                        >
+                          {family.name}
+                        </button>
+                      )}
+                    </For>
+                  </div>
+                </Show>
+              </div>
+              
+              {/* Color Button */}
+              <div style={{ position: 'relative' }}>
+                <button
+                  class="text-note-btn text-note-color"
+                  onClick={handleColorClick}
+                  title="Text color"
+                  style={{ 'background-color': n().color || '#ffffff' }}
+                />
+                <Show when={showColorMenu()}>
+                  <div class="text-note-menu text-note-color-menu">
+                    <For each={COLOR_PALETTE}>
+                      {(color) => (
+                        <button
+                          class="text-note-color-option"
+                          style={{ 'background-color': color.value }}
+                          title={color.name}
+                          onClick={(e) => { e.stopPropagation(); selectColor(color.value); }}
+                        />
+                      )}
+                    </For>
+                  </div>
+                </Show>
+              </div>
+              
+              {/* Close Button */}
               <button class="text-note-close" onClick={handleClose} title="Delete note">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <line x1="18" y1="6" x2="6" y2="18" />
@@ -157,9 +354,13 @@ export const TextNote: Component<TextNoteProps> = (props) => {
               onFocus={handleFocus}
               onBlur={handleBlur}
               placeholder="Type your note..."
+              style={{
+                'font-size': FONT_SIZES[n().fontSize || 'medium'],
+                'font-family': FONT_FAMILIES[n().fontFamily || 'sans'],
+                color: n().color || '#ffffff',
+              }}
             />
           </div>
-          <div class="resize-handle resize-handle-se" />
         </div>
       )}
     </Show>

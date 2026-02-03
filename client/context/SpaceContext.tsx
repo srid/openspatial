@@ -92,7 +92,9 @@ interface SpaceContextValue {
   addTextNote: (noteId: string, content: string, x: number, y: number, width: number, height: number) => void;
   removeTextNote: (noteId: string) => void;
   updateTextNotePosition: (noteId: string, x: number, y: number) => void;
+  updateTextNoteSize: (noteId: string, width: number, height: number) => void;
   updateTextNoteContent: (noteId: string, content: string) => void;
+  updateTextNoteStyle: (noteId: string, fontSize: 'small' | 'medium' | 'large', fontFamily: 'sans' | 'serif' | 'mono', color: string) => void;
 }
 
 const SpaceContext = createContext<SpaceContextValue>();
@@ -380,6 +382,20 @@ export const SpaceProvider: ParentComponent = (props) => {
     }
   }
   
+  function updateTextNoteSize(noteId: string, width: number, height: number) {
+    const note = textNotesMap?.get(noteId);
+    if (note) {
+      textNotesMap?.set(noteId, { ...note, width, height });
+    }
+  }
+  
+  function updateTextNoteStyle(noteId: string, fontSize: 'small' | 'medium' | 'large', fontFamily: 'sans' | 'serif' | 'mono', color: string) {
+    const note = textNotesMap?.get(noteId);
+    if (note) {
+      textNotesMap?.set(noteId, { ...note, fontSize, fontFamily, color });
+    }
+  }
+  
   // Peer stream management
   function setPeerStream(peerId: string, stream: MediaStream) {
     setPeerStreams(prev => {
@@ -501,10 +517,37 @@ export const SpaceProvider: ParentComponent = (props) => {
     return pc;
   }
   
+  // Browser offline/online event handlers
+  const handleOffline = () => {
+    console.log('[Connection] Browser went offline');
+    setConnectionState('disconnected');
+  };
+  
+  const handleOnline = () => {
+    console.log('[Connection] Browser came online');
+    // If we have a socket connection, set to connected
+    if (socket?.connected) {
+      setConnectionState('connected');
+    } else if (socket) {
+      setConnectionState('reconnecting');
+      socket.connect();
+    }
+  };
+  
+  // Set up offline/online listeners
+  if (typeof window !== 'undefined') {
+    window.addEventListener('offline', handleOffline);
+    window.addEventListener('online', handleOnline);
+  }
+  
   // Cleanup on unmount
   onCleanup(() => {
     disconnectSignaling();
     disconnectCRDT();
+    if (typeof window !== 'undefined') {
+      window.removeEventListener('offline', handleOffline);
+      window.removeEventListener('online', handleOnline);
+    }
   });
   
   const value: SpaceContextValue = {
@@ -538,7 +581,9 @@ export const SpaceProvider: ParentComponent = (props) => {
     addTextNote,
     removeTextNote,
     updateTextNotePosition,
+    updateTextNoteSize,
     updateTextNoteContent,
+    updateTextNoteStyle,
     screenShareStreams,
     setScreenShareStream,
     removeScreenShareStream,
