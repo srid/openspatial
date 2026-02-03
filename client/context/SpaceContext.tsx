@@ -244,7 +244,12 @@ export const SpaceProvider: ParentComponent = (props) => {
     
     // Bridge Yjs observers to SolidJS signals
     peersMap.observe(() => {
-      setPeers(new Map(peersMap!.entries()));
+      // Deep-clone to create new object references for SolidJS reactivity
+      const clonedMap = new Map<string, PeerState>();
+      peersMap!.forEach((value, key) => {
+        clonedMap.set(key, { ...value });
+      });
+      setPeers(clonedMap);
     });
     
     screenSharesMap.observe(() => {

@@ -17,6 +17,8 @@ export const Avatar: Component<AvatarProps> = (props) => {
   let videoRef: HTMLVideoElement | undefined;
   
   const [isDragging, setIsDragging] = createSignal(false);
+  const [showStatusPopover, setShowStatusPopover] = createSignal(false);
+  const [statusInput, setStatusInput] = createSignal('');
   
   const peer = createMemo(() => ctx.peers().get(props.peerId));
   
@@ -158,7 +160,7 @@ export const Avatar: Component<AvatarProps> = (props) => {
               </div>
             </Show>
             <Show when={p().isMuted}>
-              <div class="avatar-muted-indicator">
+              <div class="avatar-indicator muted">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <line x1="1" y1="1" x2="23" y2="23" />
                   <path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6" />
@@ -169,10 +171,66 @@ export const Avatar: Component<AvatarProps> = (props) => {
           </div>
           <div class="avatar-info">
             <span class="avatar-name">{p().username}</span>
+            <Show when={props.isLocal && !p().status}>
+              <button 
+                class="avatar-status-trigger" 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setStatusInput('');
+                  setShowStatusPopover(true);
+                }}
+              >
+                +
+              </button>
+            </Show>
             <Show when={p().status}>
-              <span class="avatar-status">{p().status}</span>
+              <span 
+                class="avatar-status" 
+                onClick={(e) => {
+                  if (props.isLocal) {
+                    e.stopPropagation();
+                    setStatusInput(p().status || '');
+                    setShowStatusPopover(true);
+                  }
+                }}
+                style={{ cursor: props.isLocal ? 'pointer' : 'default' }}
+              >
+                {p().status}
+              </span>
             </Show>
           </div>
+          <Show when={showStatusPopover()}>
+            <div class="status-popover" onClick={(e) => e.stopPropagation()}>
+              <input
+                class="status-popover-input"
+                type="text"
+                value={statusInput()}
+                onInput={(e) => setStatusInput(e.currentTarget.value)}
+                placeholder="Set status..."
+                autofocus
+              />
+              <button 
+                class="status-popover-save"
+                onClick={() => {
+                  ctx.updatePeerStatus(props.peerId, statusInput());
+                  setShowStatusPopover(false);
+                }}
+              >
+                Save
+              </button>
+              <Show when={p().status}>
+                <button 
+                  class="status-popover-clear"
+                  onClick={() => {
+                    ctx.updatePeerStatus(props.peerId, '');
+                    setShowStatusPopover(false);
+                  }}
+                >
+                  Clear
+                </button>
+              </Show>
+            </div>
+          </Show>
         </div>
       )}
     </Show>
