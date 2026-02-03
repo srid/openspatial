@@ -4,7 +4,6 @@
  */
 import { createSignal, type Accessor } from 'solid-js';
 import { createStore, produce } from 'solid-js/store';
-import type { ConnectionState } from '../components/ConnectionStatus';
 import type { MediaState, ActivityState } from '../components/ControlBar';
 import type { ParticipantsState } from '../components/JoinModal';
 
@@ -97,6 +96,8 @@ const [joinError, setJoinError] = createSignal<string | null>(null);
 export { joinParticipants, setJoinParticipants, joinError, setJoinError };
 
 // ==================== Connection State ====================
+
+type ConnectionState = 'connected' | 'disconnected' | 'reconnecting';
 
 const [connectionState, setConnectionState] = createSignal<ConnectionState>('disconnected');
 const [reconnectAttempt, setReconnectAttempt] = createSignal(0);

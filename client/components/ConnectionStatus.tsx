@@ -1,24 +1,17 @@
 /**
  * ConnectionStatus Component
  * Top-center banner showing connection state.
- * Renders the exact DOM structure expected by UIController.
+ * Reads directly from store for connection state.
  */
-import type { JSX, Accessor } from 'solid-js';
+import { Show, type JSX } from 'solid-js';
+import { spaceState } from '../store/space';
 
-export type ConnectionState = 'connected' | 'disconnected' | 'reconnecting';
-
-interface ConnectionStatusProps {
-  state: Accessor<ConnectionState>;
-  reconnectAttempt?: Accessor<number>;
-  maxAttempts?: number;
-}
-
-export function ConnectionStatus(props: ConnectionStatusProps): JSX.Element {
-  // UIController manipulates this element directly, so we just render the container
+export function ConnectionStatus(): JSX.Element {
   return (
-    <div
-      id="connection-status"
-      class="connection-status hidden"
-    />
+    <Show when={spaceState.isConnected}>
+      <div id="connection-status" class="connection-status">
+        <div class="connection-indicator connected" />
+      </div>
+    </Show>
   );
 }
