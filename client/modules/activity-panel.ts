@@ -40,6 +40,11 @@ export class ActivityPanel {
     this.container.addEventListener('click', (e) => {
       e.stopPropagation();
     });
+
+    // Prevent scroll from bubbling up to canvas zoom
+    this.container.addEventListener('wheel', (e) => {
+      e.stopPropagation();
+    });
   }
 
   /**
