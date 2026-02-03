@@ -1,0 +1,85 @@
+/* ===== Screen Share ===== */
+.screen-share {
+    position: absolute;
+    min-width: 320px;
+    min-height: 200px;
+    background: var(--color-bg-secondary);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-xl);
+    overflow: hidden;
+    box-shadow: var(--shadow-xl);
+    z-index: 5;
+}
+
+.screen-share-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--space-2) var(--space-3);
+    background: var(--color-bg-tertiary);
+    border-bottom: 1px solid var(--color-border);
+    cursor: grab;
+}
+
+.screen-share-header:active {
+    cursor: grabbing;
+}
+
+.screen-share-title {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+}
+
+.screen-share-title svg {
+    width: 16px;
+    height: 16px;
+    color: var(--color-text-muted);
+}
+
+.screen-share-close {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    background: transparent;
+    border: none;
+    border-radius: var(--radius-sm);
+    color: var(--color-text-muted);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.screen-share-copy {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    background: transparent;
+    border: none;
+    border-radius: var(--radius-sm);
+    color: var(--color-text-muted);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.screen-share-close:hover {
+    background: var(--color-surface-hover);
+    color: var(--color-danger);
+}
+
+.screen-share-copy:hover {
+    background: var(--color-surface-hover);
+    color: var(--color-accent);
+}
+
+.screen-share video {
+    width: 100%;
+    height: calc(100% - 40px);
+    object-fit: contain;
+    background: black;
+}

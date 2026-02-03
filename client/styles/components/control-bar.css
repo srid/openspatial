@@ -1,0 +1,77 @@
+/* ===== Control Bar ===== */
+#control-bar {
+    position: fixed;
+    bottom: var(--space-6);
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-3);
+    background: var(--color-bg-elevated);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-2xl);
+    backdrop-filter: blur(12px);
+    box-shadow: var(--shadow-xl);
+    z-index: 100;
+}
+
+.control-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 52px;
+    height: 52px;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-xl);
+    color: var(--color-text-primary);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.control-btn:hover {
+    background: var(--color-surface-hover);
+    transform: translateY(-2px);
+}
+
+.control-btn.active {
+    background: var(--color-accent);
+    border-color: var(--color-accent);
+    box-shadow: 0 0 20px var(--color-accent-glow);
+}
+
+.control-btn.muted {
+    background: rgba(239, 68, 68, 0.2);
+    border-color: var(--color-danger);
+    color: var(--color-danger);
+}
+
+.control-btn-danger {
+    color: var(--color-danger);
+}
+
+.control-btn-danger:hover {
+    background: rgba(239, 68, 68, 0.2);
+    border-color: var(--color-danger);
+}
+
+.control-divider {
+    width: 1px;
+    height: 32px;
+    background: var(--color-border);
+    margin: 0 var(--space-2);
+}
+
+@media (max-width: 480px) {
+    #control-bar {
+        bottom: var(--space-4);
+        gap: var(--space-1);
+        padding: var(--space-2);
+    }
+    
+    .control-btn {
+        width: 44px;
+        height: 44px;
+    }
+}

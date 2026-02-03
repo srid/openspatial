@@ -1,5 +1,6 @@
 import { defineConfig } from 'vite';
 import basicSsl from '@vitejs/plugin-basic-ssl';
+import solid from 'vite-plugin-solid';
 import { Server } from 'socket.io';
 import os from 'os';
 import { attachSignaling } from './server/signaling.ts';
@@ -69,6 +70,7 @@ function spaFallbackPlugin() {
 
 export default defineConfig({
   plugins: [
+    solid(),
     basicSsl({ domains: ['localhost', hostname] }),
     spaFallbackPlugin(),
     socketPlugin(),
