@@ -100,3 +100,20 @@ export interface SpaceInfoEvent {
   exists: boolean;
   participants: string[];
 }
+
+// ==================== Activity Events ====================
+
+export type SpaceEventType = 'join_first' | 'join' | 'leave' | 'leave_last';
+
+export interface SpaceActivityItem {
+  id: number;
+  space_id: string;
+  event_type: SpaceEventType;
+  username: string;
+  created_at: string;
+}
+
+export interface SpaceActivityEvent {
+  spaceId: string;
+  events: SpaceActivityItem[];
+}

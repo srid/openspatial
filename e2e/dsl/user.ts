@@ -14,6 +14,7 @@ import {
   AvatarView,
   ScreenShareView,
   TextNoteView,
+  ActivityItem,
 } from './types';
 import { AvatarViewImpl, ScreenShareViewImpl, TextNoteViewImpl } from './views';
 import { mockScreenShare } from './mocks';
@@ -494,5 +495,53 @@ export class UserImpl implements User {
       return 'disconnected';
     }
     return 'connected';
+  }
+
+  // ─────────────────────────────────────────────────────────────────
+  // Activity Panel
+  // ─────────────────────────────────────────────────────────────────
+
+  async openActivityPanel(): Promise<void> {
+    const panel = this.page.locator('#activity-panel');
+    if (await panel.isHidden()) {
+      await this.page.click('#btn-activity');
+      await expect(panel).toBeVisible({ timeout: 5000 });
+    }
+  }
+
+  async closeActivityPanel(): Promise<void> {
+    const panel = this.page.locator('#activity-panel');
+    if (await panel.isVisible()) {
+      await this.page.click('#btn-activity');
+      await expect(panel).toBeHidden({ timeout: 5000 });
+    }
+  }
+
+  async activityItems(): Promise<ActivityItem[]> {
+    await this.page.waitForTimeout(SYNC_WAIT);
+    const items = this.page.locator('.activity-item');
+    const count = await items.count();
+    const result: ActivityItem[] = [];
+
+    for (let i = 0; i < count; i++) {
+      const item = items.nth(i);
+      const username = await item.locator('.activity-text strong').textContent() ?? '';
+      const timeAgo = await item.locator('.activity-time').textContent() ?? '';
+      const classes = await item.getAttribute('class') ?? '';
+      
+      let eventType: ActivityItem['eventType'] = 'join';
+      if (classes.includes('join_first')) eventType = 'join_first';
+      else if (classes.includes('join')) eventType = 'join';
+      else if (classes.includes('leave_last')) eventType = 'leave_last';
+      else if (classes.includes('leave')) eventType = 'leave';
+      
+      result.push({ username: username.trim(), eventType, timeAgo: timeAgo.trim() });
+    }
+    return result;
+  }
+
+  async isActivityBadgeVisible(): Promise<boolean> {
+    const badge = this.page.locator('#activity-badge');
+    return !(await badge.evaluate((el) => el.classList.contains('hidden')));
   }
 }

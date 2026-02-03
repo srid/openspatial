@@ -18,7 +18,7 @@ import type {
   ScreenShareStartedBroadcast,
   ScreenShareStoppedBroadcast,
 } from '../shared/types/events.js';
-import { getSpace as getSpaceFromDb } from './db.js';
+import { getSpace as getSpaceFromDb, recordSpaceEvent, getRecentActivity } from './db.js';
 
 interface Space {
   peers: Map<string, PeerData>;
@@ -127,10 +127,18 @@ export function attachSignaling(io: Server): void {
 
       console.log(`[Signaling] ${username} joined space ${spaceId} (${space.peers.size} peers)`);
       
-      // Notify external services when space becomes active (first user)
+      // Record space event and notify
       if (wasEmpty) {
+        recordSpaceEvent(spaceId, 'join_first', username);
         notifySpaceActive(spaceId, username);
+      } else {
+        recordSpaceEvent(spaceId, 'join', username);
       }
+      
+      // Push recent activity to the joining user
+      getRecentActivity(spaceId).then((events) => {
+        socket.emit('space-activity', { spaceId, events });
+      });
     });
 
     // Route signals to specific peer, not broadcast
@@ -208,9 +216,19 @@ export function attachSignaling(io: Server): void {
           
           socket.to(currentSpace).emit('peer-left', { peerId });
           console.log(`[Signaling] ${currentUsername} left space ${currentSpace} (${space.peers.size} peers)`);
+          
+          // Record leave event
           if (space.peers.size === 0) {
+            recordSpaceEvent(currentSpace, 'leave_last', currentUsername || 'unknown');
             spaces.delete(currentSpace);
             console.log(`[Signaling] Space ${currentSpace} deleted (empty)`);
+          } else {
+            recordSpaceEvent(currentSpace, 'leave', currentUsername || 'unknown');
+            // Push updated activity to remaining peers
+            const spaceIdForActivity = currentSpace;
+            getRecentActivity(currentSpace).then((events) => {
+              socket.to(spaceIdForActivity).emit('space-activity', { spaceId: spaceIdForActivity, events });
+            });
           }
         }
       }

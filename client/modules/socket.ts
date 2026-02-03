@@ -12,6 +12,7 @@ import type {
   PeerLeftEvent,
   ScreenShareStartedBroadcast,
   ScreenShareStoppedBroadcast,
+  SpaceActivityEvent,
 } from '../../shared/types/events.js';
 
 // NOTE: PositionUpdateEvent, MediaStateUpdateEvent, StatusUpdateEvent,
@@ -32,6 +33,7 @@ type ServerEventMap = {
   'connected': ConnectedEvent;
   'space-state': SpaceStateEvent;
   'space-info': SpaceInfoEvent;
+  'space-activity': SpaceActivityEvent;
   'peer-joined': PeerJoinedEvent;
   'peer-left': PeerLeftEvent;
   'signal': SignalEvent;
@@ -145,6 +147,7 @@ export class SocketHandler {
       this.socket.on('screen-share-started', (data: ScreenShareStartedBroadcast) => this.trigger('screen-share-started', data));
       this.socket.on('screen-share-stopped', (data: ScreenShareStoppedBroadcast) => this.trigger('screen-share-stopped', data));
       this.socket.on('space-info', (data: SpaceInfoEvent) => this.trigger('space-info', data));
+      this.socket.on('space-activity', (data: SpaceActivityEvent) => this.trigger('space-activity', data));
     });
   }
 

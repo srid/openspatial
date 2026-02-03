@@ -7,7 +7,7 @@ import BetterSqlite3 from 'better-sqlite3';
 import { join, dirname } from 'path';
 import { mkdirSync, readdirSync } from 'fs';
 import { fileURLToPath } from 'url';
-import type { Database, Space, TextNoteState } from './database/types.js';
+import type { Database, Space, TextNoteState, SpaceEventType, SpaceEvent } from './database/types.js';
 
 // Database path from environment or default
 const DATA_DIR = process.env.DATA_DIR || './data';
@@ -181,4 +181,65 @@ export async function ensureDemoSpace(): Promise<void> {
   if (process.env.AUTO_CREATE_SPACES === 'true') {
     await clearAllTextNotes();
   }
+}
+
+// === Space Event Operations ===
+
+const RETENTION_DAYS = 2;
+
+/**
+ * Record a space activity event and cleanup old events.
+ */
+export async function recordSpaceEvent(
+  spaceId: string,
+  eventType: SpaceEventType,
+  username: string
+): Promise<void> {
+  await db
+    .insertInto('space_events')
+    .values({
+      space_id: spaceId,
+      event_type: eventType,
+      username,
+    })
+    .execute();
+
+  // Cleanup events older than retention period
+  const cutoff = new Date(Date.now() - RETENTION_DAYS * 24 * 60 * 60 * 1000).toISOString();
+  await db
+    .deleteFrom('space_events')
+    .where('created_at', '<', cutoff)
+    .execute();
+}
+
+/**
+ * Get the timestamp of the last join_first event for a space (for cooldown).
+ */
+export async function getLastJoinFirstTime(spaceId: string): Promise<number | null> {
+  const row = await db
+    .selectFrom('space_events')
+    .select('created_at')
+    .where('space_id', '=', spaceId)
+    .where('event_type', '=', 'join_first')
+    .orderBy('created_at', 'desc')
+    .limit(1)
+    .executeTakeFirst();
+  
+  if (!row) return null;
+  return new Date(row.created_at).getTime();
+}
+
+/**
+ * Get recent activity for a space (last 2 days).
+ */
+export async function getRecentActivity(spaceId: string): Promise<SpaceEvent[]> {
+  const cutoff = new Date(Date.now() - RETENTION_DAYS * 24 * 60 * 60 * 1000).toISOString();
+  const rows = await db
+    .selectFrom('space_events')
+    .selectAll()
+    .where('space_id', '=', spaceId)
+    .where('created_at', '>=', cutoff)
+    .orderBy('created_at', 'desc')
+    .execute();
+  return rows;
 }
