@@ -255,7 +255,10 @@ export class SpaceSession {
         crdt?.updatePosition(peerId, peerData.position.x, peerData.position.y);
       } else {
         state.peers.set(peerId, peerData);
-        avatars.createRemoteAvatar(peerId, peerData.username, peerData.position.x, peerData.position.y);
+        // Only create avatar if not already present (CRDT may have already created it)
+        if (!avatars.hasAvatar(peerId)) {
+          avatars.createRemoteAvatar(peerId, peerData.username, peerData.position.x, peerData.position.y);
+        }
 
         if (peerData.status) {
           avatars.updateStatus(peerId, peerData.status);
@@ -276,7 +279,10 @@ export class SpaceSession {
     const { peerId, username, position } = data;
 
     state.peers.set(peerId, { username, position, isMuted: false, isVideoOff: false, isScreenSharing: false });
-    avatars.createRemoteAvatar(peerId, username, position.x, position.y);
+    // Only create avatar if not already present (CRDT may have already created it)
+    if (!avatars.hasAvatar(peerId)) {
+      avatars.createRemoteAvatar(peerId, username, position.x, position.y);
+    }
 
     if (state.screenStreams.size > 0) {
       const webrtc = this.deps.getWebRTC();

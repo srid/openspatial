@@ -135,9 +135,9 @@ export function attachSignaling(io: Server): void {
         recordSpaceEvent(spaceId, 'join', username);
       }
       
-      // Push recent activity to the joining user
+      // Push recent activity to ALL users in the space (including existing users)
       getRecentActivity(spaceId).then((events) => {
-        socket.emit('space-activity', { spaceId, events });
+        io.to(spaceId).emit('space-activity', { spaceId, events });
       });
     });
 

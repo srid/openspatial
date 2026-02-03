@@ -530,9 +530,10 @@ export class UserImpl implements User {
       const classes = await item.getAttribute('class') ?? '';
       
       let eventType: ActivityItem['eventType'] = 'join';
+      // Check more specific types first since they contain the base type as substring
       if (classes.includes('join_first')) eventType = 'join_first';
-      else if (classes.includes('join')) eventType = 'join';
       else if (classes.includes('leave_last')) eventType = 'leave_last';
+      else if (classes.includes('join')) eventType = 'join';
       else if (classes.includes('leave')) eventType = 'leave';
       
       result.push({ username: username.trim(), eventType, timeAgo: timeAgo.trim() });
