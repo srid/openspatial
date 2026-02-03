@@ -11,6 +11,17 @@ import { TextNote } from './TextNote';
 export const Canvas: Component = () => {
   const ctx = useSpace();
   
+  // Create stable key arrays that only change when items are added/removed
+  const peerIds = createMemo(() => [...ctx.peers().keys()], undefined, {
+    equals: (a, b) => a.length === b.length && a.every((id, i) => id === b[i])
+  });
+  const screenShareIds = createMemo(() => [...ctx.screenShares().keys()], undefined, {
+    equals: (a, b) => a.length === b.length && a.every((id, i) => id === b[i])
+  });
+  const textNoteIds = createMemo(() => [...ctx.textNotes().keys()], undefined, {
+    equals: (a, b) => a.length === b.length && a.every((id, i) => id === b[i])
+  });
+  
   let containerRef: HTMLDivElement | undefined;
   let spaceRef: HTMLDivElement | undefined;
   
@@ -174,22 +185,22 @@ export const Canvas: Component = () => {
     <div id="canvas-container" ref={containerRef}>
       <div id="space" ref={spaceRef} style={{ transform: transform() }}>
         {/* Avatars */}
-        <For each={[...ctx.peers().entries()]}>
-          {([peerId, _peer]) => (
+        <For each={peerIds()}>
+          {(peerId) => (
             <Avatar peerId={peerId} isLocal={peerId === localPeerId()} />
           )}
         </For>
         
         {/* Screen Shares */}
-        <For each={[...ctx.screenShares().entries()]}>
-          {([shareId, _share]) => (
+        <For each={screenShareIds()}>
+          {(shareId) => (
             <ScreenShare shareId={shareId} />
           )}
         </For>
         
         {/* Text Notes */}
-        <For each={[...ctx.textNotes().entries()]}>
-          {([noteId, _note]) => (
+        <For each={textNoteIds()}>
+          {(noteId) => (
             <TextNote noteId={noteId} />
           )}
         </For>

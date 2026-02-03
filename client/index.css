@@ -1539,3 +1539,51 @@ body {
 .browser-warning-close:hover {
     opacity: 1;
 }
+
+/* ===== Resize Handles ===== */
+.resize-handle {
+    position: absolute;
+    width: 16px;
+    height: 16px;
+    background: transparent;
+    z-index: 10;
+}
+
+.resize-handle-se {
+    bottom: 0;
+    right: 0;
+    cursor: se-resize;
+}
+
+.resize-handle-se::after {
+    content: '';
+    position: absolute;
+    bottom: 4px;
+    right: 4px;
+    width: 8px;
+    height: 8px;
+    border-right: 2px solid var(--color-text-muted);
+    border-bottom: 2px solid var(--color-text-muted);
+    opacity: 0.5;
+    transition: opacity var(--transition-fast);
+}
+
+.resize-handle-se:hover::after {
+    opacity: 1;
+}
+
+/* ===== Activity Badge ===== */
+.activity-badge {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 8px;
+    height: 8px;
+    background: var(--color-danger);
+    border-radius: 50%;
+    box-shadow: 0 0 8px var(--color-danger);
+}
+
+.activity-wrapper {
+    position: relative;
+}

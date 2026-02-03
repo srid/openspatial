@@ -1,9 +1,10 @@
 /**
  * ControlBar Component
- * Bottom control bar with mic, camera, screen share, notes, and leave buttons.
+ * Bottom control bar with mic, camera, screen share, notes, activity, and leave buttons.
  */
-import { Component, Show, createSignal, createMemo } from 'solid-js';
+import { Component, Show, createSignal, createMemo, onMount, onCleanup } from 'solid-js';
 import { useSpace } from '@/context/SpaceContext';
+import { ActivityPanel } from './ActivityPanel';
 import { v4 as uuidv4 } from 'uuid';
 
 export const ControlBar: Component = () => {
@@ -11,8 +12,32 @@ export const ControlBar: Component = () => {
   
   const [isMuted, setIsMuted] = createSignal(false);
   const [isVideoOff, setIsVideoOff] = createSignal(false);
+  const [activityOpen, setActivityOpen] = createSignal(false);
+  const [hasUnread, setHasUnread] = createSignal(false);
   
   const localUser = createMemo(() => ctx.session()?.localUser);
+  
+  // Listen for activity updates to show badge
+  onMount(() => {
+    ctx.onSocket('space-activity', () => {
+      if (!activityOpen()) {
+        setHasUnread(true);
+      }
+    });
+    
+    // Close activity panel when clicking elsewhere
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (activityOpen() && !target.closest('#activity-wrapper')) {
+        setActivityOpen(false);
+      }
+    };
+    document.addEventListener('click', handleClickOutside);
+    
+    onCleanup(() => {
+      document.removeEventListener('click', handleClickOutside);
+    });
+  });
   
   function handleToggleMic() {
     const user = localUser();
@@ -49,6 +74,10 @@ export const ControlBar: Component = () => {
       const user = localUser();
       if (!user) return;
       
+      // Store stream in context for rendering
+      ctx.setScreenShareStream(shareId, screenStream);
+      
+      // Add to CRDT
       ctx.addScreenShare(
         shareId,
         user.peerId,
@@ -61,7 +90,9 @@ export const ControlBar: Component = () => {
       
       ctx.emitSocket('screen-share-started', { shareId });
       
+      // Clean up when track ends
       screenStream.getVideoTracks()[0].onended = () => {
+        ctx.removeScreenShareStream(shareId);
         ctx.removeScreenShare(shareId);
         ctx.emitSocket('screen-share-stopped', { shareId });
       };
@@ -83,6 +114,15 @@ export const ControlBar: Component = () => {
       300,
       200
     );
+  }
+  
+  function handleToggleActivity(e: MouseEvent) {
+    e.stopPropagation();
+    const newState = !activityOpen();
+    setActivityOpen(newState);
+    if (newState) {
+      setHasUnread(false);
+    }
   }
   
   function handleLeave() {
@@ -177,13 +217,22 @@ export const ControlBar: Component = () => {
       <div class="control-divider" />
       
       <div id="activity-wrapper" class="activity-wrapper">
-        <button id="btn-activity" class="control-btn" title="Recent Activity">
+        <button 
+          id="btn-activity" 
+          class="control-btn" 
+          classList={{ 'active': activityOpen() }}
+          title="Recent Activity"
+          onClick={handleToggleActivity}
+        >
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <circle cx="12" cy="12" r="10" />
             <polyline points="12 6 12 12 16 14" />
           </svg>
+          <Show when={hasUnread()}>
+            <span id="activity-badge" class="activity-badge" />
+          </Show>
         </button>
-        <div id="activity-panel" class="activity-panel hidden" />
+        <ActivityPanel isOpen={activityOpen()} onClose={() => setActivityOpen(false)} />
       </div>
       
       <div class="control-divider" />

@@ -116,6 +116,9 @@ export const JoinModal: Component = () => {
           },
         });
         
+        // Initialize WebRTC for peer connections
+        ctx.initWebRTC();
+        
         // Update URL and switch view
         history.replaceState(null, '', `/s/${encodeURIComponent(space)}`);
         document.title = `${space} - OpenSpatial`;

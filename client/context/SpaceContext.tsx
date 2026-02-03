@@ -73,6 +73,20 @@ interface SpaceContextValue {
   addScreenShare: (shareId: string, peerId: string, username: string, x: number, y: number, width: number, height: number) => void;
   removeScreenShare: (shareId: string) => void;
   updateScreenSharePosition: (shareId: string, x: number, y: number) => void;
+  updateScreenShareSize: (shareId: string, width: number, height: number) => void;
+  
+  // Media stream storage
+  screenShareStreams: Accessor<Map<string, MediaStream>>;
+  setScreenShareStream: (shareId: string, stream: MediaStream) => void;
+  removeScreenShareStream: (shareId: string) => void;
+  
+  // Remote peer streams (for Avatar video)
+  peerStreams: Accessor<Map<string, MediaStream>>;
+  setPeerStream: (peerId: string, stream: MediaStream) => void;
+  removePeerStream: (peerId: string) => void;
+  
+  // WebRTC
+  initWebRTC: () => void;
   
   // Text note mutations
   addTextNote: (noteId: string, content: string, x: number, y: number, width: number, height: number) => void;
@@ -98,6 +112,10 @@ export const SpaceProvider: ParentComponent = (props) => {
   const [peers, setPeers] = createSignal<Map<string, PeerState>>(new Map());
   const [screenShares, setScreenShares] = createSignal<Map<string, ScreenShareState>>(new Map());
   const [textNotes, setTextNotes] = createSignal<Map<string, TextNoteState>>(new Map());
+  
+  // Local media streams (not in CRDT, but needed for rendering)
+  const [screenShareStreams, setScreenShareStreams] = createSignal<Map<string, MediaStream>>(new Map());
+  const [peerStreams, setPeerStreams] = createSignal<Map<string, MediaStream>>(new Map());
   
   // Derived values
   const participantCount = createMemo(() => peers().size);
@@ -312,6 +330,34 @@ export const SpaceProvider: ParentComponent = (props) => {
     }
   }
   
+  function updateScreenShareSize(shareId: string, width: number, height: number) {
+    const share = screenSharesMap?.get(shareId);
+    if (share) {
+      screenSharesMap?.set(shareId, { ...share, width, height });
+    }
+  }
+  
+  // Media stream management
+  function setScreenShareStream(shareId: string, stream: MediaStream) {
+    setScreenShareStreams(prev => {
+      const next = new Map(prev);
+      next.set(shareId, stream);
+      return next;
+    });
+  }
+  
+  function removeScreenShareStream(shareId: string) {
+    setScreenShareStreams(prev => {
+      const next = new Map(prev);
+      const stream = next.get(shareId);
+      if (stream) {
+        stream.getTracks().forEach(t => t.stop());
+        next.delete(shareId);
+      }
+      return next;
+    });
+  }
+  
   function addTextNote(noteId: string, content: string, x: number, y: number, width: number, height: number) {
     textNotesMap?.set(noteId, { content, x, y, width, height, fontSize: 'medium', fontFamily: 'sans', color: '#ffffff' });
   }
@@ -332,6 +378,127 @@ export const SpaceProvider: ParentComponent = (props) => {
     if (note) {
       textNotesMap?.set(noteId, { ...note, content });
     }
+  }
+  
+  // Peer stream management
+  function setPeerStream(peerId: string, stream: MediaStream) {
+    setPeerStreams(prev => {
+      const next = new Map(prev);
+      next.set(peerId, stream);
+      return next;
+    });
+  }
+  
+  function removePeerStream(peerId: string) {
+    setPeerStreams(prev => {
+      const next = new Map(prev);
+      next.delete(peerId);
+      return next;
+    });
+  }
+  
+  // WebRTC initialization - sets up signal handlers for peer connections
+  // Note: Full WebRTC peer connection management is complex and involves:
+  // - ICE servers, offer/answer exchange, track handling
+  // For now this sets up the signal handler infrastructure
+  const peerConnections = new Map<string, RTCPeerConnection>();
+  
+  function initWebRTC() {
+    // Handle incoming signals
+    onSocket<{ from: string; signal: { type: string; sdp?: RTCSessionDescriptionInit; candidate?: RTCIceCandidateInit } }>('signal', async (data) => {
+      const { from, signal } = data;
+      
+      let pc = peerConnections.get(from);
+      if (!pc) {
+        pc = createPeerConnection(from);
+      }
+      
+      if (signal.type === 'offer' && signal.sdp) {
+        await pc.setRemoteDescription(new RTCSessionDescription(signal.sdp));
+        const answer = await pc.createAnswer();
+        await pc.setLocalDescription(answer);
+        emitSocket('signal', {
+          to: from,
+          from: session()?.localUser.peerId,
+          signal: { type: 'answer', sdp: answer },
+        });
+      } else if (signal.type === 'answer' && signal.sdp) {
+        await pc.setRemoteDescription(new RTCSessionDescription(signal.sdp));
+      } else if (signal.type === 'candidate' && signal.candidate) {
+        await pc.addIceCandidate(new RTCIceCandidate(signal.candidate));
+      }
+    });
+    
+    // When a new peer joins, initiate connection
+    onSocket<{ peerId: string; username: string }>('peer-joined', async (data) => {
+      const { peerId } = data;
+      const pc = createPeerConnection(peerId);
+      
+      // Add local tracks
+      const localStream = session()?.localUser.stream;
+      if (localStream) {
+        localStream.getTracks().forEach(track => {
+          pc.addTrack(track, localStream);
+        });
+      }
+      
+      // Create and send offer
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+      emitSocket('signal', {
+        to: peerId,
+        from: session()?.localUser.peerId,
+        signal: { type: 'offer', sdp: offer },
+      });
+    });
+    
+    // When a peer leaves, close connection
+    onSocket<{ peerId: string }>('peer-left', (data) => {
+      const pc = peerConnections.get(data.peerId);
+      if (pc) {
+        pc.close();
+        peerConnections.delete(data.peerId);
+      }
+      removePeerStream(data.peerId);
+    });
+  }
+  
+  function createPeerConnection(peerId: string): RTCPeerConnection {
+    const pc = new RTCPeerConnection({
+      iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' },
+      ],
+    });
+    peerConnections.set(peerId, pc);
+    
+    pc.onicecandidate = (event) => {
+      if (event.candidate) {
+        emitSocket('signal', {
+          to: peerId,
+          from: session()?.localUser.peerId,
+          signal: { type: 'candidate', candidate: event.candidate },
+        });
+      }
+    };
+    
+    pc.ontrack = (event) => {
+      const stream = event.streams[0];
+      if (stream) {
+        setPeerStream(peerId, stream);
+      }
+    };
+    
+    pc.onconnectionstatechange = () => {
+      console.log(`[WebRTC] Connection with ${peerId}: ${pc.connectionState}`);
+      if (pc.connectionState === 'failed' || pc.connectionState === 'disconnected') {
+        pc.close();
+        peerConnections.delete(peerId);
+        removePeerStream(peerId);
+      }
+    };
+    
+    return pc;
   }
   
   // Cleanup on unmount
@@ -367,10 +534,18 @@ export const SpaceProvider: ParentComponent = (props) => {
     addScreenShare,
     removeScreenShare,
     updateScreenSharePosition,
+    updateScreenShareSize,
     addTextNote,
     removeTextNote,
     updateTextNotePosition,
     updateTextNoteContent,
+    screenShareStreams,
+    setScreenShareStream,
+    removeScreenShareStream,
+    peerStreams,
+    setPeerStream,
+    removePeerStream,
+    initWebRTC,
   };
   
   return (

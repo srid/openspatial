@@ -20,12 +20,12 @@ export const Avatar: Component<AvatarProps> = (props) => {
   
   const peer = createMemo(() => ctx.peers().get(props.peerId));
   
-  // Get stream from session for local user
+  // Get stream from session for local user, or from peerStreams for remote
   const stream = createMemo(() => {
     if (props.isLocal) {
       return ctx.session()?.localUser.stream;
     }
-    return null;
+    return ctx.peerStreams().get(props.peerId);
   });
   
   // Update video element when stream changes
