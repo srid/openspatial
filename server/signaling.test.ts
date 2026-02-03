@@ -5,6 +5,16 @@ import { io as ioc, Socket } from 'socket.io-client';
 import { AddressInfo } from 'net';
 import { attachSignaling } from './signaling.js';
 
+// Mock DB functions that require the space_events table (not available in unit test env)
+vi.mock('./db.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./db.js')>();
+  return {
+    ...actual,
+    recordSpaceEvent: vi.fn().mockResolvedValue(undefined),
+    getRecentActivity: vi.fn().mockResolvedValue([]),
+  };
+});
+
 /**
  * Integration tests for the signaling server.
  * Tests the full Socket.io event flow without mocking.
