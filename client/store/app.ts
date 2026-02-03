@@ -2,7 +2,7 @@
  * Application Store
  * Central reactive store for all application state using SolidJS fine-grained reactivity.
  */
-import { createSignal, createMemo, type Accessor } from 'solid-js';
+import { createSignal, type Accessor } from 'solid-js';
 import { createStore, produce } from 'solid-js/store';
 import type { ConnectionState } from '../components/ConnectionStatus';
 import type { MediaState, ActivityState } from '../components/ControlBar';
@@ -56,13 +56,12 @@ export interface Participant {
 
 const [participants, setParticipants] = createStore<Record<string, Participant>>({});
 
-export const participantCount: Accessor<number> = createMemo(() => 
-  Object.keys(participants).length
-);
+// Use simple accessor functions instead of createMemo to avoid computations at module load
+export const participantCount: Accessor<number> = () => 
+  Object.keys(participants).length;
 
-export const participantList: Accessor<Participant[]> = createMemo(() => 
-  Object.values(participants)
-);
+export const participantList: Accessor<Participant[]> = () => 
+  Object.values(participants);
 
 export function addParticipant(participant: Participant): void {
   setParticipants(produce((state) => {

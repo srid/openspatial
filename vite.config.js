@@ -80,7 +80,8 @@ export default defineConfig({
     host: '0.0.0.0',
     https: true,
     hmr: {
-      host: hostname
+      host: hostname,
+      port: 5173
     }
   }
 });

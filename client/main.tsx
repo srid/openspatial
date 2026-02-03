@@ -1,18 +1,20 @@
 /**
  * OpenSpatial Client Entry Point
  * SolidJS-based application with fine-grained reactivity.
+ * Integrates with legacy DOM-based modules for canvas, avatars, etc.
  */
 import './index.css';
 import { render } from 'solid-js/web';
 import { App } from './components/App';
 import { 
   route, setRoute, 
-  setSpaceName, setJoinParticipants, setJoinError,
+  setSpaceName, setPeerId, setJoinParticipants, setJoinError,
   setConnectionState, setReconnectAttempt,
   addParticipant, updateParticipant, removeParticipant, clearParticipants,
-  addScreenShare, updateScreenShare, removeScreenShare,
-  addTextNote, updateTextNote, removeTextNote,
+  participantCount,
   addActivity,
+  toggleMuted, toggleVideoOff, setScreenSharing,
+  mediaState,
 } from './store/app';
 
 import { checkBrowser } from './modules/browser-check.js';
@@ -26,12 +28,12 @@ import { SpatialAudio } from './modules/spatial-audio.js';
 import { MinimapManager } from './modules/minimap.js';
 import { CRDTManager } from './modules/crdt.js';
 import { MediaControls } from './modules/media-controls.js';
-import { SpaceSession } from './modules/space-session.js';
+import { UIController } from './modules/ui.js';
 import { ActivityPanel } from './modules/activity-panel.js';
 import type { SpaceInfoEvent, PeerData } from '../shared/types/events.js';
 import type { AppState, PendingShareInfo } from '../shared/types/state.js';
 
-// ==================== Application State (legacy bridge) ====================
+// ==================== Application State ====================
 
 const state: AppState = {
   username: '',
@@ -50,14 +52,17 @@ const state: AppState = {
 
 let crdt: CRDTManager | null = null;
 let webrtc: WebRTCManager | null = null;
+let ui: UIController | null = null;
+let canvas: CanvasManager | null = null;
+let minimap: MinimapManager | null = null;
 
 const socket = new SocketHandler();
-const canvas = new CanvasManager();
 const avatars = new AvatarManager(state);
 const spatialAudio = new SpatialAudio();
 spatialAudio.setAvatarManager(avatars);
+let activityPanel: ActivityPanel | null = null;
 
-// Create placeholder managers
+// Create managers with CRDT callbacks
 const screenShare = new ScreenShareManager(
   state,
   (shareId, x, y) => crdt?.updateScreenSharePosition(shareId, x, y),
@@ -74,19 +79,22 @@ const textNote = new TextNoteManager(
   (noteId) => mediaControls.removeTextNote(noteId)
 );
 
-// Create MediaControls (needs special handling for circular dependency)
+// Create MediaControls with lazy UI getter
 const mediaControls = new MediaControls({
   state,
   socket,
   avatars,
   screenShare,
   textNote,
-  ui: null as any, // Will be unused with SolidJS
+  ui: { 
+    updateMicButton: (muted: boolean) => ui?.updateMicButton(muted),
+    updateCameraButton: (off: boolean) => ui?.updateCameraButton(off),
+    updateScreenButton: (sharing: boolean) => ui?.updateScreenButton(sharing),
+    resetButtons: () => ui?.resetButtons(),
+  } as any,
   getCRDT: () => crdt,
   getWebRTC: () => webrtc,
 });
-
-const activityPanel = new ActivityPanel();
 
 // ==================== Socket Event Handlers ====================
 
@@ -94,15 +102,18 @@ function handleConnectionStateChange(connectionState: ConnectionState, info?: Re
   switch (connectionState) {
     case 'disconnected':
       setConnectionState('disconnected');
+      ui?.showDisconnected();
       break;
     case 'reconnecting':
       setConnectionState('reconnecting');
       if (info) {
         setReconnectAttempt(info.attempt);
+        ui?.showReconnecting(info.attempt, info.maxAttempts);
       }
       break;
     case 'connected':
       setConnectionState('connected');
+      ui?.showConnected();
       break;
   }
 }
@@ -144,6 +155,15 @@ async function handleJoinSpace(spaceId: string, username: string): Promise<void>
   state.spaceId = spaceId;
   setSpaceName(spaceId);
   
+  // Update route first so DOM is rendered
+  setRoute({ type: 'space', spaceId });
+  
+  // Wait a tick for SolidJS to render the DOM
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  
+  // Now initialize DOM-dependent modules
+  initializeSpaceModules();
+  
   try {
     // Create WebRTC manager
     webrtc = new WebRTCManager(socket, state);
@@ -157,12 +177,27 @@ async function handleJoinSpace(spaceId: string, username: string): Promise<void>
     await socket.connect();
     socket.emit('join-space', { username, spaceId });
     
-    // Update route
-    setRoute({ type: 'space', spaceId });
   } catch (error) {
     console.error('Failed to join space:', error);
     setJoinError('Failed to connect. Please try again.');
+    setRoute({ type: 'join', spaceId });
   }
+}
+
+function initializeSpaceModules(): void {
+  // Initialize canvas manager (needs #canvas-container and #space)
+  canvas = new CanvasManager();
+  canvas.init();
+  
+  // Initialize minimap
+  minimap = new MinimapManager(canvas, 4000, 4000);
+  minimap.init();
+  
+  // Initialize UI controller (needs control buttons)
+  ui = new UIController(state);
+  
+  // Initialize activity panel (needs #activity-panel, #btn-activity, #activity-badge)
+  activityPanel = new ActivityPanel();
 }
 
 function handleLeaveSpace(): void {
@@ -170,6 +205,9 @@ function handleLeaveSpace(): void {
   webrtc?.closeAllConnections();
   webrtc = null;
   crdt = null;
+  ui = null;
+  canvas = null;
+  minimap = null;
   clearParticipants();
   setRoute({ type: 'landing' });
 }
@@ -188,6 +226,7 @@ function setupSocketEvents(): void {
   socket.on('connected', (data) => {
     console.log('Connected with peer ID:', data.peerId);
     state.peerId = data.peerId;
+    setPeerId(data.peerId);
   });
 
   socket.on('peer-joined', (data) => {
@@ -202,7 +241,7 @@ function setupSocketEvents(): void {
   });
 
   socket.on('space-activity', (data) => {
-    activityPanel.update(data.events);
+    activityPanel?.update(data.events);
   });
 
   socket.onConnectionStateChange(handleConnectionStateChange);
@@ -227,11 +266,6 @@ function handleInitialRoute(): void {
 function init(): void {
   checkBrowser();
   setupSocketEvents();
-  canvas.init();
-
-  const minimap = new MinimapManager(canvas, 4000, 4000);
-  minimap.init();
-
   handleInitialRoute();
 
   // Render SolidJS app
@@ -251,5 +285,5 @@ function init(): void {
 document.body.classList.add('loaded');
 init();
 
-// Export for modules
+// Export for modules that need direct access
 export { avatars, screenShare, spatialAudio };

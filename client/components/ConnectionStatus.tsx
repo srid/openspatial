@@ -1,42 +1,24 @@
 /**
  * ConnectionStatus Component
  * Top-center banner showing connection state.
+ * Renders the exact DOM structure expected by UIController.
  */
-import { Show, type JSX, type Accessor } from 'solid-js';
-import { SpinnerIcon, CheckIcon, XIcon } from './Icons';
+import type { JSX, Accessor } from 'solid-js';
 
 export type ConnectionState = 'connected' | 'disconnected' | 'reconnecting';
 
 interface ConnectionStatusProps {
   state: Accessor<ConnectionState>;
   reconnectAttempt?: Accessor<number>;
+  maxAttempts?: number;
 }
 
 export function ConnectionStatus(props: ConnectionStatusProps): JSX.Element {
+  // UIController manipulates this element directly, so we just render the container
   return (
-    <Show when={props.state() !== 'connected' || true}>
-      <div
-        id="connection-status"
-        class="connection-status"
-        classList={{
-          connected: props.state() === 'connected',
-          disconnected: props.state() === 'disconnected',
-          reconnecting: props.state() === 'reconnecting',
-        }}
-      >
-        <Show when={props.state() === 'connected'}>
-          <CheckIcon size={16} />
-          <span>Connected</span>
-        </Show>
-        <Show when={props.state() === 'disconnected'}>
-          <XIcon size={16} />
-          <span>Disconnected</span>
-        </Show>
-        <Show when={props.state() === 'reconnecting'}>
-          <SpinnerIcon size={16} />
-          <span>Reconnecting{props.reconnectAttempt ? ` (${props.reconnectAttempt()})` : ''}...</span>
-        </Show>
-      </div>
-    </Show>
+    <div
+      id="connection-status"
+      class="connection-status hidden"
+    />
   );
 }
