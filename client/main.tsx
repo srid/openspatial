@@ -155,16 +155,37 @@ async function handleJoinSpace(spaceId: string, username: string): Promise<void>
   state.spaceId = spaceId;
   setSpaceName(spaceId);
   
-  // Update route first so DOM is rendered
-  setRoute({ type: 'space', spaceId });
-  
-  // Wait a tick for SolidJS to render the DOM
-  await new Promise((resolve) => setTimeout(resolve, 0));
-  
-  // Now initialize DOM-dependent modules
-  initializeSpaceModules();
-  
   try {
+    // Get media stream first (camera + mic)
+    const constraints: MediaStreamConstraints = {
+      video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } },
+      audio: true,
+    };
+    
+    try {
+      state.localStream = await navigator.mediaDevices.getUserMedia(constraints);
+    } catch (mediaError) {
+      const err = mediaError as DOMException;
+      console.error('getUserMedia error:', err.name, err.message);
+      
+      if (err.name === 'OverconstrainedError') {
+        // Retry with basic constraints
+        state.localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      } else {
+        setJoinError(`Camera/microphone error: ${err.name}. Please grant permission and try again.`);
+        return;
+      }
+    }
+    
+    // Update route to show space UI
+    setRoute({ type: 'space', spaceId });
+    
+    // Wait a tick for SolidJS to render the DOM
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    
+    // Initialize DOM-dependent modules
+    initializeSpaceModules();
+    
     // Create WebRTC manager
     webrtc = new WebRTCManager(socket, state);
     await webrtc.init();
@@ -227,6 +248,39 @@ function setupSocketEvents(): void {
     console.log('Connected with peer ID:', data.peerId);
     state.peerId = data.peerId;
     setPeerId(data.peerId);
+    
+    // Create local avatar at center of canvas
+    const centerX = 2000;
+    const centerY = 2000;
+    
+    if (state.localStream) {
+      avatars.createLocalAvatar(state.peerId, state.username, state.localStream, centerX, centerY);
+    }
+    
+    // Add self to CRDT
+    crdt?.addPeer(state.peerId, state.username, centerX, centerY);
+    
+    // Set up position change handlers
+    avatars.onPositionChange((peerId, x, y) => {
+      crdt?.updatePosition(peerId, x, y);
+      spatialAudio.updatePositions(avatars.getPositions(), state.peerId!);
+    });
+    
+    avatars.onStatusChange((newStatus) => {
+      state.status = newStatus;
+      avatars.updateStatus(state.peerId!, newStatus);
+      crdt?.updateStatus(state.peerId!, newStatus);
+    });
+    
+    // Center canvas on avatar
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        canvas?.centerOn(centerX, centerY);
+      });
+    });
+    
+    // Update document title
+    document.title = `${state.spaceId} - OpenSpatial`;
   });
 
   socket.on('peer-joined', (data) => {

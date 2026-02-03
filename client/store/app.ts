@@ -106,8 +106,8 @@ export { connectionState, setConnectionState, reconnectAttempt, setReconnectAtte
 // ==================== Media State ====================
 
 const [mediaState, setMediaState] = createStore<MediaState>({
-  isMuted: true,
-  isVideoOff: true,
+  isMuted: false,
+  isVideoOff: false,
   isScreenSharing: false,
 });
 
