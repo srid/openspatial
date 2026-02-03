@@ -85,6 +85,7 @@ export class UserImpl implements User {
     // Fill in the popover input and save
     await this.page.fill('.status-popover-input', text);
     await this.page.click('.status-popover-save');
+    await this.page.waitForTimeout(SYNC_WAIT);
   }
 
   async clearStatus(): Promise<void> {

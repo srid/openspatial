@@ -19,6 +19,7 @@ export const Avatar: Component<AvatarProps> = (props) => {
   const [isDragging, setIsDragging] = createSignal(false);
   const [showStatusPopover, setShowStatusPopover] = createSignal(false);
   const [statusInput, setStatusInput] = createSignal('');
+  let statusInputRef: HTMLInputElement | undefined;
   
   const peer = createMemo(() => ctx.peers().get(props.peerId));
   
@@ -159,7 +160,9 @@ export const Avatar: Component<AvatarProps> = (props) => {
                 <span>{p().username.charAt(0).toUpperCase()}</span>
               </div>
             </Show>
-            <Show when={p().isMuted}>
+          </div>
+          <Show when={p().isMuted}>
+            <div class="avatar-indicators">
               <div class="avatar-indicator muted">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <line x1="1" y1="1" x2="23" y2="23" />
@@ -167,11 +170,11 @@ export const Avatar: Component<AvatarProps> = (props) => {
                   <path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2c0 .74-.11 1.46-.32 2.14" />
                 </svg>
               </div>
-            </Show>
-          </div>
+            </div>
+          </Show>
           <div class="avatar-info">
             <span class="avatar-name">{p().username}</span>
-            <Show when={props.isLocal && !p().status}>
+            <Show when={props.isLocal && !peer()?.status}>
               <button 
                 class="avatar-status-trigger" 
                 onClick={(e) => {
@@ -183,25 +186,26 @@ export const Avatar: Component<AvatarProps> = (props) => {
                 +
               </button>
             </Show>
-            <Show when={p().status}>
+            <Show when={peer()?.status}>
               <span 
                 class="avatar-status" 
                 onClick={(e) => {
                   if (props.isLocal) {
                     e.stopPropagation();
-                    setStatusInput(p().status || '');
+                    setStatusInput(peer()?.status || '');
                     setShowStatusPopover(true);
                   }
                 }}
                 style={{ cursor: props.isLocal ? 'pointer' : 'default' }}
               >
-                {p().status}
+                {peer()?.status}
               </span>
             </Show>
           </div>
           <Show when={showStatusPopover()}>
             <div class="status-popover" onClick={(e) => e.stopPropagation()}>
               <input
+                ref={statusInputRef}
                 class="status-popover-input"
                 type="text"
                 value={statusInput()}
@@ -212,13 +216,15 @@ export const Avatar: Component<AvatarProps> = (props) => {
               <button 
                 class="status-popover-save"
                 onClick={() => {
-                  ctx.updatePeerStatus(props.peerId, statusInput());
+                  // Read directly from DOM in case Playwright fill() doesn't trigger onInput
+                  const value = statusInputRef?.value ?? statusInput();
+                  ctx.updatePeerStatus(props.peerId, value);
                   setShowStatusPopover(false);
                 }}
               >
                 Save
               </button>
-              <Show when={p().status}>
+              <Show when={peer()?.status}>
                 <button 
                   class="status-popover-clear"
                   onClick={() => {

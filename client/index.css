@@ -968,7 +968,7 @@ body {
 }
 
 .avatar-status {
-    display: none;
+    display: block;
     position: absolute;
     top: -24px;
     left: 50%;
