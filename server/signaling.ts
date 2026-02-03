@@ -127,7 +127,8 @@ export function attachSignaling(io: Server): void {
 
       console.log(`[Signaling] ${username} joined space ${spaceId} (${space.peers.size} peers)`);
       
-      // Record space event and notify
+      // Record space event and notify (order doesn't matter - notification cooldown
+      // is tracked separately in notification_log table)
       if (wasEmpty) {
         recordSpaceEvent(spaceId, 'join_first', username);
         notifySpaceActive(spaceId, username);

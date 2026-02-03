@@ -1,10 +1,11 @@
 /**
  * Notifier orchestration - manages notification backends and state.
- * Cooldown is now DB-backed via space_events table to survive restarts.
+ * Cooldown is now tracked in notification_log table to survive restarts
+ * and be independent of space event recording.
  */
 import type { NotificationBackend, NotifierConfig, SpaceNotification } from './types.js';
 import { createSlackBackendFromEnv } from './slack.js';
-import { getLastJoinFirstTime } from '../db.js';
+import { getLastNotificationTime, recordNotification } from '../db.js';
 
 let notifierConfig: NotifierConfig | null = null;
 
@@ -48,7 +49,8 @@ export function initNotifier(): void {
 
 /**
  * Notify that a space became active (first user joined).
- * Respects cooldown using DB-backed timestamps to survive restarts.
+ * Respects cooldown using notification_log table to survive restarts
+ * and be independent of space event recording order.
  */
 export async function notifySpaceActive(spaceId: string, username: string): Promise<void> {
   if (!notifierConfig || notifierConfig.backends.length === 0) {
@@ -60,8 +62,8 @@ export async function notifySpaceActive(spaceId: string, username: string): Prom
     return;
   }
   
-  // Check cooldown from DB (last join_first event time)
-  const lastTime = await getLastJoinFirstTime(spaceId);
+  // Check cooldown from notification_log (last notification time for this space)
+  const lastTime = await getLastNotificationTime(spaceId);
   if (lastTime) {
     const elapsed = Date.now() - lastTime;
     if (elapsed < notifierConfig.cooldownMs) {
@@ -80,10 +82,13 @@ export async function notifySpaceActive(spaceId: string, username: string): Prom
   for (const backend of notifierConfig.backends) {
     try {
       await backend.notifySpaceActive(notification);
-      // Note: No need to track timestamp here - it's recorded by recordSpaceEvent in signaling.ts
+      // Record successful notification (for cooldown tracking)
+      await recordNotification(spaceId, username);
+      console.log(`[Notifier] Recorded notification for ${spaceId}`);
     } catch (error) {
       console.error(`[Notifier] Error in ${backend.name} backend:`, error);
     }
   }
 }
+
 

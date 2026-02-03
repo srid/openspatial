@@ -31,13 +31,24 @@ export interface SpaceEventsTable {
   created_at: Generated<string>;
 }
 
+// Notification log - tracks when notifications were sent per space
+export interface NotificationLogTable {
+  id: Generated<number>;
+  space_id: string;
+  username: string;
+  sent_at: Generated<string>;
+}
+
 export interface Database {
   spaces: SpacesTable;
   text_elements: TextElementsTable;
   space_events: SpaceEventsTable;
+  notification_log: NotificationLogTable;
 }
 
 // Type aliases for common operations
 export type Space = Selectable<SpacesTable>;
 export type NewSpace = Insertable<SpacesTable>;
 export type SpaceEvent = Selectable<SpaceEventsTable>;
+export type NotificationLog = Selectable<NotificationLogTable>;
+

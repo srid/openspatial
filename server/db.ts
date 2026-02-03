@@ -213,23 +213,6 @@ export async function recordSpaceEvent(
 }
 
 /**
- * Get the timestamp of the last join_first event for a space (for cooldown).
- */
-export async function getLastJoinFirstTime(spaceId: string): Promise<number | null> {
-  const row = await db
-    .selectFrom('space_events')
-    .select('created_at')
-    .where('space_id', '=', spaceId)
-    .where('event_type', '=', 'join_first')
-    .orderBy('created_at', 'desc')
-    .limit(1)
-    .executeTakeFirst();
-  
-  if (!row) return null;
-  return new Date(row.created_at).getTime();
-}
-
-/**
  * Get recent activity for a space (last 2 days).
  */
 export async function getRecentActivity(spaceId: string): Promise<SpaceEvent[]> {
@@ -243,3 +226,37 @@ export async function getRecentActivity(spaceId: string): Promise<SpaceEvent[]> 
     .execute();
   return rows;
 }
+
+// === Notification Log Operations ===
+
+/**
+ * Get the timestamp of the last notification sent for a space.
+ * Used for cooldown checks - independent of space events.
+ */
+export async function getLastNotificationTime(spaceId: string): Promise<number | null> {
+  const row = await db
+    .selectFrom('notification_log')
+    .select('sent_at')
+    .where('space_id', '=', spaceId)
+    .orderBy('sent_at', 'desc')
+    .limit(1)
+    .executeTakeFirst();
+  
+  if (!row) return null;
+  return new Date(row.sent_at).getTime();
+}
+
+/**
+ * Record that a notification was sent for a space.
+ * Called after successfully sending a notification.
+ */
+export async function recordNotification(spaceId: string, username: string): Promise<void> {
+  await db
+    .insertInto('notification_log')
+    .values({
+      space_id: spaceId,
+      username,
+    })
+    .execute();
+}
+
