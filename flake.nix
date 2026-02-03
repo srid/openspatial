@@ -64,19 +64,21 @@
             runtimeInputs = [ pkgs.nixos-rebuild ];
             text = ''
               if [ $# -lt 1 ]; then
-                echo "Usage: nix run .#redeploy -- <user@host>"
+                echo "Usage: nix run .#redeploy -- <user@host> [build-host]"
                 echo "Example: nix run .#redeploy -- root@46.62.227.127"
+                echo "Example: nix run .#redeploy -- root@46.62.227.127 pureintent"
                 exit 1
               fi
               
               TARGET_HOST="$1"
+              BUILD_HOST="''${2:-$TARGET_HOST}"
               
-              echo "🔄 Updating OpenSpatial on $TARGET_HOST..."
+              echo "🔄 Updating OpenSpatial on $TARGET_HOST (building on $BUILD_HOST)..."
               
               nixos-rebuild switch \
                 --flake "${self}#openspatial-server" \
                 --target-host "$TARGET_HOST" \
-                --build-host "$TARGET_HOST"
+                --build-host "$BUILD_HOST"
               
               echo ""
               echo "✅ Update complete!"
