@@ -4,27 +4,23 @@
  */
 import { Component, createMemo, Show, createSignal, onMount, onCleanup } from 'solid-js';
 import { useSpace } from '@/context/SpaceContext';
-import { useCRDT } from '@/hooks/useCRDT';
 
 interface ScreenShareProps {
   shareId: string;
 }
 
 export const ScreenShare: Component<ScreenShareProps> = (props) => {
-  const { screenShares } = useSpace();
-  const crdt = useCRDT();
+  const ctx = useSpace();
   
   let containerRef: HTMLDivElement | undefined;
   
   const [isDragging, setIsDragging] = createSignal(false);
-  const [isResizing, setIsResizing] = createSignal(false);
   
-  const share = createMemo(() => screenShares().get(props.shareId));
+  const share = createMemo(() => ctx.screenShares().get(props.shareId));
   
   onMount(() => {
     if (containerRef) {
       setupDrag();
-      setupResize();
     }
   });
   
@@ -37,7 +33,6 @@ export const ScreenShare: Component<ScreenShareProps> = (props) => {
     let initialY = 0;
     
     const handleMouseDown = (e: MouseEvent) => {
-      // Don't start drag if clicking on resize handle
       if ((e.target as HTMLElement).classList.contains('resize-handle')) return;
       
       e.stopPropagation();
@@ -55,7 +50,7 @@ export const ScreenShare: Component<ScreenShareProps> = (props) => {
       const deltaX = e.clientX - startDragX;
       const deltaY = e.clientY - startDragY;
       
-      crdt.updateScreenSharePosition(props.shareId, initialX + deltaX, initialY + deltaY);
+      ctx.updateScreenSharePosition(props.shareId, initialX + deltaX, initialY + deltaY);
     };
     
     const handleMouseUp = () => {
@@ -71,10 +66,6 @@ export const ScreenShare: Component<ScreenShareProps> = (props) => {
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
     });
-  }
-  
-  function setupResize() {
-    // Resize logic will be implemented when needed
   }
   
   return (
@@ -95,7 +86,6 @@ export const ScreenShare: Component<ScreenShareProps> = (props) => {
             <span class="screen-share-title">{s().username}'s screen</span>
           </div>
           <div class="screen-share-video-container">
-            {/* Video will be attached via WebRTC */}
             <video class="screen-share-video" autoplay playsinline />
           </div>
           <div class="resize-handle resize-handle-se" />

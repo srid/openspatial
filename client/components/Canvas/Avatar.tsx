@@ -4,7 +4,6 @@
  */
 import { Component, createMemo, Show, createSignal, onMount, onCleanup, createEffect } from 'solid-js';
 import { useSpace } from '@/context/SpaceContext';
-import { useCRDT } from '@/hooks/useCRDT';
 
 interface AvatarProps {
   peerId: string;
@@ -12,22 +11,20 @@ interface AvatarProps {
 }
 
 export const Avatar: Component<AvatarProps> = (props) => {
-  const { peers, session } = useSpace();
-  const crdt = useCRDT();
+  const ctx = useSpace();
   
   let avatarRef: HTMLDivElement | undefined;
   let videoRef: HTMLVideoElement | undefined;
   
   const [isDragging, setIsDragging] = createSignal(false);
   
-  const peer = createMemo(() => peers().get(props.peerId));
+  const peer = createMemo(() => ctx.peers().get(props.peerId));
   
   // Get stream from session for local user
   const stream = createMemo(() => {
     if (props.isLocal) {
-      return session()?.localUser.stream;
+      return ctx.session()?.localUser.stream;
     }
-    // Remote streams will be set via WebRTC
     return null;
   });
   
@@ -73,7 +70,7 @@ export const Avatar: Component<AvatarProps> = (props) => {
       const newX = initialX + deltaX;
       const newY = initialY + deltaY;
       
-      crdt.updatePosition(props.peerId, newX, newY);
+      ctx.updatePeerPosition(props.peerId, newX, newY);
     };
     
     const handleMouseUp = () => {
@@ -108,7 +105,7 @@ export const Avatar: Component<AvatarProps> = (props) => {
       const newX = initialX + deltaX;
       const newY = initialY + deltaY;
       
-      crdt.updatePosition(props.peerId, newX, newY);
+      ctx.updatePeerPosition(props.peerId, newX, newY);
     };
     
     const handleTouchEnd = () => {

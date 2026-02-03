@@ -2,42 +2,39 @@
  * ControlBar Component
  * Bottom control bar with mic, camera, screen share, notes, and leave buttons.
  */
-import { Component, Show } from 'solid-js';
+import { Component, Show, createSignal, createMemo } from 'solid-js';
 import { useSpace } from '@/context/SpaceContext';
-import { useLocalMedia } from '@/hooks/useLocalMedia';
-import { useCRDT } from '@/hooks/useCRDT';
-import { useSignaling } from '@/hooks/useSignaling';
 import { v4 as uuidv4 } from 'uuid';
 
 export const ControlBar: Component = () => {
-  const { session, setSession, setView } = useSpace();
-  const localMedia = useLocalMedia();
-  const crdt = useCRDT();
-  const signaling = useSignaling();
+  const ctx = useSpace();
+  
+  const [isMuted, setIsMuted] = createSignal(false);
+  const [isVideoOff, setIsVideoOff] = createSignal(false);
+  
+  const localUser = createMemo(() => ctx.session()?.localUser);
   
   function handleToggleMic() {
-    localMedia.toggleMic();
+    const user = localUser();
+    if (!user?.stream) return;
     
-    const sess = session();
-    if (sess) {
-      crdt.updateMediaState(sess.localUser.peerId, localMedia.isMuted(), sess.localUser.isVideoOff);
-      setSession({
-        ...sess,
-        localUser: { ...sess.localUser, isMuted: localMedia.isMuted() },
-      });
+    const audioTrack = user.stream.getAudioTracks()[0];
+    if (audioTrack) {
+      audioTrack.enabled = !audioTrack.enabled;
+      setIsMuted(!audioTrack.enabled);
+      ctx.updatePeerMediaState(user.peerId, !audioTrack.enabled, isVideoOff());
     }
   }
   
   function handleToggleCamera() {
-    localMedia.toggleCamera();
+    const user = localUser();
+    if (!user?.stream) return;
     
-    const sess = session();
-    if (sess) {
-      crdt.updateMediaState(sess.localUser.peerId, sess.localUser.isMuted, localMedia.isVideoOff());
-      setSession({
-        ...sess,
-        localUser: { ...sess.localUser, isVideoOff: localMedia.isVideoOff() },
-      });
+    const videoTrack = user.stream.getVideoTracks()[0];
+    if (videoTrack) {
+      videoTrack.enabled = !videoTrack.enabled;
+      setIsVideoOff(!videoTrack.enabled);
+      ctx.updatePeerMediaState(user.peerId, isMuted(), !videoTrack.enabled);
     }
   }
   
@@ -49,27 +46,24 @@ export const ControlBar: Component = () => {
       });
       
       const shareId = uuidv4();
-      const sess = session();
-      if (!sess) return;
+      const user = localUser();
+      if (!user) return;
       
-      // Add to CRDT
-      crdt.addScreenShare(
+      ctx.addScreenShare(
         shareId,
-        sess.localUser.peerId,
-        sess.localUser.username,
-        sess.localUser.x + 200,
-        sess.localUser.y,
+        user.peerId,
+        user.username,
+        user.x + 200,
+        user.y,
         640,
         360
       );
       
-      // Notify server
-      signaling.emit('screen-share-started', { shareId });
+      ctx.emitSocket('screen-share-started', { shareId });
       
-      // Handle stream end
       screenStream.getVideoTracks()[0].onended = () => {
-        crdt.removeScreenShare(shareId);
-        signaling.emit('screen-share-stopped', { shareId });
+        ctx.removeScreenShare(shareId);
+        ctx.emitSocket('screen-share-stopped', { shareId });
       };
     } catch (e) {
       console.log('Screen share cancelled or failed:', e);
@@ -77,32 +71,31 @@ export const ControlBar: Component = () => {
   }
   
   function handleCreateNote() {
-    const sess = session();
-    if (!sess) return;
+    const user = localUser();
+    if (!user) return;
     
     const noteId = uuidv4();
-    crdt.addTextNote(
+    ctx.addTextNote(
       noteId,
       '',
-      sess.localUser.x + 150,
-      sess.localUser.y - 100,
+      user.x + 150,
+      user.y - 100,
       300,
       200
     );
   }
   
   function handleLeave() {
-    const sess = session();
+    const sess = ctx.session();
     if (sess) {
-      crdt.removePeer(sess.localUser.peerId);
-      crdt.disconnect();
+      ctx.removePeer(sess.localUser.peerId);
+      sess.localUser.stream?.getTracks().forEach((t) => t.stop());
     }
     
-    localMedia.stopMedia();
-    signaling.disconnect();
-    
-    setSession(null);
-    setView('join');
+    ctx.disconnectCRDT();
+    ctx.disconnectSignaling();
+    ctx.setSession(null);
+    ctx.setView('join');
     
     document.title = 'OpenSpatial - Virtual Office';
   }
@@ -112,11 +105,11 @@ export const ControlBar: Component = () => {
       <button
         id="btn-mic"
         class="control-btn"
-        classList={{ 'muted': localMedia.isMuted() }}
+        classList={{ 'muted': isMuted() }}
         title="Toggle Microphone"
         onClick={handleToggleMic}
       >
-        <Show when={!localMedia.isMuted()}>
+        <Show when={!isMuted()}>
           <svg class="icon-on" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
             <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
@@ -124,7 +117,7 @@ export const ControlBar: Component = () => {
             <line x1="8" y1="23" x2="16" y2="23" />
           </svg>
         </Show>
-        <Show when={localMedia.isMuted()}>
+        <Show when={isMuted()}>
           <svg class="icon-off" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <line x1="1" y1="1" x2="23" y2="23" />
             <path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6" />
@@ -138,17 +131,17 @@ export const ControlBar: Component = () => {
       <button
         id="btn-camera"
         class="control-btn"
-        classList={{ 'muted': localMedia.isVideoOff() }}
+        classList={{ 'muted': isVideoOff() }}
         title="Toggle Camera"
         onClick={handleToggleCamera}
       >
-        <Show when={!localMedia.isVideoOff()}>
+        <Show when={!isVideoOff()}>
           <svg class="icon-on" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M23 7l-7 5 7 5V7z" />
             <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
           </svg>
         </Show>
-        <Show when={localMedia.isVideoOff()}>
+        <Show when={isVideoOff()}>
           <svg class="icon-off" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M16 16v1a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h2m5.66 0H14a2 2 0 0 1 2 2v3.34l1 1L23 7v10" />
             <line x1="1" y1="1" x2="23" y2="23" />

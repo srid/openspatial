@@ -1,21 +1,15 @@
 /**
  * JoinModal Component
  * Handles joining a space with username input.
- * Matches existing HTML structure for E2E compatibility.
  */
 import { Component, createSignal, onMount, Show } from 'solid-js';
 import { useSpace, getSpaceIdFromUrl } from '@/context/SpaceContext';
-import { useSignaling } from '@/hooks/useSignaling';
-import { useCRDT } from '@/hooks/useCRDT';
-import { useLocalMedia } from '@/hooks/useLocalMedia';
+import type { ConnectedEvent, SpaceInfoEvent } from '../../shared/types/events';
 
 const STORAGE_KEY_USERNAME = 'openspatial-username';
 
 export const JoinModal: Component = () => {
-  const { setView, setSession } = useSpace();
-  const signaling = useSignaling();
-  const crdt = useCRDT();
-  const localMedia = useLocalMedia();
+  const ctx = useSpace();
   
   const [username, setUsername] = createSignal('');
   const [spaceId, setSpaceId] = createSignal('');
@@ -23,19 +17,16 @@ export const JoinModal: Component = () => {
   const [loading, setLoading] = createSignal(true);
   const [error, setError] = createSignal<string | null>(null);
   const [spaceExists, setSpaceExists] = createSignal(true);
+  const [stream, setStream] = createSignal<MediaStream | null>(null);
   
   onMount(() => {
-    // Get space ID from URL
     const urlSpaceId = getSpaceIdFromUrl();
     if (urlSpaceId) {
       setSpaceId(urlSpaceId);
       document.title = `${urlSpaceId} - OpenSpatial`;
-      
-      // Query space info
       querySpaceInfo(urlSpaceId);
     }
     
-    // Restore saved username
     const savedUsername = localStorage.getItem(STORAGE_KEY_USERNAME);
     if (savedUsername) {
       setUsername(savedUsername);
@@ -45,9 +36,9 @@ export const JoinModal: Component = () => {
   async function querySpaceInfo(space: string) {
     setLoading(true);
     try {
-      await signaling.connect();
+      await ctx.connectSignaling();
       
-      signaling.on('space-info', (data) => {
+      ctx.onceSocket<SpaceInfoEvent>('space-info', (data) => {
         if (!data.exists) {
           setSpaceExists(false);
           setError(`Space "${space}" doesn't exist. An admin needs to create it first.`);
@@ -55,10 +46,10 @@ export const JoinModal: Component = () => {
           setParticipants(data.participants || []);
         }
         setLoading(false);
-        signaling.disconnect();
+        // DON'T disconnect here - keep connection for joining
       });
       
-      signaling.emit('get-space-info', { spaceId: space });
+      ctx.emitSocket('get-space-info', { spaceId: space });
     } catch (e) {
       console.error('Failed to query space info:', e);
       setLoading(false);
@@ -78,27 +69,40 @@ export const JoinModal: Component = () => {
     
     try {
       // Get media stream
-      const stream = await localMedia.getMedia();
-      if (!stream) {
-        setError('Camera/microphone access was denied. Please grant permission and try again.');
-        return;
+      let mediaStream = stream();
+      if (!mediaStream) {
+        try {
+          mediaStream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } },
+            audio: true,
+          });
+          setStream(mediaStream);
+        } catch (mediaErr) {
+          const err = mediaErr as DOMException;
+          if (err.name === 'NotAllowedError') {
+            setError('Camera/microphone access denied. Please grant permission and try again.');
+          } else {
+            setError(`Media error: ${err.name}`);
+          }
+          return;
+        }
       }
       
-      // Connect to signaling server
-      await signaling.connect();
+      // Ensure signaling is connected
+      await ctx.connectSignaling();
       
-      // Wait for connected event
-      signaling.once('connected', (data) => {
+      // Wait for connected event with peerId
+      ctx.onceSocket<ConnectedEvent>('connected', (data) => {
         const peerId = data.peerId;
         const centerX = 2000;
         const centerY = 2000;
         
-        // Connect CRDT
-        crdt.connect(space);
-        crdt.addPeer(peerId, name, centerX, centerY);
+        // Connect CRDT and add ourselves
+        ctx.connectCRDT(space);
+        ctx.addPeer(peerId, name, centerX, centerY);
         
         // Set session state
-        setSession({
+        ctx.setSession({
           spaceId: space,
           localUser: {
             peerId,
@@ -108,18 +112,18 @@ export const JoinModal: Component = () => {
             isMuted: false,
             isVideoOff: false,
             status: '',
-            stream,
+            stream: mediaStream,
           },
         });
         
         // Update URL and switch view
         history.replaceState(null, '', `/s/${encodeURIComponent(space)}`);
         document.title = `${space} - OpenSpatial`;
-        setView('space');
+        ctx.setView('space');
       });
       
       // Join the space
-      signaling.emit('join-space', { spaceId: space, username: name });
+      ctx.emitSocket('join-space', { spaceId: space, username: name });
     } catch (e) {
       const err = e as Error;
       console.error('Failed to join:', err);

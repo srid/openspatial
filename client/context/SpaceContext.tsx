@@ -1,8 +1,14 @@
 /**
- * SpaceContext - Central state management for the space session
+ * SpaceContext - Central state and connection management
+ * 
+ * Connections (signaling, CRDT) are managed here to survive component unmounts.
  */
-import { createContext, useContext, createSignal, createMemo, ParentComponent, onCleanup, Accessor, Setter } from 'solid-js';
+import { createContext, useContext, createSignal, createMemo, ParentComponent, onCleanup, Accessor, Setter, batch } from 'solid-js';
+import { io, Socket } from 'socket.io-client';
+import * as Y from 'yjs';
+import { WebsocketProvider } from 'y-websocket';
 import type { PeerState, ScreenShareState, TextNoteState } from '../../shared/yjs-schema';
+import type { ConnectedEvent, SpaceInfoEvent, PeerJoinedEvent, PeerLeftEvent } from '../../shared/types/events';
 
 export type View = 'landing' | 'join' | 'space';
 export type ConnectionState = 'disconnected' | 'connecting' | 'connected' | 'reconnecting';
@@ -34,19 +40,45 @@ interface SpaceContextValue {
   
   // Connection state
   connectionState: Accessor<ConnectionState>;
-  setConnectionState: Setter<ConnectionState>;
+  crdtSynced: Accessor<boolean>;
   
   // CRDT-derived reactive state
   peers: Accessor<Map<string, PeerState>>;
-  setPeers: Setter<Map<string, PeerState>>;
   screenShares: Accessor<Map<string, ScreenShareState>>;
-  setScreenShares: Setter<Map<string, ScreenShareState>>;
   textNotes: Accessor<Map<string, TextNoteState>>;
-  setTextNotes: Setter<Map<string, TextNoteState>>;
   
   // Derived state
   participantCount: Accessor<number>;
   spaceId: Accessor<string | undefined>;
+  
+  // Connection actions
+  connectSignaling: () => Promise<void>;
+  disconnectSignaling: () => void;
+  connectCRDT: (spaceId: string) => void;
+  disconnectCRDT: () => void;
+  
+  // Socket event helpers
+  onSocket: <T>(event: string, handler: (data: T) => void) => void;
+  onceSocket: <T>(event: string, handler: (data: T) => void) => void;
+  emitSocket: (event: string, data: unknown) => void;
+  
+  // CRDT mutation helpers
+  addPeer: (peerId: string, username: string, x: number, y: number) => void;
+  removePeer: (peerId: string) => void;
+  updatePeerPosition: (peerId: string, x: number, y: number) => void;
+  updatePeerMediaState: (peerId: string, isMuted: boolean, isVideoOff: boolean) => void;
+  updatePeerStatus: (peerId: string, status: string) => void;
+  
+  // Screen share mutations
+  addScreenShare: (shareId: string, peerId: string, username: string, x: number, y: number, width: number, height: number) => void;
+  removeScreenShare: (shareId: string) => void;
+  updateScreenSharePosition: (shareId: string, x: number, y: number) => void;
+  
+  // Text note mutations
+  addTextNote: (noteId: string, content: string, x: number, y: number, width: number, height: number) => void;
+  removeTextNote: (noteId: string) => void;
+  updateTextNotePosition: (noteId: string, x: number, y: number) => void;
+  updateTextNoteContent: (noteId: string, content: string) => void;
 }
 
 const SpaceContext = createContext<SpaceContextValue>();
@@ -60,8 +92,9 @@ export const SpaceProvider: ParentComponent = (props) => {
   
   // Connection state
   const [connectionState, setConnectionState] = createSignal<ConnectionState>('disconnected');
+  const [crdtSynced, setCrdtSynced] = createSignal(false);
   
-  // CRDT-derived state (will be populated by useCRDT hook)
+  // CRDT-derived state
   const [peers, setPeers] = createSignal<Map<string, PeerState>>(new Map());
   const [screenShares, setScreenShares] = createSignal<Map<string, ScreenShareState>>(new Map());
   const [textNotes, setTextNotes] = createSignal<Map<string, TextNoteState>>(new Map());
@@ -70,21 +103,274 @@ export const SpaceProvider: ParentComponent = (props) => {
   const participantCount = createMemo(() => peers().size);
   const spaceId = createMemo(() => session()?.spaceId);
   
+  // --------------- Socket.io Management ---------------
+  let socket: Socket | null = null;
+  const socketHandlers = new Map<string, Set<(data: unknown) => void>>();
+  const socketOnceHandlers = new Map<string, Set<(data: unknown) => void>>();
+  
+  function connectSignaling(): Promise<void> {
+    return new Promise((resolve, reject) => {
+      if (socket?.connected) {
+        resolve();
+        return;
+      }
+      
+      setConnectionState('connecting');
+      
+      socket = io(window.location.origin, {
+        transports: ['websocket'],
+        upgrade: false,
+        reconnection: true,
+        reconnectionAttempts: 5,
+        reconnectionDelay: 1000,
+        reconnectionDelayMax: 10000,
+        forceNew: false, // Reuse connection
+      });
+      
+      socket.on('connect', () => {
+        console.log('[Signaling] Connected');
+        setConnectionState('connected');
+        resolve();
+      });
+      
+      socket.on('connect_error', (error: Error) => {
+        console.error('[Signaling] Connection error:', error);
+        reject(error);
+      });
+      
+      socket.on('disconnect', (reason: string) => {
+        console.log('[Signaling] Disconnected:', reason);
+        if (reason !== 'io client disconnect') {
+          setConnectionState('disconnected');
+        }
+      });
+      
+      socket.io.on('reconnect_attempt', (attempt: number) => {
+        console.log(`[Signaling] Reconnection attempt ${attempt}`);
+        setConnectionState('reconnecting');
+      });
+      
+      socket.io.on('reconnect', () => {
+        console.log('[Signaling] Reconnected');
+        setConnectionState('connected');
+      });
+      
+      // Forward events to handlers
+      const events = ['connected', 'space-info', 'space-state', 'peer-joined', 'peer-left', 'signal', 'screen-share-started', 'screen-share-stopped', 'space-activity'];
+      for (const event of events) {
+        socket.on(event, (data: unknown) => {
+          triggerSocketEvent(event, data);
+        });
+      }
+    });
+  }
+  
+  function disconnectSignaling() {
+    socket?.disconnect();
+    socket = null;
+    socketHandlers.clear();
+    socketOnceHandlers.clear();
+    setConnectionState('disconnected');
+  }
+  
+  function onSocket<T>(event: string, handler: (data: T) => void) {
+    if (!socketHandlers.has(event)) {
+      socketHandlers.set(event, new Set());
+    }
+    socketHandlers.get(event)!.add(handler as (data: unknown) => void);
+  }
+  
+  function onceSocket<T>(event: string, handler: (data: T) => void) {
+    if (!socketOnceHandlers.has(event)) {
+      socketOnceHandlers.set(event, new Set());
+    }
+    socketOnceHandlers.get(event)!.add(handler as (data: unknown) => void);
+  }
+  
+  function triggerSocketEvent(event: string, data: unknown) {
+    socketHandlers.get(event)?.forEach((h) => h(data));
+    const once = socketOnceHandlers.get(event);
+    if (once) {
+      once.forEach((h) => h(data));
+      socketOnceHandlers.delete(event);
+    }
+  }
+  
+  function emitSocket(event: string, data: unknown) {
+    socket?.emit(event, data);
+  }
+  
+  // --------------- CRDT Management ---------------
+  let ydoc: Y.Doc | null = null;
+  let yprovider: WebsocketProvider | null = null;
+  let peersMap: Y.Map<PeerState> | null = null;
+  let screenSharesMap: Y.Map<ScreenShareState> | null = null;
+  let textNotesMap: Y.Map<TextNoteState> | null = null;
+  
+  function connectCRDT(spaceId: string) {
+    if (ydoc) {
+      disconnectCRDT();
+    }
+    
+    ydoc = new Y.Doc();
+    
+    const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsUrl = `${wsProtocol}//${window.location.host}/yjs`;
+    yprovider = new WebsocketProvider(wsUrl, spaceId, ydoc);
+    
+    peersMap = ydoc.getMap<PeerState>('peers');
+    screenSharesMap = ydoc.getMap<ScreenShareState>('screenShares');
+    textNotesMap = ydoc.getMap<TextNoteState>('textNotes');
+    
+    // Bridge Yjs observers to SolidJS signals
+    peersMap.observe(() => {
+      setPeers(new Map(peersMap!.entries()));
+    });
+    
+    screenSharesMap.observe(() => {
+      setScreenShares(new Map(screenSharesMap!.entries()));
+    });
+    
+    textNotesMap.observe(() => {
+      setTextNotes(new Map(textNotesMap!.entries()));
+    });
+    
+    yprovider.on('status', ({ status }: { status: string }) => {
+      console.log(`[CRDT] Status: ${status}`);
+    });
+    
+    yprovider.on('synced', (isSynced: boolean) => {
+      console.log(`[CRDT] Synced: ${isSynced}`);
+      setCrdtSynced(isSynced);
+      
+      if (isSynced) {
+        batch(() => {
+          setPeers(new Map(peersMap!.entries()));
+          setScreenShares(new Map(screenSharesMap!.entries()));
+          setTextNotes(new Map(textNotesMap!.entries()));
+        });
+      }
+    });
+  }
+  
+  function disconnectCRDT() {
+    yprovider?.disconnect();
+    yprovider?.destroy();
+    ydoc?.destroy();
+    
+    ydoc = null;
+    yprovider = null;
+    peersMap = null;
+    screenSharesMap = null;
+    textNotesMap = null;
+    
+    setCrdtSynced(false);
+  }
+  
+  // CRDT Mutations
+  function addPeer(peerId: string, username: string, x: number, y: number) {
+    peersMap?.set(peerId, { username, x, y, isMuted: false, isVideoOff: false, status: '' });
+  }
+  
+  function removePeer(peerId: string) {
+    peersMap?.delete(peerId);
+  }
+  
+  function updatePeerPosition(peerId: string, x: number, y: number) {
+    const peer = peersMap?.get(peerId);
+    if (peer) {
+      peersMap?.set(peerId, { ...peer, x, y });
+    }
+  }
+  
+  function updatePeerMediaState(peerId: string, isMuted: boolean, isVideoOff: boolean) {
+    const peer = peersMap?.get(peerId);
+    if (peer) {
+      peersMap?.set(peerId, { ...peer, isMuted, isVideoOff });
+    }
+  }
+  
+  function updatePeerStatus(peerId: string, status: string) {
+    const peer = peersMap?.get(peerId);
+    if (peer) {
+      peersMap?.set(peerId, { ...peer, status });
+    }
+  }
+  
+  function addScreenShare(shareId: string, peerId: string, username: string, x: number, y: number, width: number, height: number) {
+    screenSharesMap?.set(shareId, { peerId, username, x, y, width, height });
+  }
+  
+  function removeScreenShare(shareId: string) {
+    screenSharesMap?.delete(shareId);
+  }
+  
+  function updateScreenSharePosition(shareId: string, x: number, y: number) {
+    const share = screenSharesMap?.get(shareId);
+    if (share) {
+      screenSharesMap?.set(shareId, { ...share, x, y });
+    }
+  }
+  
+  function addTextNote(noteId: string, content: string, x: number, y: number, width: number, height: number) {
+    textNotesMap?.set(noteId, { content, x, y, width, height, fontSize: 'medium', fontFamily: 'sans', color: '#ffffff' });
+  }
+  
+  function removeTextNote(noteId: string) {
+    textNotesMap?.delete(noteId);
+  }
+  
+  function updateTextNotePosition(noteId: string, x: number, y: number) {
+    const note = textNotesMap?.get(noteId);
+    if (note) {
+      textNotesMap?.set(noteId, { ...note, x, y });
+    }
+  }
+  
+  function updateTextNoteContent(noteId: string, content: string) {
+    const note = textNotesMap?.get(noteId);
+    if (note) {
+      textNotesMap?.set(noteId, { ...note, content });
+    }
+  }
+  
+  // Cleanup on unmount
+  onCleanup(() => {
+    disconnectSignaling();
+    disconnectCRDT();
+  });
+  
   const value: SpaceContextValue = {
     view,
     setView,
     session,
     setSession,
     connectionState,
-    setConnectionState,
+    crdtSynced,
     peers,
-    setPeers,
     screenShares,
-    setScreenShares,
     textNotes,
-    setTextNotes,
     participantCount,
     spaceId,
+    connectSignaling,
+    disconnectSignaling,
+    connectCRDT,
+    disconnectCRDT,
+    onSocket,
+    onceSocket,
+    emitSocket,
+    addPeer,
+    removePeer,
+    updatePeerPosition,
+    updatePeerMediaState,
+    updatePeerStatus,
+    addScreenShare,
+    removeScreenShare,
+    updateScreenSharePosition,
+    addTextNote,
+    removeTextNote,
+    updateTextNotePosition,
+    updateTextNoteContent,
   };
   
   return (

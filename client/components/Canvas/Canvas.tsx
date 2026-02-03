@@ -9,7 +9,7 @@ import { ScreenShare } from './ScreenShare';
 import { TextNote } from './TextNote';
 
 export const Canvas: Component = () => {
-  const { peers, screenShares, textNotes, session } = useSpace();
+  const ctx = useSpace();
   
   let containerRef: HTMLDivElement | undefined;
   let spaceRef: HTMLDivElement | undefined;
@@ -28,7 +28,7 @@ export const Canvas: Component = () => {
     `translate(${offsetX()}px, ${offsetY()}px) scale(${scale()})`
   );
   
-  const localPeerId = createMemo(() => session()?.localUser.peerId);
+  const localPeerId = createMemo(() => ctx.session()?.localUser.peerId);
   
   onMount(() => {
     if (!containerRef) return;
@@ -36,7 +36,6 @@ export const Canvas: Component = () => {
     // Center on space center initially
     centerOn(spaceWidth / 2, spaceHeight / 2);
     
-    // Setup panning
     setupPanning();
     setupZoom();
   });
@@ -175,21 +174,21 @@ export const Canvas: Component = () => {
     <div id="canvas-container" ref={containerRef}>
       <div id="space" ref={spaceRef} style={{ transform: transform() }}>
         {/* Avatars */}
-        <For each={[...peers().entries()]}>
+        <For each={[...ctx.peers().entries()]}>
           {([peerId, _peer]) => (
             <Avatar peerId={peerId} isLocal={peerId === localPeerId()} />
           )}
         </For>
         
         {/* Screen Shares */}
-        <For each={[...screenShares().entries()]}>
+        <For each={[...ctx.screenShares().entries()]}>
           {([shareId, _share]) => (
             <ScreenShare shareId={shareId} />
           )}
         </For>
         
         {/* Text Notes */}
-        <For each={[...textNotes().entries()]}>
+        <For each={[...ctx.textNotes().entries()]}>
           {([noteId, _note]) => (
             <TextNote noteId={noteId} />
           )}
@@ -198,8 +197,8 @@ export const Canvas: Component = () => {
       
       {/* Space Info */}
       <div id="space-info">
-        <span id="space-name">{session()?.spaceId}</span>
-        <span id="participant-count">{peers().size} participant{peers().size !== 1 ? 's' : ''}</span>
+        <span id="space-name">{ctx.session()?.spaceId}</span>
+        <span id="participant-count">{ctx.peers().size} participant{ctx.peers().size !== 1 ? 's' : ''}</span>
       </div>
     </div>
   );

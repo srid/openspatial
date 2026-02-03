@@ -4,15 +4,13 @@
  */
 import { Component, createMemo, Show, createSignal, onMount, onCleanup } from 'solid-js';
 import { useSpace } from '@/context/SpaceContext';
-import { useCRDT } from '@/hooks/useCRDT';
 
 interface TextNoteProps {
   noteId: string;
 }
 
 export const TextNote: Component<TextNoteProps> = (props) => {
-  const { textNotes } = useSpace();
-  const crdt = useCRDT();
+  const ctx = useSpace();
   
   let containerRef: HTMLDivElement | undefined;
   let textareaRef: HTMLTextAreaElement | undefined;
@@ -20,7 +18,7 @@ export const TextNote: Component<TextNoteProps> = (props) => {
   const [isDragging, setIsDragging] = createSignal(false);
   const [isEditing, setIsEditing] = createSignal(false);
   
-  const note = createMemo(() => textNotes().get(props.noteId));
+  const note = createMemo(() => ctx.textNotes().get(props.noteId));
   
   onMount(() => {
     if (containerRef) {
@@ -37,7 +35,6 @@ export const TextNote: Component<TextNoteProps> = (props) => {
     let initialY = 0;
     
     const handleMouseDown = (e: MouseEvent) => {
-      // Don't drag if clicking on textarea
       if (e.target === textareaRef) return;
       if ((e.target as HTMLElement).classList.contains('resize-handle')) return;
       
@@ -56,7 +53,7 @@ export const TextNote: Component<TextNoteProps> = (props) => {
       const deltaX = e.clientX - startDragX;
       const deltaY = e.clientY - startDragY;
       
-      crdt.updateTextNotePosition(props.noteId, initialX + deltaX, initialY + deltaY);
+      ctx.updateTextNotePosition(props.noteId, initialX + deltaX, initialY + deltaY);
     };
     
     const handleMouseUp = () => {
@@ -76,7 +73,7 @@ export const TextNote: Component<TextNoteProps> = (props) => {
   
   function handleContentChange(e: Event) {
     const target = e.target as HTMLTextAreaElement;
-    crdt.updateTextNoteContent(props.noteId, target.value);
+    ctx.updateTextNoteContent(props.noteId, target.value);
   }
   
   const fontSizeClass = createMemo(() => {
