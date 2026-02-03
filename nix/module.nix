@@ -92,8 +92,8 @@ in
 
         cooldownSeconds = lib.mkOption {
           type = lib.types.int;
-          default = 60;
-          description = "Minimum seconds between notifications for the same space";
+          default = 600;
+          description = "Minimum seconds between notifications for the same space (default: 10 minutes)";
         };
 
         spaces = lib.mkOption {
