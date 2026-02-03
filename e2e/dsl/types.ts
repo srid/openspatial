@@ -40,6 +40,12 @@ export interface TextNoteInfo {
   rect: Rect;
 }
 
+export interface ActivityItem {
+  username: string;
+  eventType: 'join_first' | 'join' | 'leave' | 'leave_last';
+  timeAgo: string;
+}
+
 export type ScenarioFn = (ctx: ScenarioContext) => Promise<void>;
 
 export interface ScenarioContext {
@@ -96,6 +102,12 @@ export interface User {
   avatarOf(name: string): AvatarView;
   participantCount(): Promise<number>;
   connectionStatus(): Promise<ConnectionStatus>;
+  
+  // Activity Panel
+  openActivityPanel(): Promise<void>;
+  closeActivityPanel(): Promise<void>;
+  activityItems(): Promise<ActivityItem[]>;
+  isActivityBadgeVisible(): Promise<boolean>;
 }
 
 export interface AvatarView {

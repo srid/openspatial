@@ -7,7 +7,7 @@ import BetterSqlite3 from 'better-sqlite3';
 import { join, dirname } from 'path';
 import { mkdirSync, readdirSync } from 'fs';
 import { fileURLToPath } from 'url';
-import type { Database, Space, TextNoteState } from './database/types.js';
+import type { Database, Space, TextNoteState, SpaceEventType, SpaceEvent } from './database/types.js';
 
 // Database path from environment or default
 const DATA_DIR = process.env.DATA_DIR || './data';
@@ -182,3 +182,81 @@ export async function ensureDemoSpace(): Promise<void> {
     await clearAllTextNotes();
   }
 }
+
+// === Space Event Operations ===
+
+const RETENTION_DAYS = 2;
+
+/**
+ * Record a space activity event and cleanup old events.
+ */
+export async function recordSpaceEvent(
+  spaceId: string,
+  eventType: SpaceEventType,
+  username: string
+): Promise<void> {
+  await db
+    .insertInto('space_events')
+    .values({
+      space_id: spaceId,
+      event_type: eventType,
+      username,
+    })
+    .execute();
+
+  // Cleanup events older than retention period
+  const cutoff = new Date(Date.now() - RETENTION_DAYS * 24 * 60 * 60 * 1000).toISOString();
+  await db
+    .deleteFrom('space_events')
+    .where('created_at', '<', cutoff)
+    .execute();
+}
+
+/**
+ * Get recent activity for a space (last 2 days).
+ */
+export async function getRecentActivity(spaceId: string): Promise<SpaceEvent[]> {
+  const cutoff = new Date(Date.now() - RETENTION_DAYS * 24 * 60 * 60 * 1000).toISOString();
+  const rows = await db
+    .selectFrom('space_events')
+    .selectAll()
+    .where('space_id', '=', spaceId)
+    .where('created_at', '>=', cutoff)
+    .orderBy('created_at', 'desc')
+    .execute();
+  return rows;
+}
+
+// === Notification Log Operations ===
+
+/**
+ * Get the timestamp of the last notification sent for a space.
+ * Used for cooldown checks - independent of space events.
+ */
+export async function getLastNotificationTime(spaceId: string): Promise<number | null> {
+  const row = await db
+    .selectFrom('notification_log')
+    .select('sent_at')
+    .where('space_id', '=', spaceId)
+    .orderBy('sent_at', 'desc')
+    .limit(1)
+    .executeTakeFirst();
+  
+  if (!row) return null;
+  return new Date(row.sent_at).getTime();
+}
+
+/**
+ * Record that a notification was sent for a space.
+ * Called after successfully sending a notification.
+ */
+export async function recordNotification(spaceId: string, username: string): Promise<void> {
+  await db
+    .insertInto('notification_log')
+    .values({
+      space_id: spaceId,
+      username,
+    })
+    .execute();
+}
+

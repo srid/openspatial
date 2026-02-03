@@ -205,6 +205,20 @@
             </button>
 
             <div class="control-divider"></div>
+            
+            <!-- Activity Button with Popover -->
+            <div id="activity-wrapper" class="activity-wrapper">
+                <button id="btn-activity" class="control-btn" title="Recent Activity">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <polyline points="12 6 12 12 16 14"></polyline>
+                    </svg>
+                    <span id="activity-badge" class="activity-badge hidden"></span>
+                </button>
+                <div id="activity-panel" class="activity-panel hidden"></div>
+            </div>
+
+            <div class="control-divider"></div>
             <button id="btn-leave" class="control-btn control-btn-danger" title="Leave Space">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>

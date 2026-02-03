@@ -18,6 +18,7 @@ import { MinimapManager } from './modules/minimap.js';
 import { CRDTManager } from './modules/crdt.js';
 import { MediaControls } from './modules/media-controls.js';
 import { SpaceSession } from './modules/space-session.js';
+import { ActivityPanel } from './modules/activity-panel.js';
 import type { SpaceInfoEvent } from '../shared/types/events.js';
 import type { AppState, PendingShareInfo } from '../shared/types/state.js';
 import type { PeerData } from '../shared/types/events.js';
@@ -48,6 +49,7 @@ const avatars = new AvatarManager(state);
 const spatialAudio = new SpatialAudio();
 spatialAudio.setAvatarManager(avatars);
 const ui = new UIController(state);
+const activityPanel = new ActivityPanel();
 
 // Create managers with CRDT/WebRTC accessors
 const mediaControls = new MediaControls({
@@ -232,6 +234,9 @@ function setupEventListeners(): void {
   socket.on('screen-share-started', (data) => spaceSession.handleScreenShareStarted(data));
   socket.on('screen-share-stopped', (data) => spaceSession.handleScreenShareStopped(data));
   socket.on('space-state', (data) => spaceSession.handleSpaceState(data));
+  socket.on('space-activity', (data) => {
+    activityPanel.update(data.events);
+  });
   socket.on('reconnected', () => spaceSession.handleReconnected());
 
   socket.onConnectionStateChange(handleConnectionStateChange);

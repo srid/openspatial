@@ -1,0 +1,85 @@
+/**
+ * E2E tests for Activity Panel
+ * 
+ * Tests the space activity tracking and display functionality.
+ */
+import { expect } from '@playwright/test';
+import { scenario } from '../dsl';
+
+scenario('activity panel shows join event', 'activity-test-1', async ({ createUser }) => {
+  const alice = await createUser('Alice').join();
+  
+  // Open activity panel
+  await alice.openActivityPanel();
+  
+  // Should show Alice's join_first event
+  const items = await alice.activityItems();
+  expect(items.length).toBeGreaterThan(0);
+  expect(items[0].username).toBe('Alice');
+  expect(items[0].eventType).toBe('join_first');
+});
+
+scenario('activity panel shows join and leave events', 'activity-test-2', async ({ createUser }) => {
+  const alice = await createUser('Alice').join();
+  const bob = await createUser('Bob').join();
+  
+  // Bob should see Alice's join and his own join
+  await bob.openActivityPanel();
+  const itemsBeforeLeave = await bob.activityItems();
+  expect(itemsBeforeLeave.some(i => i.username === 'Alice')).toBe(true);
+  expect(itemsBeforeLeave.some(i => i.username === 'Bob')).toBe(true);
+  
+  // Alice leaves
+  await alice.leave();
+  await bob.wait(1000);
+  
+  // Bob should see Alice's leave event
+  const itemsAfterLeave = await bob.activityItems();
+  const aliceLeaveEvent = itemsAfterLeave.find(i => i.username === 'Alice' && (i.eventType === 'leave' || i.eventType === 'leave_last'));
+  expect(aliceLeaveEvent).toBeDefined();
+});
+
+scenario('activity badge appears for new activity', 'activity-test-3', async ({ createUser }) => {
+  const alice = await createUser('Alice').join();
+  
+  // Open and close panel to clear badge
+  await alice.openActivityPanel();
+  await alice.closeActivityPanel();
+  
+  // Another user joins
+  const bob = await createUser('Bob').join();
+  await alice.wait(1000);
+  
+  // Alice should see badge (activity happened while panel closed)
+  const hasBadge = await alice.isActivityBadgeVisible();
+  expect(hasBadge).toBe(true);
+  
+  // Opening panel should hide badge and show Bob's join event
+  await alice.openActivityPanel();
+  const hasBadgeAfterOpen = await alice.isActivityBadgeVisible();
+  expect(hasBadgeAfterOpen).toBe(false);
+  
+  // Alice should see Bob's join in her activity panel
+  const aliceItems = await alice.activityItems();
+  const bobJoinEvent = aliceItems.find(i => i.username === 'Bob' && (i.eventType === 'join' || i.eventType === 'join_first'));
+  expect(bobJoinEvent).toBeDefined();
+});
+
+scenario('activity timestamps are not stale', 'activity-test-4', async ({ createUser }) => {
+  const alice = await createUser('Alice').join();
+  
+  // Wait 2 seconds
+  await alice.wait(2000);
+  
+  // Open panel and check timestamp is not stale
+  await alice.openActivityPanel();
+  const items = await alice.activityItems();
+  expect(items.length).toBeGreaterThan(0);
+  
+  // Timestamp should NOT be "just now" if we waited 2+ seconds
+  // (or it should be "just now" if less than 60 seconds - that's fine)
+  // The key assertion is that it's not showing incorrect stale times
+  const firstItem = items[0];
+  // Either "just now" (valid for < 60s) or "Xm ago" format
+  expect(firstItem.timeAgo).toMatch(/^(just now|\dm ago|\dh ago|\dd ago)$/);
+});

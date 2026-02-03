@@ -1,11 +1,12 @@
 /**
  * Notifier orchestration - manages notification backends and state.
+ * Cooldown is now tracked in notification_log table to survive restarts
+ * and be independent of space event recording.
  */
 import type { NotificationBackend, NotifierConfig, SpaceNotification } from './types.js';
 import { createSlackBackendFromEnv } from './slack.js';
+import { getLastNotificationTime, recordNotification } from '../db.js';
 
-/** Tracks notification timestamps for cooldown */
-const lastNotificationTime = new Map<string, number>();
 let notifierConfig: NotifierConfig | null = null;
 
 /**
@@ -48,7 +49,8 @@ export function initNotifier(): void {
 
 /**
  * Notify that a space became active (first user joined).
- * Respects cooldown to prevent spam.
+ * Respects cooldown using notification_log table to survive restarts
+ * and be independent of space event recording order.
  */
 export async function notifySpaceActive(spaceId: string, username: string): Promise<void> {
   if (!notifierConfig || notifierConfig.backends.length === 0) {
@@ -60,8 +62,8 @@ export async function notifySpaceActive(spaceId: string, username: string): Prom
     return;
   }
   
-  // Check cooldown
-  const lastTime = lastNotificationTime.get(spaceId);
+  // Check cooldown from notification_log (last notification time for this space)
+  const lastTime = await getLastNotificationTime(spaceId);
   if (lastTime) {
     const elapsed = Date.now() - lastTime;
     if (elapsed < notifierConfig.cooldownMs) {
@@ -80,9 +82,13 @@ export async function notifySpaceActive(spaceId: string, username: string): Prom
   for (const backend of notifierConfig.backends) {
     try {
       await backend.notifySpaceActive(notification);
-      lastNotificationTime.set(spaceId, Date.now());
+      // Record successful notification (for cooldown tracking)
+      await recordNotification(spaceId, username);
+      console.log(`[Notifier] Recorded notification for ${spaceId}`);
     } catch (error) {
       console.error(`[Notifier] Error in ${backend.name} backend:`, error);
     }
   }
 }
+
+
