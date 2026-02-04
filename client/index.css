@@ -1465,10 +1465,13 @@ body {
     position: relative;
     width: 180px;
     height: 180px;
-    /* Match main canvas - same SVG background */
+    /* Match main canvas gradient */
     background: 
-        url('/client/assets/office-bg.svg') center/cover no-repeat,
-        var(--color-bg-tertiary);
+        radial-gradient(ellipse 60px 40px at 10% 20%, rgba(167, 139, 250, 0.15) 0%, transparent 70%),
+        radial-gradient(ellipse 50px 50px at 85% 15%, rgba(129, 230, 217, 0.12) 0%, transparent 60%),
+        radial-gradient(ellipse 70px 35px at 70% 60%, rgba(253, 186, 116, 0.1) 0%, transparent 65%),
+        radial-gradient(ellipse 45px 60px at 20% 75%, rgba(147, 197, 253, 0.12) 0%, transparent 60%),
+        linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #1a1a2e 100%);
     border: 1px solid var(--color-border);
     border-radius: var(--radius-lg);
     cursor: pointer;
