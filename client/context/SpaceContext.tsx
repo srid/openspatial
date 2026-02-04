@@ -499,12 +499,30 @@ export const SpaceProvider: ParentComponent = (props) => {
       const { peerId } = data;
       const pc = createPeerConnection(peerId);
       
-      // Add local tracks
+      // Add local webcam tracks
       const localStream = session()?.localUser.stream;
       if (localStream) {
         localStream.getTracks().forEach(track => {
           pc.addTrack(track, localStream);
         });
+      }
+      
+      // Add any existing local screen share tracks
+      // This ensures late-joiners receive screen shares that were started before they joined
+      for (const [shareId, stream] of screenShareStreams().entries()) {
+        // Only add if this is our own screen share
+        const shareInfo = screenShares().get(shareId);
+        if (shareInfo && shareInfo.peerId === session()?.localUser.peerId) {
+          stream.getTracks().forEach(track => {
+            console.log(`[WebRTC] Adding existing screen share track to new peer ${peerId}: ${track.kind}`);
+            pc.addTrack(track, stream);
+          });
+          // Emit screen-share-started so the new peer can match the track to the shareId
+          emitSocket('screen-share-started', {
+            peerId: session()?.localUser.peerId,
+            shareId,
+          });
+        }
       }
       
       // Create and send offer
