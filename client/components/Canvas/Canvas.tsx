@@ -7,6 +7,7 @@ import { useSpace } from '@/context/SpaceContext';
 import { Avatar } from './Avatar';
 import { ScreenShare } from './ScreenShare';
 import { TextNote } from './TextNote';
+import { Minimap } from '../Minimap';
 
 export const Canvas: Component = () => {
   const ctx = useSpace();
@@ -49,6 +50,30 @@ export const Canvas: Component = () => {
     
     setupPanning();
     setupZoom();
+    
+    // Listen for minimap pan events
+    containerRef.addEventListener('minimap-pan', ((e: CustomEvent) => {
+      centerOn(e.detail.x, e.detail.y);
+    }) as EventListener);
+    
+    // Listen for zoom events from minimap controls
+    containerRef.addEventListener('minimap-zoom', ((e: CustomEvent) => {
+      const { delta, reset } = e.detail;
+      if (reset) {
+        setScale(1);
+        centerOn(spaceWidth / 2, spaceHeight / 2);
+      } else {
+        const newScale = Math.min(Math.max(scale() * delta, 0.25), 2);
+        // Zoom from center of viewport
+        const rect = containerRef!.getBoundingClientRect();
+        const centerX = rect.width / 2;
+        const centerY = rect.height / 2;
+        setOffsetX(centerX - (centerX - offsetX()) * (newScale / scale()));
+        setOffsetY(centerY - (centerY - offsetY()) * (newScale / scale()));
+        setScale(newScale);
+        clampOffset();
+      }
+    }) as EventListener);
   });
   
   function centerOn(x: number, y: number) {
@@ -211,6 +236,9 @@ export const Canvas: Component = () => {
         <span id="space-name">{ctx.session()?.spaceId}</span>
         <span id="participant-count">{ctx.peers().size} participant{ctx.peers().size !== 1 ? 's' : ''}</span>
       </div>
+      
+      {/* Minimap */}
+      <Minimap />
     </div>
   );
 };
