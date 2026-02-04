@@ -67,6 +67,14 @@ interface ScenarioOptions {
 }
 
 /**
+ * Options for scenario configuration
+ */
+interface ScenarioConfig {
+  /** Custom timeout in milliseconds (default is Playwright's 30000ms) */
+  timeoutMs?: number;
+}
+
+/**
  * Define an E2E scenario with the given name and space.
  * 
  * @example
@@ -75,9 +83,19 @@ interface ScenarioOptions {
  *   const bob = await createUser('Bob').join();
  *   expect(await alice.visibleUsers()).toEqual(['Bob']);
  * });
+ * 
+ * // With custom timeout
+ * scenario('long running test', 'test-room', async ({ createUser }) => {
+ *   // ...
+ * }, { timeoutMs: 90000 });
  */
-export function scenario(name: string, spaceId: string, fn: ScenarioFn): void {
+export function scenario(name: string, spaceId: string, fn: ScenarioFn, config?: ScenarioConfig): void {
   test(name, async ({ browser }) => {
+    // Apply custom timeout if specified
+    if (config?.timeoutMs) {
+      test.setTimeout(config.timeoutMs);
+    }
+    
     const contexts: BrowserContext[] = [];
 
     const contextFactory = async () => {

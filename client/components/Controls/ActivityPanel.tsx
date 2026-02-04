@@ -16,6 +16,9 @@ export const ActivityPanel: Component<ActivityPanelProps> = (props) => {
   
   const [activities, setActivities] = createSignal<SpaceActivityItem[]>([]);
   
+  // Tick signal to force re-computation of relative timestamps
+  const [tick, setTick] = createSignal(0);
+  
   let refreshInterval: number | null = null;
   
   onMount(() => {
@@ -25,13 +28,13 @@ export const ActivityPanel: Component<ActivityPanelProps> = (props) => {
     });
   });
   
-  // Refresh timestamps when panel is open
+  // Refresh timestamps when panel is open by incrementing tick
   createEffect(() => {
     if (props.isOpen) {
       refreshInterval = window.setInterval(() => {
-        // Force refresh by re-setting activities (for time ago updates)
-        setActivities([...activities()]);
-      }, 30000);
+        // Increment tick to force re-computation of formatTimeAgo
+        setTick(t => t + 1);
+      }, 10000); // Refresh every 10s for responsive time updates
     } else if (refreshInterval) {
       clearInterval(refreshInterval);
       refreshInterval = null;
@@ -45,6 +48,8 @@ export const ActivityPanel: Component<ActivityPanelProps> = (props) => {
   });
   
   function formatTimeAgo(dateStr: string): string {
+    // Access tick() to create reactive dependency - forces recalculation
+    tick();
     const date = parseUTCDate(dateStr);
     const now = Date.now();
     const diff = now - date.getTime();
