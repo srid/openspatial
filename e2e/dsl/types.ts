@@ -54,6 +54,8 @@ export interface ScenarioContext {
 
 export interface UserBuilder {
   join(): Promise<User>;
+  /** Mock the webcam with an animated canvas stream before joining */
+  withMockedWebcam(color?: string): UserBuilder;
 }
 
 export interface User {
@@ -117,6 +119,8 @@ export interface AvatarView {
   isWebcamOn(): Promise<boolean>;
   isWebcamMuted(): Promise<boolean>;
   status(): Promise<string | null>;
+  /** Verify the webcam video element has actual content (not blank/black) */
+  hasVideoContent(): Promise<boolean>;
 }
 
 export interface ScreenShareView {

@@ -83,6 +83,72 @@ export class AvatarViewImpl implements AvatarView {
     ]);
     return { position, isMuted, isWebcamOn, isWebcamMuted, status };
   }
+
+  /**
+   * Verify the webcam video element has actual content (not blank/black).
+   * Waits for video to receive frames, then samples pixels to check for non-black values.
+   */
+  async hasVideoContent(): Promise<boolean> {
+    const video = this.locator.locator('.avatar-video-container video');
+    await expect(video).toBeVisible({ timeout: SYNC_TIMEOUT });
+    
+    // Wait for video to have dimensions (frames have arrived)
+    const maxWaitMs = 5000;
+    const pollIntervalMs = 200;
+    let attempts = 0;
+    const maxAttempts = maxWaitMs / pollIntervalMs;
+    
+    while (attempts < maxAttempts) {
+      const state = await video.evaluate((el: HTMLVideoElement) => ({
+        videoWidth: el.videoWidth,
+        videoHeight: el.videoHeight,
+        readyState: el.readyState,
+      }));
+      
+      if (state.videoWidth > 0 && state.videoHeight > 0 && state.readyState >= 2) {
+        break;
+      }
+      
+      attempts++;
+      await new Promise(r => setTimeout(r, pollIntervalMs));
+    }
+    
+    return await video.evaluate((el: HTMLVideoElement) => {
+      if (el.videoWidth === 0 || el.videoHeight === 0) {
+        return false;
+      }
+      if (el.paused || el.ended) {
+        return false;
+      }
+      
+      // Sample pixels from the video
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.min(el.videoWidth, 100);
+      canvas.height = Math.min(el.videoHeight, 100);
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return false;
+      
+      ctx.drawImage(el, 0, 0, canvas.width, canvas.height);
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const pixels = imageData.data;
+      
+      // Check if any pixels have non-black/non-transparent content
+      let nonBlackPixels = 0;
+      for (let i = 0; i < pixels.length; i += 40) {
+        const r = pixels[i];
+        const g = pixels[i + 1];
+        const b = pixels[i + 2];
+        const a = pixels[i + 3];
+        
+        if (a > 0 && (r > 10 || g > 10 || b > 10)) {
+          nonBlackPixels++;
+        }
+      }
+      
+      const totalSampled = Math.floor(pixels.length / 40);
+      return nonBlackPixels > totalSampled * 0.05;
+    });
+  }
 }
 
 export class ScreenShareViewImpl implements ScreenShareView {
