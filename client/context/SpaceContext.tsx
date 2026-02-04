@@ -180,53 +180,72 @@ export const SpaceProvider: ParentComponent = (props) => {
         if (currentSession) {
           console.log(`[Signaling] Re-joining space ${currentSession.spaceId} as ${currentSession.localUser.username}`);
           
-          // Listen for space-state to re-establish WebRTC with existing peers
-          onceSocket<{ peers: Record<string, { username: string }> }>('space-state', async (stateData) => {
-            console.log('[Signaling] Received space-state after reconnect, re-establishing WebRTC');
-            const localPeerId = currentSession.localUser.peerId;
-            const localStream = currentSession.localUser.stream;
+          // CRITICAL: Server assigns a NEW peerId on every connection.
+          // We must wait for 'connected' event to get the new peerId before re-establishing WebRTC.
+          onceSocket<{ peerId: string }>('connected', (connData) => {
+            const newPeerId = connData.peerId;
+            const oldPeerId = currentSession.localUser.peerId;
+            console.log(`[Signaling] Got new peerId: ${newPeerId} (was: ${oldPeerId})`);
             
-            // For each peer in the space, check if we need to establish a WebRTC connection
-            for (const [peerId] of Object.entries(stateData.peers)) {
-              if (peerId === localPeerId) continue; // Skip ourselves
+            // Update session with new peerId
+            setSession({
+              ...currentSession,
+              localUser: {
+                ...currentSession.localUser,
+                peerId: newPeerId,
+              },
+            });
+            
+            // Update our CRDT presence with new peerId
+            removePeer(oldPeerId);
+            addPeer(newPeerId, currentSession.localUser.username, currentSession.localUser.x, currentSession.localUser.y);
+            
+            // Listen for space-state to re-establish WebRTC with existing peers
+            onceSocket<{ peers: Record<string, { username: string }> }>('space-state', async (stateData) => {
+              console.log('[Signaling] Received space-state after reconnect, re-establishing WebRTC');
+              const localStream = currentSession.localUser.stream;
               
-              // Close any stale connection first
-              const existingPc = peerConnections.get(peerId);
-              if (existingPc) {
+              // Close ALL stale connections (they used old peerId)
+              for (const [peerId, pc] of peerConnections.entries()) {
                 console.log(`[WebRTC] Closing stale connection to ${peerId}`);
-                existingPc.close();
-                peerConnections.delete(peerId);
+                pc.close();
               }
+              peerConnections.clear();
               
-              // Create new connection and send offer
-              console.log(`[WebRTC] Re-establishing connection to ${peerId} after reconnect`);
-              const pc = createPeerConnection(peerId);
-              
-              if (localStream) {
-                localStream.getTracks().forEach(track => {
-                  pc.addTrack(track, localStream);
+              // For each peer in the space, establish a new WebRTC connection
+              for (const [peerId] of Object.entries(stateData.peers)) {
+                if (peerId === newPeerId) continue; // Skip ourselves
+                
+                console.log(`[WebRTC] Re-establishing connection to ${peerId} after reconnect`);
+                const pc = createPeerConnection(peerId);
+                
+                if (localStream) {
+                  localStream.getTracks().forEach(track => {
+                    pc.addTrack(track, localStream);
+                  });
+                }
+                
+                // Also add any local screen shares
+                for (const [shareId, stream] of screenShareStreams().entries()) {
+                  const shareInfo = screenShares().get(shareId);
+                  if (shareInfo && shareInfo.peerId === oldPeerId) {
+                    // Update screen share owner to new peerId
+                    stream.getTracks().forEach(track => {
+                      pc.addTrack(track, stream);
+                    });
+                    emitSocket('screen-share-started', { peerId: newPeerId, shareId });
+                  }
+                }
+                
+                const offer = await pc.createOffer();
+                await pc.setLocalDescription(offer);
+                emitSocket('signal', {
+                  to: peerId,
+                  from: newPeerId,
+                  signal: { type: 'offer', sdp: offer },
                 });
               }
-              
-              // Also add any local screen shares
-              for (const [shareId, stream] of screenShareStreams().entries()) {
-                const shareInfo = screenShares().get(shareId);
-                if (shareInfo && shareInfo.peerId === localPeerId) {
-                  stream.getTracks().forEach(track => {
-                    pc.addTrack(track, stream);
-                  });
-                  emitSocket('screen-share-started', { peerId: localPeerId, shareId });
-                }
-              }
-              
-              const offer = await pc.createOffer();
-              await pc.setLocalDescription(offer);
-              emitSocket('signal', {
-                to: peerId,
-                from: localPeerId,
-                signal: { type: 'offer', sdp: offer },
-              });
-            }
+            });
           });
           
           socket?.emit('join-space', {
