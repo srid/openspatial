@@ -1543,8 +1543,8 @@ body {
 /* ===== Resize Handles ===== */
 .resize-handle {
     position: absolute;
-    width: 16px;
-    height: 16px;
+    width: 20px;
+    height: 20px;
     background: transparent;
     z-index: 10;
 }
@@ -1555,20 +1555,31 @@ body {
     cursor: se-resize;
 }
 
-.resize-handle-se::after {
+.resize-handle-se::before {
     content: '';
     position: absolute;
-    bottom: 4px;
-    right: 4px;
-    width: 8px;
-    height: 8px;
-    border-right: 2px solid var(--color-text-muted);
-    border-bottom: 2px solid var(--color-text-muted);
-    opacity: 0.5;
+    bottom: 3px;
+    right: 3px;
+    width: 10px;
+    height: 10px;
+    background: linear-gradient(135deg, 
+        transparent 0%, 
+        transparent 50%, 
+        var(--color-text-muted) 50%, 
+        var(--color-text-muted) 60%,
+        transparent 60%,
+        transparent 70%,
+        var(--color-text-muted) 70%, 
+        var(--color-text-muted) 80%,
+        transparent 80%,
+        transparent 90%,
+        var(--color-text-muted) 90%
+    );
+    opacity: 0.6;
     transition: opacity var(--transition-fast);
 }
 
-.resize-handle-se:hover::after {
+.resize-handle-se:hover::before {
     opacity: 1;
 }
 
