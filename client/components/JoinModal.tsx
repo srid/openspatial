@@ -145,7 +145,7 @@ export const JoinModal: Component = () => {
       <div class="modal-content">
         <div class="modal-header">
           <div class="logo">
-            <img src="/client/assets/logo.svg" alt="OpenSpatial" class="logo-icon" />
+            <img src="/logo.svg" alt="OpenSpatial" class="logo-icon" />
             <h1>OpenSpatial</h1>
           </div>
           <p class="tagline">A virtual space where distance disappears</p>
