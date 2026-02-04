@@ -83,3 +83,22 @@ scenario('activity timestamps are not stale', 'activity-test-4', async ({ create
   // Either "just now" (valid for < 60s) or "Xm ago" format
   expect(firstItem.timeAgo).toMatch(/^(just now|\dm ago|\dh ago|\dd ago)$/);
 });
+
+scenario('activity timestamps refresh over time', 'activity-test-5', async ({ createUser }) => {
+  const alice = await createUser('Alice').join();
+  
+  // Open panel immediately - should show "just now"
+  await alice.openActivityPanel();
+  const initialItems = await alice.activityItems();
+  expect(initialItems.length).toBeGreaterThan(0);
+  expect(initialItems[0].timeAgo).toBe('just now');
+  
+  // Wait for 65 seconds (past the 60s "just now" threshold) + buffer for refresh cycle
+  // The panel refreshes every 10 seconds, so we need to wait for a refresh after the minute mark
+  await alice.wait(70000);
+  
+  // Timestamp should have updated to "1m ago"
+  const updatedItems = await alice.activityItems();
+  expect(updatedItems.length).toBeGreaterThan(0);
+  expect(updatedItems[0].timeAgo).toBe('1m ago');
+}, { timeoutMs: 90000 });

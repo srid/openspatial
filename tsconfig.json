@@ -10,7 +10,12 @@
     "resolveJsonModule": true,
     "isolatedModules": true,
     "noEmit": true,
-    "baseUrl": "."
+    "jsx": "preserve",
+    "jsxImportSource": "solid-js",
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["client/*"]
+    }
   },
   "include": ["client/**/*", "shared/**/*", "server/**/*"],
   "exclude": ["node_modules", "dist", "**/*.test.ts", "e2e"]
