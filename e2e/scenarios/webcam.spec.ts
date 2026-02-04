@@ -52,3 +52,16 @@ scenario('webcam video content is visible to peers', 'webcam-content', async ({ 
   expect(await bob.avatarOf('Alice').isWebcamOn()).toBe(true);
   expect(await bob.avatarOf('Alice').hasVideoContent()).toBe(true);
 });
+
+scenario('first-joiner sees second-joiner avatar video', 'webcam-first-sees-second', async ({ createUser }) => {
+  const alice = await createUser('Alice').withMockedWebcam('red').join();
+  const bob = await createUser('Bob').withMockedWebcam('blue').join();
+  
+  // Alice waits for Bob to appear
+  await alice.waitForUser('Bob');
+  await alice.wait(1000); // Wait for WebRTC to establish
+  
+  // Alice should see Bob's webcam is on and has actual video content
+  expect(await alice.avatarOf('Bob').isWebcamOn()).toBe(true);
+  expect(await alice.avatarOf('Bob').hasVideoContent()).toBe(true);
+});

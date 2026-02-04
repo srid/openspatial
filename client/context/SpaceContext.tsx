@@ -479,6 +479,19 @@ export const SpaceProvider: ParentComponent = (props) => {
       }
       
       if (signal.type === 'offer' && signal.sdp) {
+        // Before setting remote description, add our local tracks so they are included in the answer
+        const localStream = session()?.localUser.stream;
+        if (localStream) {
+          const senders = pc.getSenders();
+          const existingTrackIds = new Set(senders.map(s => s.track?.id).filter(Boolean));
+          localStream.getTracks().forEach(track => {
+            if (!existingTrackIds.has(track.id)) {
+              console.log(`[WebRTC] Adding local track to answer for ${from}: ${track.kind}`);
+              pc.addTrack(track, localStream);
+            }
+          });
+        }
+        
         await pc.setRemoteDescription(new RTCSessionDescription(signal.sdp));
         const answer = await pc.createAnswer();
         await pc.setLocalDescription(answer);
