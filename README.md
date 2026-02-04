@@ -33,14 +33,19 @@ Open `https://localhost:5173` and accept the self-signed certificate.
 ```
 shared/           # Shared code (client + server)
   types/events.ts   # Socket event types (the type safety contract)
+  yjs-schema.ts     # CRDT document schema
 
-client/           # Browser code (bundled by Vite)
-  main.ts           # Entry point
-  modules/          # UI components and handlers
+client/           # SolidJS frontend (bundled by Vite)
+  App.tsx           # Root component with view routing
+  main.tsx          # Entry point
+  context/          # SpaceContext - central state management
+  components/       # UI components (Canvas, Controls, etc.)
+  hooks/            # React-style hooks
 
 server/           # Node.js server
   signaling.ts      # Socket.io signaling (shared between dev & prod)
   standalone.ts     # Production entry point
+  notifier/         # Slack notification system
 ```
 
 ## Type Safety
