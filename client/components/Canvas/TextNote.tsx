@@ -5,6 +5,7 @@
  */
 import { Component, createMemo, Show, createSignal, onMount, onCleanup, createEffect, For } from 'solid-js';
 import { useSpace } from '@/context/SpaceContext';
+import { useResizable } from '@/hooks/useResizable';
 
 interface TextNoteProps {
   noteId: string;
@@ -53,6 +54,15 @@ export const TextNote: Component<TextNoteProps> = (props) => {
   const [showFontFamilyMenu, setShowFontFamilyMenu] = createSignal(false);
   const [showColorMenu, setShowColorMenu] = createSignal(false);
   
+  // Resizable hook for consistent resize behavior
+  const resizable = useResizable({
+    width: () => note()?.width ?? 300,
+    height: () => note()?.height ?? 200,
+    onResize: (width, height) => ctx.updateTextNoteSize(props.noteId, width, height),
+    minWidth: 200,
+    minHeight: 150,
+  });
+  
   const note = createMemo(() => ctx.textNotes().get(props.noteId));
   
   // Local content is what the user is actively typing
@@ -78,7 +88,7 @@ export const TextNote: Component<TextNoteProps> = (props) => {
   onMount(() => {
     if (containerRef && headerRef) {
       setupDrag();
-      setupResize();
+      resizable.setup(containerRef);
       
       // Listen for test-resize events from e2e tests
       containerRef.addEventListener('test-resize', ((e: CustomEvent) => {
@@ -137,31 +147,7 @@ export const TextNote: Component<TextNoteProps> = (props) => {
     });
   }
   
-  function setupResize() {
-    if (!containerRef) return;
-    
-    // Use ResizeObserver to track size changes
-    const resizeObserver = new ResizeObserver((entries) => {
-      for (const entry of entries) {
-        let width: number, height: number;
-        if (entry.borderBoxSize && entry.borderBoxSize.length > 0) {
-          width = entry.borderBoxSize[0].inlineSize;
-          height = entry.borderBoxSize[0].blockSize;
-        } else {
-          const rect = containerRef!.getBoundingClientRect();
-          width = rect.width;
-          height = rect.height;
-        }
-        ctx.updateTextNoteSize(props.noteId, Math.round(width), Math.round(height));
-      }
-    });
-    
-    resizeObserver.observe(containerRef);
-    
-    onCleanup(() => {
-      resizeObserver.disconnect();
-    });
-  }
+  // Resize is handled by useResizable hook
   
   function handleContentChange(e: Event) {
     const target = e.target as HTMLTextAreaElement;
@@ -253,6 +239,7 @@ export const TextNote: Component<TextNoteProps> = (props) => {
           classList={{
             'dragging': isDraggingSignal(),
             'editing': isEditing(),
+            'resizing': resizable.isResizing(),
           }}
           style={{
             position: 'absolute',
@@ -369,6 +356,7 @@ export const TextNote: Component<TextNoteProps> = (props) => {
               }}
             />
           </div>
+          <resizable.ResizeHandle />
         </div>
       )}
     </Show>

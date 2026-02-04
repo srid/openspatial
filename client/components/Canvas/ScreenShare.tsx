@@ -5,6 +5,7 @@
  */
 import { Component, createMemo, Show, createSignal, onMount, onCleanup, createEffect } from 'solid-js';
 import { useSpace } from '@/context/SpaceContext';
+import { useResizable } from '@/hooks/useResizable';
 
 interface ScreenShareProps {
   shareId: string;
@@ -26,20 +27,20 @@ export const ScreenShare: Component<ScreenShareProps> = (props) => {
     initialY: 0,
   };
   
-  let resizeState = {
-    isResizing: false,
-    startX: 0,
-    startY: 0,
-    initialWidth: 0,
-    initialHeight: 0,
-  };
-  
   const [isDraggingSignal, setIsDraggingSignal] = createSignal(false);
-  const [isResizingSignal, setIsResizingSignal] = createSignal(false);
   const [copySuccess, setCopySuccess] = createSignal(false);
   
   const share = createMemo(() => ctx.screenShares().get(props.shareId));
   const stream = createMemo(() => ctx.screenShareStreams().get(props.shareId));
+  
+  // Resizable hook for consistent resize behavior
+  const resizable = useResizable({
+    width: () => share()?.width ?? 640,
+    height: () => share()?.height ?? 360,
+    onResize: (width, height) => ctx.updateScreenShareSize(props.shareId, width, height),
+    minWidth: 320,
+    minHeight: 200,
+  });
   
   // Check if this is our own screen share
   const isLocal = createMemo(() => {
@@ -61,7 +62,7 @@ export const ScreenShare: Component<ScreenShareProps> = (props) => {
   onMount(() => {
     if (containerRef && headerRef) {
       setupDrag();
-      setupResize();
+      resizable.setup(containerRef);
       
       // Listen for test-resize events from e2e tests
       containerRef.addEventListener('test-resize', ((e: CustomEvent) => {
@@ -117,57 +118,7 @@ export const ScreenShare: Component<ScreenShareProps> = (props) => {
     });
   }
   
-  function setupResize() {
-    if (!containerRef) return;
-    
-    const resizeHandle = containerRef.querySelector('.resize-handle-se') as HTMLElement;
-    if (!resizeHandle) return;
-    
-    const handleMouseDown = (e: MouseEvent) => {
-      e.stopPropagation();
-      e.preventDefault();
-      
-      const s = share();
-      if (!s) return;
-      
-      resizeState.isResizing = true;
-      resizeState.startX = e.clientX;
-      resizeState.startY = e.clientY;
-      resizeState.initialWidth = s.width;
-      resizeState.initialHeight = s.height;
-      setIsResizingSignal(true);
-    };
-    
-    const handleMouseMove = (e: MouseEvent) => {
-      if (!resizeState.isResizing) return;
-      e.preventDefault();
-      
-      const deltaX = e.clientX - resizeState.startX;
-      const deltaY = e.clientY - resizeState.startY;
-      
-      const newWidth = Math.max(320, resizeState.initialWidth + deltaX);
-      const newHeight = Math.max(200, resizeState.initialHeight + deltaY);
-      
-      ctx.updateScreenShareSize(props.shareId, newWidth, newHeight);
-    };
-    
-    const handleMouseUp = () => {
-      if (resizeState.isResizing) {
-        resizeState.isResizing = false;
-        setIsResizingSignal(false);
-      }
-    };
-    
-    resizeHandle.addEventListener('mousedown', handleMouseDown);
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
-    
-    onCleanup(() => {
-      resizeHandle?.removeEventListener('mousedown', handleMouseDown);
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
-    });
-  }
+  // Resize is handled by useResizable hook
   
   function handleClose() {
     ctx.removeScreenShareStream(props.shareId);
@@ -214,7 +165,7 @@ export const ScreenShare: Component<ScreenShareProps> = (props) => {
           class="screen-share"
           classList={{ 
             'dragging': isDraggingSignal(),
-            'resizing': isResizingSignal(),
+            'resizing': resizable.isResizing(),
           }}
           style={{
             position: 'absolute',
@@ -264,7 +215,7 @@ export const ScreenShare: Component<ScreenShareProps> = (props) => {
             playsinline
             muted
           />
-          <div class="resize-handle resize-handle-se" />
+          <resizable.ResizeHandle />
         </div>
       )}
     </Show>
