@@ -93,6 +93,7 @@ export const Avatar: Component<AvatarProps> = (props) => {
     
     // Touch events
     const handleTouchStart = (e: TouchEvent) => {
+      if (e.touches.length !== 1) return;
       e.stopPropagation();
       setIsDragging(true);
       startDragX = e.touches[0].clientX;
@@ -102,7 +103,8 @@ export const Avatar: Component<AvatarProps> = (props) => {
     };
     
     const handleTouchMove = (e: TouchEvent) => {
-      if (!isDragging()) return;
+      if (!isDragging() || e.touches.length !== 1) return;
+      e.preventDefault(); // Prevent scrolling while dragging
       
       const deltaX = e.touches[0].clientX - startDragX;
       const deltaY = e.touches[0].clientY - startDragY;
@@ -117,8 +119,8 @@ export const Avatar: Component<AvatarProps> = (props) => {
       setIsDragging(false);
     };
     
-    avatarRef.addEventListener('touchstart', handleTouchStart);
-    document.addEventListener('touchmove', handleTouchMove);
+    avatarRef.addEventListener('touchstart', handleTouchStart, { passive: true });
+    document.addEventListener('touchmove', handleTouchMove, { passive: false });
     document.addEventListener('touchend', handleTouchEnd);
     
     onCleanup(() => {
