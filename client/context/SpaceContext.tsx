@@ -174,6 +174,66 @@ export const SpaceProvider: ParentComponent = (props) => {
       socket.io.on('reconnect', () => {
         console.log('[Signaling] Reconnected');
         setConnectionState('connected');
+        
+        // Re-join the space so the server knows we're back
+        const currentSession = session();
+        if (currentSession) {
+          console.log(`[Signaling] Re-joining space ${currentSession.spaceId} as ${currentSession.localUser.username}`);
+          
+          // Listen for space-state to re-establish WebRTC with existing peers
+          onceSocket<{ peers: Record<string, { username: string }> }>('space-state', async (stateData) => {
+            console.log('[Signaling] Received space-state after reconnect, re-establishing WebRTC');
+            const localPeerId = currentSession.localUser.peerId;
+            const localStream = currentSession.localUser.stream;
+            
+            // For each peer in the space, check if we need to establish a WebRTC connection
+            for (const [peerId] of Object.entries(stateData.peers)) {
+              if (peerId === localPeerId) continue; // Skip ourselves
+              
+              // Close any stale connection first
+              const existingPc = peerConnections.get(peerId);
+              if (existingPc) {
+                console.log(`[WebRTC] Closing stale connection to ${peerId}`);
+                existingPc.close();
+                peerConnections.delete(peerId);
+              }
+              
+              // Create new connection and send offer
+              console.log(`[WebRTC] Re-establishing connection to ${peerId} after reconnect`);
+              const pc = createPeerConnection(peerId);
+              
+              if (localStream) {
+                localStream.getTracks().forEach(track => {
+                  pc.addTrack(track, localStream);
+                });
+              }
+              
+              // Also add any local screen shares
+              for (const [shareId, stream] of screenShareStreams().entries()) {
+                const shareInfo = screenShares().get(shareId);
+                if (shareInfo && shareInfo.peerId === localPeerId) {
+                  stream.getTracks().forEach(track => {
+                    pc.addTrack(track, stream);
+                  });
+                  emitSocket('screen-share-started', { peerId: localPeerId, shareId });
+                }
+              }
+              
+              const offer = await pc.createOffer();
+              await pc.setLocalDescription(offer);
+              emitSocket('signal', {
+                to: peerId,
+                from: localPeerId,
+                signal: { type: 'offer', sdp: offer },
+              });
+            }
+          });
+          
+          socket?.emit('join-space', {
+            spaceId: currentSession.spaceId,
+            username: currentSession.localUser.username,
+          });
+        }
       });
       
       // Forward events to handlers
