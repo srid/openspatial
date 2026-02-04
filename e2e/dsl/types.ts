@@ -123,6 +123,8 @@ export interface ScreenShareView {
   rect(): Promise<Rect>;
   size(): Promise<Size>;
   position(): Promise<Position>;
+  /** Verify the video element has actual content (not blank/black) */
+  hasVideoContent(): Promise<boolean>;
 }
 
 export interface TextNoteStyle {

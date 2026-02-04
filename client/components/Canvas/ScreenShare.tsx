@@ -53,6 +53,8 @@ export const ScreenShare: Component<ScreenShareProps> = (props) => {
     const s = stream();
     if (videoRef && s) {
       videoRef.srcObject = s;
+      // Explicitly play to handle autoplay restrictions and ensure playback starts
+      videoRef.play().catch(e => console.log('[ScreenShare] play() error:', e));
     }
   });
   

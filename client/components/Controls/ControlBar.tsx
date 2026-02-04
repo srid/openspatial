@@ -88,13 +88,17 @@ export const ControlBar: Component = () => {
         360
       );
       
-      ctx.emitSocket('screen-share-started', { shareId });
+      // Emit socket event with peerId so server can broadcast to other peers
+      ctx.emitSocket('screen-share-started', { peerId: user.peerId, shareId });
+      
+      // Add screen share tracks to all peer connections (triggers WebRTC renegotiation)
+      await ctx.addScreenShareToPeers(screenStream);
       
       // Clean up when track ends
       screenStream.getVideoTracks()[0].onended = () => {
         ctx.removeScreenShareStream(shareId);
         ctx.removeScreenShare(shareId);
-        ctx.emitSocket('screen-share-stopped', { shareId });
+        ctx.emitSocket('screen-share-stopped', { peerId: user.peerId, shareId });
       };
     } catch (e) {
       console.log('Screen share cancelled or failed:', e);
