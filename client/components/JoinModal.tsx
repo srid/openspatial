@@ -4,7 +4,7 @@
  */
 import { Component, createSignal, onMount, Show } from 'solid-js';
 import { useSpace, getSpaceIdFromUrl } from '@/context/SpaceContext';
-import type { ConnectedEvent, SpaceInfoEvent } from '../../shared/types/events';
+import type { ConnectedEvent, SpaceInfoEvent, SpaceStateEvent } from '../../shared/types/events';
 
 const STORAGE_KEY_USERNAME = 'openspatial-username';
 
@@ -91,38 +91,44 @@ export const JoinModal: Component = () => {
       // Ensure signaling is connected
       await ctx.connectSignaling();
       
-      // Wait for connected event with peerId
-      ctx.onceSocket<ConnectedEvent>('connected', (data) => {
-        const peerId = data.peerId;
-        const centerX = 2000;
-        const centerY = 2000;
+      // Wait for connected event with peerId, then wait for space-state with server-assigned position
+      ctx.onceSocket<ConnectedEvent>('connected', (connData) => {
+        const peerId = connData.peerId;
         
-        // Connect CRDT and add ourselves
-        ctx.connectCRDT(space);
-        ctx.addPeer(peerId, name, centerX, centerY);
-        
-        // Set session state
-        ctx.setSession({
-          spaceId: space,
-          localUser: {
-            peerId,
-            username: name,
-            x: centerX,
-            y: centerY,
-            isMuted: false,
-            isVideoOff: false,
-            status: '',
-            stream: mediaStream,
-          },
+        // Wait for space-state which contains our server-assigned position
+        ctx.onceSocket<SpaceStateEvent>('space-state', (stateData) => {
+          // Get our server-assigned position from space-state
+          const myPeerData = stateData.peers[peerId];
+          const spawnX = myPeerData?.position?.x ?? 2000;
+          const spawnY = myPeerData?.position?.y ?? 2000;
+          
+          // Connect CRDT and add ourselves with server-assigned position
+          ctx.connectCRDT(space);
+          ctx.addPeer(peerId, name, spawnX, spawnY);
+          
+          // Set session state with server-assigned position
+          ctx.setSession({
+            spaceId: space,
+            localUser: {
+              peerId,
+              username: name,
+              x: spawnX,
+              y: spawnY,
+              isMuted: false,
+              isVideoOff: false,
+              status: '',
+              stream: mediaStream,
+            },
+          });
+          
+          // Initialize WebRTC for peer connections
+          ctx.initWebRTC();
+          
+          // Update URL and switch view
+          history.replaceState(null, '', `/s/${encodeURIComponent(space)}`);
+          document.title = `${space} - OpenSpatial`;
+          ctx.setView('space');
         });
-        
-        // Initialize WebRTC for peer connections
-        ctx.initWebRTC();
-        
-        // Update URL and switch view
-        history.replaceState(null, '', `/s/${encodeURIComponent(space)}`);
-        document.title = `${space} - OpenSpatial`;
-        ctx.setView('space');
       });
       
       // Join the space
