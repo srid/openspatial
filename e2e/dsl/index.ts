@@ -6,9 +6,10 @@
 import { test, expect, BrowserContext, Page } from '@playwright/test';
 import { ScenarioFn, UserBuilder, User } from './types';
 import { UserImpl } from './user';
+import { mockWebcam } from './mocks';
 
 export * from './types';
-export { mockScreenShare } from './mocks';
+export { mockScreenShare, mockWebcam } from './mocks';
 
 const CONTROL_BAR_TIMEOUT = 10000;
 
@@ -24,6 +25,8 @@ async function joinSpace(page: Page, username: string, spaceId: string): Promise
 }
 
 class UserBuilderImpl implements UserBuilder {
+  private webcamColor: string | null = null;
+  
   constructor(
     private name: string,
     private contextFactory: () => Promise<BrowserContext>,
@@ -31,17 +34,44 @@ class UserBuilderImpl implements UserBuilder {
     private contexts: BrowserContext[]
   ) {}
 
+  withMockedWebcam(color: string = 'green'): UserBuilder {
+    this.webcamColor = color;
+    return this;
+  }
+
   async join(): Promise<User> {
     const context = await this.contextFactory();
     this.contexts.push(context);
     const page = await context.newPage();
-    await joinSpace(page, this.name, this.spaceId);
+    
+    // Navigate to space first to load the SPA (so navigator.mediaDevices exists)
+    await page.goto(`/s/${this.spaceId}`);
+    
+    // Apply webcam mock AFTER navigation but BEFORE join form submission
+    // This is when getUserMedia will be called
+    if (this.webcamColor) {
+      await mockWebcam(page, this.webcamColor);
+    }
+    
+    // Now fill and submit the join form
+    await page.fill('#username', this.name);
+    await page.locator('#join-form').evaluate((form: HTMLFormElement) => form.requestSubmit());
+    await expect(page.locator('#control-bar')).toBeVisible({ timeout: CONTROL_BAR_TIMEOUT });
+    
     return new UserImpl(this.name, page);
   }
 }
 
 interface ScenarioOptions {
   browser: any; // Playwright browser fixture
+}
+
+/**
+ * Options for scenario configuration
+ */
+interface ScenarioConfig {
+  /** Custom timeout in milliseconds (default is Playwright's 30000ms) */
+  timeoutMs?: number;
 }
 
 /**
@@ -53,9 +83,19 @@ interface ScenarioOptions {
  *   const bob = await createUser('Bob').join();
  *   expect(await alice.visibleUsers()).toEqual(['Bob']);
  * });
+ * 
+ * // With custom timeout
+ * scenario('long running test', 'test-room', async ({ createUser }) => {
+ *   // ...
+ * }, { timeoutMs: 90000 });
  */
-export function scenario(name: string, spaceId: string, fn: ScenarioFn): void {
+export function scenario(name: string, spaceId: string, fn: ScenarioFn, config?: ScenarioConfig): void {
   test(name, async ({ browser }) => {
+    // Apply custom timeout if specified
+    if (config?.timeoutMs) {
+      test.setTimeout(config.timeoutMs);
+    }
+    
     const contexts: BrowserContext[] = [];
 
     const contextFactory = async () => {

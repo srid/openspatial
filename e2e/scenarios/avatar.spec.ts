@@ -108,3 +108,26 @@ scenario('refreshing user does not leave ghost avatar', 'refresh-no-ghost', asyn
   // If there's a ghost, there would be 2
   expect(bobSeesUsers.length).toBe(1);
 });
+
+scenario('new joiner avatar does not overlap existing avatar', 'no-overlap', async ({ createUser }) => {
+  const alice = await createUser('Alice').join();
+  const bob = await createUser('Bob').join();
+  
+  await alice.waitForUser('Bob');
+  await bob.waitForUser('Alice');
+  
+  // Get both avatar positions
+  const alicePos = await alice.avatarOf('Alice').position();
+  const bobPos = await bob.avatarOf('Bob').position();
+  
+  // Avatar size is approximately 100x100 (adjust based on actual size)
+  // Avatars should not overlap - their positions should differ by at least avatar size
+  const distance = Math.sqrt(
+    Math.pow(alicePos.x - bobPos.x, 2) + 
+    Math.pow(alicePos.y - bobPos.y, 2)
+  );
+  
+  // Minimum distance should be greater than avatar diameter (~100px)
+  // Using 80 as a safe threshold to account for some tolerance
+  expect(distance).toBeGreaterThan(80);
+});

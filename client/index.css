@@ -576,10 +576,20 @@ body {
     left: 0;
     top: 0;
     transform-origin: 0 0;
-    /* SVG office floor plan - scales infinitely */
+    /* Cartoonish, colorful but subtle gradient background */
     background: 
-        url('/client/assets/office-bg.svg') center/cover no-repeat,
-        var(--color-bg-secondary);
+        /* Soft organic blob shapes */
+        radial-gradient(ellipse 600px 400px at 10% 20%, rgba(167, 139, 250, 0.15) 0%, transparent 70%),
+        radial-gradient(ellipse 500px 500px at 85% 15%, rgba(129, 230, 217, 0.12) 0%, transparent 60%),
+        radial-gradient(ellipse 700px 350px at 70% 60%, rgba(253, 186, 116, 0.1) 0%, transparent 65%),
+        radial-gradient(ellipse 450px 600px at 20% 75%, rgba(147, 197, 253, 0.12) 0%, transparent 60%),
+        radial-gradient(ellipse 550px 450px at 55% 35%, rgba(249, 168, 212, 0.08) 0%, transparent 55%),
+        radial-gradient(ellipse 400px 500px at 90% 80%, rgba(134, 239, 172, 0.1) 0%, transparent 60%),
+        /* Subtle grid pattern */
+        repeating-linear-gradient(0deg, transparent, transparent 99px, rgba(255, 255, 255, 0.03) 99px, rgba(255, 255, 255, 0.03) 100px),
+        repeating-linear-gradient(90deg, transparent, transparent 99px, rgba(255, 255, 255, 0.03) 99px, rgba(255, 255, 255, 0.03) 100px),
+        /* Base gradient */
+        linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #1a1a2e 100%);
 }
 
 /* ===== Space Info ===== */
@@ -968,7 +978,7 @@ body {
 }
 
 .avatar-status {
-    display: none;
+    display: block;
     position: absolute;
     top: -24px;
     left: 50%;
@@ -1431,10 +1441,43 @@ body {
         height: 44px;
     }
     
-    /* Hide minimap on mobile to prevent overlap with controls */
+    /* Hide minimap on mobile */
     .minimap {
         display: none;
     }
+}
+
+/* ===== Minimap Controls ===== */
+.minimap-controls {
+    display: flex;
+    gap: var(--space-1);
+    margin-bottom: var(--space-2);
+}
+
+.minimap-btn {
+    flex: 1;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--color-bg-tertiary);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    color: var(--color-text-muted);
+    font-size: var(--font-size-lg);
+    font-weight: 600;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.minimap-btn:hover {
+    background: var(--color-bg-elevated);
+    color: var(--color-text);
+    border-color: var(--color-accent);
+}
+
+.minimap-btn-reset {
+    font-size: var(--font-size-base);
 }
 
 /* ===== Minimap ===== */
@@ -1455,10 +1498,13 @@ body {
     position: relative;
     width: 180px;
     height: 180px;
-    /* Match main canvas - same SVG background */
+    /* Match main canvas gradient */
     background: 
-        url('/client/assets/office-bg.svg') center/cover no-repeat,
-        var(--color-bg-tertiary);
+        radial-gradient(ellipse 60px 40px at 10% 20%, rgba(167, 139, 250, 0.15) 0%, transparent 70%),
+        radial-gradient(ellipse 50px 50px at 85% 15%, rgba(129, 230, 217, 0.12) 0%, transparent 60%),
+        radial-gradient(ellipse 70px 35px at 70% 60%, rgba(253, 186, 116, 0.1) 0%, transparent 65%),
+        radial-gradient(ellipse 45px 60px at 20% 75%, rgba(147, 197, 253, 0.12) 0%, transparent 60%),
+        linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #1a1a2e 100%);
     border: 1px solid var(--color-border);
     border-radius: var(--radius-lg);
     cursor: pointer;
@@ -1502,6 +1548,13 @@ body {
     transform: none;
 }
 
+.minimap-dot-note {
+    background: rgba(251, 191, 36, 0.4);
+    border: 1px solid rgba(251, 191, 36, 0.6);
+    border-radius: 1px;
+    transform: none;
+}
+
 /* ===== Browser Warning ===== */
 .browser-warning {
     position: fixed;
@@ -1538,4 +1591,63 @@ body {
 
 .browser-warning-close:hover {
     opacity: 1;
+}
+
+/* ===== Resize Handles ===== */
+.resize-handle {
+    position: absolute;
+    width: 20px;
+    height: 20px;
+    background: transparent;
+    z-index: 10;
+}
+
+.resize-handle-se {
+    bottom: 0;
+    right: 0;
+    cursor: se-resize;
+}
+
+.resize-handle-se::before {
+    content: '';
+    position: absolute;
+    bottom: 3px;
+    right: 3px;
+    width: 10px;
+    height: 10px;
+    background: linear-gradient(135deg, 
+        transparent 0%, 
+        transparent 50%, 
+        var(--color-text-muted) 50%, 
+        var(--color-text-muted) 60%,
+        transparent 60%,
+        transparent 70%,
+        var(--color-text-muted) 70%, 
+        var(--color-text-muted) 80%,
+        transparent 80%,
+        transparent 90%,
+        var(--color-text-muted) 90%
+    );
+    opacity: 0.6;
+    transition: opacity var(--transition-fast);
+}
+
+.resize-handle-se:hover::before {
+    opacity: 1;
+}
+
+/* ===== Activity Badge ===== */
+.activity-badge {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 8px;
+    height: 8px;
+    background: var(--color-danger);
+    border-radius: 50%;
+    box-shadow: 0 0 8px var(--color-danger);
+}
+
+.activity-wrapper {
+    position: relative;
 }

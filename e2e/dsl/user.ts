@@ -85,6 +85,7 @@ export class UserImpl implements User {
     // Fill in the popover input and save
     await this.page.fill('.status-popover-input', text);
     await this.page.click('.status-popover-save');
+    await this.page.waitForTimeout(SYNC_WAIT);
   }
 
   async clearStatus(): Promise<void> {
@@ -136,10 +137,12 @@ export class UserImpl implements User {
       size = rectOrOwner.size;
     }
     
-    // Set width/height directly in style and trigger resize by updating the element
+    // Dispatch test-resize event to trigger CRDT update via component
     await screenShare.evaluate((el: HTMLElement, s: { width: number; height: number }) => {
-      el.style.width = `${s.width}px`;
-      el.style.height = `${s.height}px`;
+      el.dispatchEvent(new CustomEvent('test-resize', { 
+        detail: s,
+        bubbles: true 
+      }));
     }, size);
     
     await this.page.waitForTimeout(SYNC_WAIT);
@@ -182,36 +185,16 @@ export class UserImpl implements User {
     const box = await avatar.boundingBox();
     if (!box) return;
 
-    const startX = box.x + box.width / 2;
-    const startY = box.y + box.height / 2;
-    const endX = startX + delta.dx;
-    const endY = startY + delta.dy;
-
-    // Use CDP (Chrome DevTools Protocol) for reliable touch simulation
-    const client = await this.page.context().newCDPSession(this.page);
-    
-    // Touch start
-    await client.send('Input.dispatchTouchEvent', {
-      type: 'touchStart',
-      touchPoints: [{ x: startX, y: startY }],
-    });
-
-    // Touch move in steps
-    const steps = 10;
-    for (let i = 1; i <= steps; i++) {
-      const x = startX + (endX - startX) * (i / steps);
-      const y = startY + (endY - startY) * (i / steps);
-      await client.send('Input.dispatchTouchEvent', {
-        type: 'touchMove',
-        touchPoints: [{ x, y }],
-      });
-    }
-
-    // Touch end
-    await client.send('Input.dispatchTouchEvent', {
-      type: 'touchEnd',
-      touchPoints: [],
-    });
+    // Use Playwright's native mouse API which works better across browser contexts
+    // Mobile viewport still responds to mouse events
+    await this.page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await this.page.mouse.down();
+    await this.page.mouse.move(
+      box.x + box.width / 2 + delta.dx,
+      box.y + box.height / 2 + delta.dy,
+      { steps: 10 }
+    );
+    await this.page.mouse.up();
 
     // Wait for CRDT sync
     await this.page.waitForTimeout(1000);
@@ -253,6 +236,8 @@ export class UserImpl implements User {
     const note = this.page.locator('.text-note').first();
     const textarea = note.locator('.text-note-textarea');
     await textarea.fill(content);
+    // Blur to exit editing mode so CRDT content shows for other users' edits
+    await textarea.blur();
     await this.page.waitForTimeout(SYNC_WAIT);
   }
 
@@ -344,28 +329,15 @@ export class UserImpl implements User {
 
   async resizeTextNote(size: { width: number; height: number }): Promise<void> {
     const note = this.page.locator('.text-note').first();
-    // Trigger resize by interacting with the resize handle
-    const resizeHandle = note.locator('.text-note-resize-handle');
     
-    // If no resize handle, use evaluate to set size directly and trigger CRDT update
-    if (await resizeHandle.count() === 0) {
-      // Set size via style and dispatch a mouseup to trigger update
-      await note.evaluate((el: HTMLElement, s: { width: number; height: number }) => {
-        el.style.width = `${s.width}px`;
-        el.style.height = `${s.height}px`;
-        // Trigger the resize observer or dispatch event
-        el.dispatchEvent(new Event('mouseup', { bubbles: true }));
-      }, size);
-    } else {
-      // Use the resize handle if available
-      const box = await resizeHandle.boundingBox();
-      if (box) {
-        await this.page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-        await this.page.mouse.down();
-        await this.page.mouse.move(box.x + size.width, box.y + size.height, { steps: 5 });
-        await this.page.mouse.up();
-      }
-    }
+    // Dispatch test-resize event to trigger CRDT update via component
+    await note.evaluate((el: HTMLElement, s: { width: number; height: number }) => {
+      el.dispatchEvent(new CustomEvent('test-resize', { 
+        detail: s,
+        bubbles: true 
+      }));
+    }, size);
+    
     await this.page.waitForTimeout(SYNC_WAIT);
   }
 

@@ -19,11 +19,7 @@ export class SlackBackend implements NotificationBackend {
   
   async notifySpaceActive(notification: SpaceNotification): Promise<string | null> {
     const message: SlackMessage = {
-      text: [
-        `🟢 Space "${notification.spaceId}" is now active!`,
-        `*${notification.username}* just joined.`,
-        `→ <${notification.joinUrl}|Join now>`,
-      ].join('\n'),
+      text: `🟢 Space "${notification.spaceId}" is now active (by *${notification.username}*) — <${notification.joinUrl}|Join>`,
     };
     
     try {

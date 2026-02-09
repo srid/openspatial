@@ -42,11 +42,14 @@ test.describe('mobile touch', () => {
     // Alice performs touch drag
     await alice.touchDragAvatar({ dx: 75, dy: 25 });
     
+    // Get Alice's position after drag
+    const alicePos = await alice.avatarOf('Alice').position();
+    
     // Wait for sync and verify Bob sees Alice moved
     await alice.wait(1500);
     const aliceFinalPos = await bob.avatarOf('Alice').position();
     
-    // Verify position increased (with tolerance for CRDT sync)
+    // Verify position matches (with tolerance)
     expect(aliceFinalPos.x).toBeGreaterThan(aliceInitialPos.x + 35);
     expect(aliceFinalPos.y).toBeGreaterThan(aliceInitialPos.y + 10);
   });
