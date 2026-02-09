@@ -2,12 +2,26 @@
  * Notifier orchestration - manages notification backends and state.
  * Cooldown is now tracked in notification_log table to survive restarts
  * and be independent of space event recording.
+ *
+ * Live message tracking: maps spaceId -> { messageId, startedAt } for
+ * updating the Slack message when the space becomes inactive.
  */
 import type { NotificationBackend, NotifierConfig, SpaceNotification } from './types.js';
 import { createSlackBackendFromEnv } from './slack.js';
 import { getLastNotificationTime, recordNotification } from '../db.js';
 
 let notifierConfig: NotifierConfig | null = null;
+
+/** Track active live messages per space for later update */
+interface LiveMessage {
+  /** Backend-specific message ID (e.g., Slack ts) */
+  messageId: string;
+  /** When the space became active (ms since epoch) */
+  startedAt: number;
+  /** Which backend posted this message */
+  backend: NotificationBackend;
+}
+const liveMessages = new Map<string, LiveMessage>();
 
 /**
  * Initialize the notifier system from environment variables.
@@ -81,14 +95,45 @@ export async function notifySpaceActive(spaceId: string, username: string): Prom
   // Notify all backends
   for (const backend of notifierConfig.backends) {
     try {
-      await backend.notifySpaceActive(notification);
-      // Record successful notification (for cooldown tracking)
-      await recordNotification(spaceId, username);
-      console.log(`[Notifier] Recorded notification for ${spaceId}`);
+      const messageId = await backend.notifySpaceActive(notification);
+      
+      // Only record and track on successful send
+      if (messageId) {
+        await recordNotification(spaceId, username);
+        console.log(`[Notifier] Recorded notification for ${spaceId}`);
+        
+        liveMessages.set(spaceId, {
+          messageId,
+          startedAt: Date.now(),
+          backend,
+        });
+      }
     } catch (error) {
       console.error(`[Notifier] Error in ${backend.name} backend:`, error);
     }
   }
 }
 
-
+/**
+ * Notify that a space became inactive (last user left).
+ * Updates the live message to show session ended with duration.
+ */
+export async function notifySpaceInactive(spaceId: string): Promise<void> {
+  const live = liveMessages.get(spaceId);
+  if (!live) {
+    return;
+  }
+  
+  const durationMs = Date.now() - live.startedAt;
+  liveMessages.delete(spaceId);
+  
+  try {
+    await live.backend.notifySpaceInactive({
+      messageId: live.messageId,
+      spaceId,
+      durationMs,
+    });
+  } catch (error) {
+    console.error(`[Notifier] Error updating live message for ${spaceId}:`, error);
+  }
+}

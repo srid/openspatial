@@ -83,9 +83,14 @@ in
       slack = {
         enable = lib.mkEnableOption "Slack notifications when spaces become active/empty";
 
-        webhookUrlFile = lib.mkOption {
+        botTokenFile = lib.mkOption {
           type = lib.types.path;
-          description = "Path to file containing default Slack webhook URL (keep secret)";
+          description = "Path to file containing Slack Bot User OAuth Token (xoxb-...)";
+        };
+
+        channelId = lib.mkOption {
+          type = lib.types.str;
+          description = "Slack channel ID to post live messages to";
         };
 
 
@@ -127,6 +132,7 @@ in
         } // lib.optionalAttrs cfg.notifications.slack.enable {
           SLACK_BASE_URL = "${if cfg.https then "https" else "http"}://${cfg.domain}";
           SLACK_COOLDOWN_MS = toString (cfg.notifications.slack.cooldownSeconds * 1000);
+          SLACK_CHANNEL_ID = cfg.notifications.slack.channelId;
         } // lib.optionalAttrs (cfg.notifications.slack.enable && cfg.notifications.slack.spaces != []) {
           SLACK_SPACES = lib.concatStringsSep "," cfg.notifications.slack.spaces;
         };
@@ -142,8 +148,8 @@ in
                 export TURN_SECRET
               ''}
               ${lib.optionalString cfg.notifications.slack.enable ''
-                SLACK_WEBHOOK_URL="$(cat ${cfg.notifications.slack.webhookUrlFile})"
-                export SLACK_WEBHOOK_URL
+                SLACK_BOT_TOKEN="$(cat ${cfg.notifications.slack.botTokenFile})"
+                export SLACK_BOT_TOKEN
               ''}
               exec ${openspatial}/bin/openspatial
             '';

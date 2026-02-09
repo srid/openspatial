@@ -3,7 +3,7 @@ import type { Server, Socket } from 'socket.io';
 import * as Y from 'yjs';
 // @ts-expect-error - y-websocket utils has no types
 import { docs } from 'y-websocket/bin/utils';
-import { notifySpaceActive } from './notifier/index.js';
+import { notifySpaceActive, notifySpaceInactive } from './notifier/index.js';
 import type {
   JoinSpaceEvent,
   SignalEvent,
@@ -221,6 +221,7 @@ export function attachSignaling(io: Server): void {
           // Record leave event
           if (space.peers.size === 0) {
             recordSpaceEvent(currentSpace, 'leave_last', currentUsername || 'unknown');
+            notifySpaceInactive(currentSpace);
             spaces.delete(currentSpace);
             console.log(`[Signaling] Space ${currentSpace} deleted (empty)`);
           } else {

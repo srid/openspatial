@@ -5,6 +5,7 @@ import { Server } from 'socket.io';
 import os from 'os';
 import path from 'path';
 import { attachSignaling } from './server/signaling.ts';
+import { initNotifier } from './server/notifier/index.ts';
 
 const hostname = os.hostname();
 
@@ -23,6 +24,7 @@ function socketPlugin() {
         pingInterval: 5000,
       });
 
+      initNotifier();
       attachSignaling(io);
     }
   };
