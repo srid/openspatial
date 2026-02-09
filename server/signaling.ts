@@ -126,9 +126,7 @@ export function attachSignaling(io: Server): void {
       socket.to(spaceId).emit('peer-joined', peerJoined);
 
       console.log(`[Signaling] ${username} joined space ${spaceId} (${space.peers.size} peers)`);
-      
-      // Record space event and notify (order doesn't matter - notification cooldown
-      // is tracked separately in notification_log table)
+      // Record space event and notify
       if (wasEmpty) {
         recordSpaceEvent(spaceId, 'join_first', username);
         notifySpaceActive(spaceId, username);

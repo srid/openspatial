@@ -1,14 +1,11 @@
 /**
- * Notifier orchestration - manages notification backends and state.
- * Cooldown is now tracked in notification_log table to survive restarts
- * and be independent of space event recording.
+ * Notifier orchestration - manages notification backends and live message state.
  *
  * Live message tracking: maps spaceId -> { messageId, startedAt } for
  * updating the Slack message when the space becomes inactive.
  */
 import type { NotificationBackend, NotifierConfig, SpaceNotification } from './types.js';
 import { createSlackBackendFromEnv } from './slack.js';
-import { getLastNotificationTime, recordNotification } from '../db.js';
 
 let notifierConfig: NotifierConfig | null = null;
 
@@ -43,7 +40,6 @@ export function initNotifier(): void {
     return;
   }
   
-  const cooldownMs = parseInt(process.env.SLACK_COOLDOWN_MS || '60000', 10);
   const baseUrl = process.env.SLACK_BASE_URL || process.env.BASE_URL || '';
   
   // Parse allowed spaces (comma-separated list, empty means all)
@@ -52,19 +48,17 @@ export function initNotifier(): void {
   
   notifierConfig = {
     backends,
-    cooldownMs,
     baseUrl,
     allowedSpaces,
   };
   
   const spacesInfo = allowedSpaces ? `spaces: [${allowedSpaces.join(', ')}]` : 'all spaces';
-  console.log(`[Notifier] Initialized with ${backends.length} backend(s), ${spacesInfo}, cooldown: ${cooldownMs}ms`);
+  console.log(`[Notifier] Initialized with ${backends.length} backend(s), ${spacesInfo}`);
 }
 
 /**
  * Notify that a space became active (first user joined).
- * Respects cooldown using notification_log table to survive restarts
- * and be independent of space event recording order.
+ * Stores the returned message ID for later updates.
  */
 export async function notifySpaceActive(spaceId: string, username: string): Promise<void> {
   if (!notifierConfig || notifierConfig.backends.length === 0) {
@@ -74,16 +68,6 @@ export async function notifySpaceActive(spaceId: string, username: string): Prom
   // Check if this space is in the allowed list (null means all allowed)
   if (notifierConfig.allowedSpaces && !notifierConfig.allowedSpaces.includes(spaceId)) {
     return;
-  }
-  
-  // Check cooldown from notification_log (last notification time for this space)
-  const lastTime = await getLastNotificationTime(spaceId);
-  if (lastTime) {
-    const elapsed = Date.now() - lastTime;
-    if (elapsed < notifierConfig.cooldownMs) {
-      console.log(`[Notifier] Skipping notification for ${spaceId} (cooldown: ${Math.round((notifierConfig.cooldownMs - elapsed) / 1000)}s remaining)`);
-      return;
-    }
   }
   
   const notification: SpaceNotification = {
@@ -97,10 +81,9 @@ export async function notifySpaceActive(spaceId: string, username: string): Prom
     try {
       const messageId = await backend.notifySpaceActive(notification);
       
-      // Only record and track on successful send
+      // Only track on successful send
       if (messageId) {
-        await recordNotification(spaceId, username);
-        console.log(`[Notifier] Recorded notification for ${spaceId}`);
+        console.log(`[Notifier] Live message posted for ${spaceId}`);
         
         liveMessages.set(spaceId, {
           messageId,

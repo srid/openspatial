@@ -45,9 +45,6 @@ export interface NotifierConfig {
   /** Registered notification backends */
   backends: NotificationBackend[];
   
-  /** Cooldown in milliseconds between notifications for the same space */
-  cooldownMs: number;
-  
   /** Base URL for generating join links (e.g., https://spatial.srid.ca) */
   baseUrl: string;
 

@@ -94,13 +94,6 @@ in
         };
 
 
-
-        cooldownSeconds = lib.mkOption {
-          type = lib.types.int;
-          default = 600;
-          description = "Minimum seconds between notifications for the same space (default: 10 minutes)";
-        };
-
         spaces = lib.mkOption {
           type = lib.types.listOf lib.types.str;
           default = [];
@@ -131,7 +124,6 @@ in
           TURN_PORT = toString cfg.turn.port;
         } // lib.optionalAttrs cfg.notifications.slack.enable {
           SLACK_BASE_URL = "${if cfg.https then "https" else "http"}://${cfg.domain}";
-          SLACK_COOLDOWN_MS = toString (cfg.notifications.slack.cooldownSeconds * 1000);
           SLACK_CHANNEL_ID = cfg.notifications.slack.channelId;
         } // lib.optionalAttrs (cfg.notifications.slack.enable && cfg.notifications.slack.spaces != []) {
           SLACK_SPACES = lib.concatStringsSep "," cfg.notifications.slack.spaces;
