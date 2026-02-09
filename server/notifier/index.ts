@@ -13,6 +13,10 @@ let notifierConfig: NotifierConfig | null = null;
 interface LiveMessage {
   /** Backend-specific message ID (e.g., Slack ts) */
   messageId: string;
+  /** Username who started the session */
+  username: string;
+  /** Join URL for the space */
+  joinUrl: string;
   /** When the space became active (ms since epoch) */
   startedAt: number;
   /** Which backend posted this message */
@@ -87,6 +91,8 @@ export async function notifySpaceActive(spaceId: string, username: string): Prom
         
         liveMessages.set(spaceId, {
           messageId,
+          username,
+          joinUrl: notification.joinUrl,
           startedAt: Date.now(),
           backend,
         });
@@ -114,6 +120,8 @@ export async function notifySpaceInactive(spaceId: string): Promise<void> {
     await live.backend.notifySpaceInactive({
       messageId: live.messageId,
       spaceId,
+      username: live.username,
+      joinUrl: live.joinUrl,
       durationMs,
     });
   } catch (error) {

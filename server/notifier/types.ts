@@ -13,6 +13,10 @@ export interface SpaceInactiveNotification {
   /** Backend-specific message identifier (e.g., Slack message ts) */
   messageId: string;
   spaceId: string;
+  /** Username who started the session */
+  username: string;
+  /** Join URL for the space */
+  joinUrl: string;
   /** How long the space was active, in milliseconds */
   durationMs: number;
 }

@@ -21,9 +21,17 @@ export class SlackBackend implements NotificationBackend {
   readonly name = 'slack';
   
   constructor(private config: SlackConfig) {}
+
+  /** Shared message format: {icon} {status} — Space "name" (by *user*) — {detail} — Join */
+  private formatMessage(icon: string, status: string, spaceId: string, username: string, joinUrl: string, detail?: string): string {
+    const parts = [`${icon} *${status}* — Space "${spaceId}" (by *${username}*)`];
+    if (detail) parts.push(detail);
+    parts.push(`<${joinUrl}|Join>`);
+    return parts.join(' — ');
+  }
   
   async notifySpaceActive(notification: SpaceNotification): Promise<string | null> {
-    const text = `🟢 *LIVE* — Space "${notification.spaceId}" (by *${notification.username}*) — <${notification.joinUrl}|Join>`;
+    const text = this.formatMessage('🟢', 'LIVE', notification.spaceId, notification.username, notification.joinUrl);
     
     try {
       const response = await fetch('https://slack.com/api/chat.postMessage', {
@@ -55,7 +63,7 @@ export class SlackBackend implements NotificationBackend {
 
   async notifySpaceInactive(notification: SpaceInactiveNotification): Promise<void> {
     const duration = formatDuration(notification.durationMs);
-    const text = `⚫ Space "${notification.spaceId}" session ended (was live for ${duration})`;
+    const text = this.formatMessage('⚫', 'ENDED', notification.spaceId, notification.username, notification.joinUrl, `was live for ${duration}`);
     
     try {
       const response = await fetch('https://slack.com/api/chat.update', {
