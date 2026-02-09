@@ -137,3 +137,30 @@ export async function notifySpaceInactive(spaceId: string): Promise<void> {
     console.error(`[Notifier] Error updating live message for ${spaceId}:`, error);
   }
 }
+
+/**
+ * Post a threaded reply when a user joins an already-active space.
+ * (The first joiner's name is already in the live message itself.)
+ */
+export async function notifyUserJoined(spaceId: string, username: string): Promise<void> {
+  const live = liveMessages.get(spaceId);
+  if (!live) return;
+  
+  const { SlackBackend } = await import('./slack.js');
+  if (live.backend instanceof SlackBackend) {
+    await live.backend.postThreadReply(live.messageId, `👋 *${username}* joined`);
+  }
+}
+
+/**
+ * Post a threaded reply when a user leaves (but the space is still active).
+ */
+export async function notifyUserLeft(spaceId: string, username: string): Promise<void> {
+  const live = liveMessages.get(spaceId);
+  if (!live) return;
+  
+  const { SlackBackend } = await import('./slack.js');
+  if (live.backend instanceof SlackBackend) {
+    await live.backend.postThreadReply(live.messageId, `🚪 *${username}* left`);
+  }
+}

@@ -83,6 +83,35 @@ export class SlackBackend implements NotificationBackend {
       console.error(`[Slack] Error updating message:`, error);
     }
   }
+
+  /**
+   * Post a threaded reply to the live message.
+   * Used for join/leave events during an active session.
+   */
+  async postThreadReply(threadTs: string, text: string): Promise<void> {
+    try {
+      const response = await fetch('https://slack.com/api/chat.postMessage', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${this.config.botToken}`,
+        },
+        body: JSON.stringify({
+          channel: this.config.channelId,
+          thread_ts: threadTs,
+          text,
+        }),
+      });
+      
+      const data = await response.json() as SlackPostMessageResponse;
+      
+      if (!data.ok) {
+        console.error(`[Slack] Failed to post thread reply: ${data.error}`);
+      }
+    } catch (error) {
+      console.error(`[Slack] Error posting thread reply:`, error);
+    }
+  }
 }
 
 /**

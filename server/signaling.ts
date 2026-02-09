@@ -3,7 +3,7 @@ import type { Server, Socket } from 'socket.io';
 import * as Y from 'yjs';
 // @ts-expect-error - y-websocket utils has no types
 import { docs } from 'y-websocket/bin/utils';
-import { notifySpaceActive, notifySpaceInactive } from './notifier/index.js';
+import { notifySpaceActive, notifySpaceInactive, notifyUserJoined, notifyUserLeft } from './notifier/index.js';
 import type {
   JoinSpaceEvent,
   SignalEvent,
@@ -134,6 +134,7 @@ export function attachSignaling(io: Server): void {
         notifySpaceActive(spaceId, username);
       } else {
         recordSpaceEvent(spaceId, 'join', username);
+        notifyUserJoined(spaceId, username);
       }
       
       // Push recent activity to ALL users in the space (including existing users)
@@ -226,6 +227,7 @@ export function attachSignaling(io: Server): void {
             console.log(`[Signaling] Space ${currentSpace} deleted (empty)`);
           } else {
             recordSpaceEvent(currentSpace, 'leave', currentUsername || 'unknown');
+            notifyUserLeft(currentSpace, currentUsername || 'unknown');
             // Push updated activity to remaining peers
             const spaceIdForActivity = currentSpace;
             getRecentActivity(currentSpace).then((events) => {
