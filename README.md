@@ -39,20 +39,22 @@ See [ARCHITECTURE.md](./ARCHITECTURE.md) for the full technical architecture inc
 
 ## Slack Notifications
 
-Get notified in Slack when spaces become active.
+Live presence notifications in Slack — shows a 🟢 LIVE message when a space becomes active, updates to ⚫ ended when everyone leaves. Join/leave events appear as threaded replies.
 
-### Setup
+### Slack App Setup
 
 1. Go to [api.slack.com/apps](https://api.slack.com/apps) → **Create New App** → **From scratch**
 2. Name it (e.g., "OpenSpatial") and select your workspace
-3. Click **Incoming Webhooks** → Toggle **Activate** to ON
-4. Click **Add New Webhook to Workspace** → Select channel → **Allow**
-5. Copy the webhook URL
+3. **OAuth & Permissions** → **Bot Token Scopes** → add `chat:write` and `chat:write.public`
+4. **Install to Workspace** → approve permissions
+5. Copy the **Bot User OAuth Token** (`xoxb-...`) from the OAuth page
+6. Get the **Channel ID**: right-click the target channel → "View channel details" → ID at the bottom
 
 ### Local Development
 
 ```bash
-SLACK_WEBHOOK_URL="https://hooks.slack.com/services/..." \
+SLACK_BOT_TOKEN="xoxb-..." \
+SLACK_CHANNEL_ID="C01ABCDEF23" \
 SLACK_BASE_URL="https://localhost:5173" \
 npm run dev
 ```
@@ -62,10 +64,11 @@ npm run dev
 ```nix
 services.openspatial = {
   enable = true;
-  domain = "spatial.example.com";  # Used for TURN realm and Slack links
+  domain = "spatial.example.com";
   notifications.slack = {
     enable = true;
-    webhookUrlFile = "/run/secrets/slack-webhook";  # Keep secret!
+    botTokenFile = "/run/secrets/slack-bot-token";
+    channelId = "C01ABCDEF23";
     spaces = [ "jusnix" ];  # Only notify for these spaces (empty = all)
   };
 };

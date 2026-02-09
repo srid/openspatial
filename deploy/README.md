@@ -20,8 +20,8 @@ ssh root@<server-ip>
 # TURN secret
 openssl rand -hex 32 > /etc/openspatial/turn-secret
 
-# Slack webhook (get from api.slack.com/apps → Incoming Webhooks)
-echo "https://hooks.slack.com/services/YOUR/WEBHOOK/URL" > /etc/openspatial/slack-webhook
+# Slack bot token (see README.md for setup)
+echo "xoxb-your-bot-token" > /etc/openspatial/slack-bot-token
 
 systemctl restart openspatial coturn
 ```
