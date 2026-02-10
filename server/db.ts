@@ -226,37 +226,3 @@ export async function getRecentActivity(spaceId: string): Promise<SpaceEvent[]> 
     .execute();
   return rows;
 }
-
-// === Notification Log Operations ===
-
-/**
- * Get the timestamp of the last notification sent for a space.
- * Used for cooldown checks - independent of space events.
- */
-export async function getLastNotificationTime(spaceId: string): Promise<number | null> {
-  const row = await db
-    .selectFrom('notification_log')
-    .select('sent_at')
-    .where('space_id', '=', spaceId)
-    .orderBy('sent_at', 'desc')
-    .limit(1)
-    .executeTakeFirst();
-  
-  if (!row) return null;
-  return new Date(row.sent_at).getTime();
-}
-
-/**
- * Record that a notification was sent for a space.
- * Called after successfully sending a notification.
- */
-export async function recordNotification(spaceId: string, username: string): Promise<void> {
-  await db
-    .insertInto('notification_log')
-    .values({
-      space_id: spaceId,
-      username,
-    })
-    .execute();
-}
-

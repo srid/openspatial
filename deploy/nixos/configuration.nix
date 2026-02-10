@@ -49,9 +49,10 @@ in
 
     notifications.slack = {
       enable = true;
-      # Create webhook at api.slack.com/apps → Incoming Webhooks
-      # Save the URL to: /etc/openspatial/slack-webhook
-      webhookUrlFile = "/etc/openspatial/slack-webhook";
+      # See SLACK_SETUP.md for bot token setup
+      # Save the token to: /etc/openspatial/slack-bot-token
+      botTokenFile = "/etc/openspatial/slack-bot-token";
+      channelId = "CMV6W2212";
       # Only notify for these spaces
       spaces = [ "jusnix" ];
     };
