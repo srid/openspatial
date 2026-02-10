@@ -52,7 +52,7 @@ in
       # See SLACK_SETUP.md for bot token setup
       # Save the token to: /etc/openspatial/slack-bot-token
       botTokenFile = "/etc/openspatial/slack-bot-token";
-      channelId = "C0ABHN4MG2J";
+      channelId = "CMV6W2212";
       # Only notify for these spaces
       spaces = [ "jusnix" ];
     };
