@@ -2,7 +2,7 @@
  * Database schema types for Kysely.
  * Reuses shared types where possible.
  */
-import { Generated, Insertable, Selectable } from 'kysely';
+import { Generated, Selectable } from 'kysely';
 import type { TextNoteState } from '../../shared/yjs-schema.js';
 
 // Re-export shared types for DB consumers
@@ -39,6 +39,5 @@ export interface Database {
 }
 
 export type Space = Selectable<SpacesTable>;
-export type NewSpace = Insertable<SpacesTable>;
 export type SpaceEvent = Selectable<SpaceEventsTable>;
 
