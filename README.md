@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="./client/assets/logo.svg" alt="OpenSpatial" width="80">
+  <img src="./public/logo.svg" alt="OpenSpatial" width="80">
 </p>
 
 # OpenSpatial
