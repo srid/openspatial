@@ -6,15 +6,19 @@
 
 A virtual space where distance disappears — spatial audio and shared canvas for gatherings of any kind.
 
+Live demo: https://spatial.srid.ca/s/demo
+
 ## Quick Start
 
 **Run instantly with Nix:**
 ```bash
-# Use HTTPS=0 to disable https.
-PORT=443 nix run github:srid/openspatial
+# Set environment variable HTTPS=0 to disable https.
+nix run github:srid/openspatial
 ```
 
-Open `https://<your-ip>` and accept the self-signed certificate. We also provide a NixOS module.
+Open `https://<your-ip>:<port>` and accept the self-signed certificate. 
+
+We also provide a NixOS module. See below.
 
 **Or develop locally:**
 ```bash

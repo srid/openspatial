@@ -30,6 +30,7 @@ buildNpmPackage {
     # Main server binary
     cat > $out/bin/openspatial <<EOF
 #!${bash}/bin/bash
+export DATA_DIR="\''${DATA_DIR:-\$HOME/.local/share/openspatial}"
 cd $out/lib/openspatial
 exec ${nodejs_22}/bin/npx tsx $out/lib/openspatial/server/standalone.ts "\$@"
 EOF
