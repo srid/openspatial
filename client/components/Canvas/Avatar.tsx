@@ -218,7 +218,7 @@ export const Avatar: Component<AvatarProps> = (props) => {
                 autofocus
               />
               <button 
-                class="status-popover-save"
+                class="status-popover-btn status-popover-save"
                 onClick={() => {
                   // Read directly from DOM in case Playwright fill() doesn't trigger onInput
                   const value = statusInputRef?.value ?? statusInput();
@@ -230,7 +230,7 @@ export const Avatar: Component<AvatarProps> = (props) => {
               </button>
               <Show when={peer()?.status}>
                 <button 
-                  class="status-popover-clear"
+                  class="status-popover-btn status-popover-clear"
                   onClick={() => {
                     ctx.updatePeerStatus(props.peerId, '');
                     setShowStatusPopover(false);
