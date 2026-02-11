@@ -162,11 +162,7 @@ export const ScreenShare: Component<ScreenShareProps> = (props) => {
       {(s) => (
         <div
           ref={containerRef}
-          class="screen-share"
-          classList={{ 
-            'dragging': isDraggingSignal(),
-            'resizing': resizable.isResizing(),
-          }}
+          class="screen-share absolute min-w-[320px] min-h-[200px] bg-bg-secondary border border-border rounded-xl overflow-hidden shadow-xl z-5"
           style={{
             position: 'absolute',
             left: `${s().x}px`,
@@ -176,17 +172,17 @@ export const ScreenShare: Component<ScreenShareProps> = (props) => {
           }}
           data-share-id={props.shareId}
         >
-          <div ref={headerRef} class="screen-share-header">
-            <span class="screen-share-title">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <div ref={headerRef} class="screen-share-header flex items-center justify-between py-2 px-3 bg-bg-tertiary border-b border-border cursor-grab active:cursor-grabbing">
+            <span class="screen-share-title flex items-center gap-2 text-sm font-medium">
+              <svg class="w-4 h-4 text-text-muted" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <rect x="2" y="3" width="20" height="14" rx="2" ry="2" />
                 <line x1="8" y1="21" x2="16" y2="21" />
                 <line x1="12" y1="17" x2="12" y2="21" />
               </svg>
               <span>{isLocal() ? 'Your Screen' : `${s().username}'s Screen`}</span>
             </span>
-            <div style={{ display: 'flex', gap: '4px' }}>
-              <button class="screen-share-copy" onClick={handleCopySnapshot} title="Copy Snapshot">
+            <div class="flex gap-1">
+              <button class="flex items-center justify-center w-6 h-6 bg-transparent border-none rounded-sm text-text-muted cursor-pointer transition-all duration-(--transition-fast) hover:bg-surface-hover hover:text-accent" onClick={handleCopySnapshot} title="Copy Snapshot">
                 <Show when={!copySuccess()} fallback={
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <polyline points="20 6 9 17 4 12"></polyline>
@@ -199,7 +195,7 @@ export const ScreenShare: Component<ScreenShareProps> = (props) => {
                 </Show>
               </button>
               <Show when={isLocal()}>
-                <button class="screen-share-close" onClick={handleClose} title="Stop sharing">
+                <button class="screen-share-close flex items-center justify-center w-6 h-6 bg-transparent border-none rounded-sm text-text-muted cursor-pointer transition-all duration-(--transition-fast) hover:bg-surface-hover hover:text-danger" onClick={handleClose} title="Stop sharing">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <line x1="18" y1="6" x2="6" y2="18" />
                     <line x1="6" y1="6" x2="18" y2="18" />
@@ -210,7 +206,7 @@ export const ScreenShare: Component<ScreenShareProps> = (props) => {
           </div>
           <video
             ref={videoRef}
-            class="screen-share-video"
+            class="screen-share-video w-full h-[calc(100%-40px)] object-contain bg-black"
             autoplay
             playsinline
             muted

@@ -49,6 +49,7 @@ export const TextNote: Component<TextNoteProps> = (props) => {
   
   const [isDraggingSignal, setIsDraggingSignal] = createSignal(false);
   const [isEditing, setIsEditing] = createSignal(false);
+  // Local content is what the user is actively typing
   const [localContent, setLocalContent] = createSignal('');
   const [showFontSizeMenu, setShowFontSizeMenu] = createSignal(false);
   const [showFontFamilyMenu, setShowFontFamilyMenu] = createSignal(false);
@@ -65,12 +66,11 @@ export const TextNote: Component<TextNoteProps> = (props) => {
   
   const note = createMemo(() => ctx.textNotes().get(props.noteId));
   
-  // Local content is what the user is actively typing
   // Display content shows CRDT when not editing, local when editing
+  // Initialize local content from CRDT when first loaded
   createEffect(() => {
     const n = note();
     const crdtContent = n?.content ?? '';
-    // Initialize local content from CRDT when first loaded
     if (localContent() === '' && crdtContent !== '') {
       setLocalContent(crdtContent);
     }
@@ -103,7 +103,7 @@ export const TextNote: Component<TextNoteProps> = (props) => {
     
     const handleMouseDown = (e: MouseEvent) => {
       // Don't drag if clicking on a button
-      if ((e.target as HTMLElement).closest('.text-note-btn, .text-note-close')) return;
+      if ((e.target as HTMLElement).closest('button')) return;
       
       e.stopPropagation();
       e.preventDefault();
@@ -235,12 +235,7 @@ export const TextNote: Component<TextNoteProps> = (props) => {
       {(n) => (
         <div
           ref={containerRef}
-          class="text-note"
-          classList={{
-            'dragging': isDraggingSignal(),
-            'editing': isEditing(),
-            'resizing': resizable.isResizing(),
-          }}
+          class="text-note absolute min-w-[200px] min-h-[120px] bg-bg-secondary border border-border rounded-xl overflow-visible shadow-xl z-5"
           style={{
             position: 'absolute',
             left: `${n().x}px`,
@@ -250,26 +245,26 @@ export const TextNote: Component<TextNoteProps> = (props) => {
           }}
           data-note-id={props.noteId}
         >
-          <div ref={headerRef} class="text-note-header">
-            <span class="text-note-title">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <div ref={headerRef} class="text-note-header relative z-10 flex items-center justify-between py-2 px-3 bg-bg-tertiary border-b border-border rounded-t-xl cursor-grab active:cursor-grabbing">
+            <span class="flex items-center gap-2 text-sm font-medium">
+              <svg class="w-3.5 h-3.5 text-text-muted" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M12 20h9"></path>
                 <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
               </svg>
               Note
             </span>
-            <div class="text-note-controls">
+            <div class="flex items-center gap-1">
               {/* Font Size Button */}
-              <div style={{ position: 'relative' }}>
-                <button class="text-note-btn text-note-font-size" onClick={handleFontSizeClick} title="Font size">
+              <div class="relative">
+                <button class="text-note-font-size relative flex items-center justify-center w-6 h-6 bg-surface border border-border rounded-sm text-text-secondary cursor-pointer text-xs font-semibold transition-all duration-(--transition-fast) hover:bg-surface-hover hover:text-text-primary font-serif" onClick={handleFontSizeClick} title="Font size">
                   A
                 </button>
                 <Show when={showFontSizeMenu()}>
-                  <div class="text-note-menu">
+                  <div class="absolute top-full right-0 mt-1 bg-bg-elevated border border-border rounded-md p-1 z-[1000] shadow-lg">
                     <For each={(['small', 'medium', 'large'] as const)}>
                       {(size) => (
                         <button
-                          class="text-note-menu-option"
+                          class="text-note-menu-option block w-full py-2 px-3 bg-transparent border-none rounded-sm text-text-primary cursor-pointer text-left transition-all duration-(--transition-fast) hover:bg-surface-hover"
                           style={{ 'font-size': FONT_SIZES[size] }}
                           onClick={(e) => { e.stopPropagation(); selectFontSize(size); }}
                         >
@@ -282,12 +277,12 @@ export const TextNote: Component<TextNoteProps> = (props) => {
               </div>
               
               {/* Font Family Button */}
-              <div style={{ position: 'relative' }}>
-                <button class="text-note-btn text-note-font-family" onClick={handleFontFamilyClick} title="Font family">
+              <div class="relative">
+                <button class="text-note-font-family relative flex items-center justify-center w-6 h-6 bg-surface border border-border rounded-sm text-text-secondary cursor-pointer text-xs font-semibold transition-all duration-(--transition-fast) hover:bg-surface-hover hover:text-text-primary" onClick={handleFontFamilyClick} title="Font family">
                   Aa
                 </button>
                 <Show when={showFontFamilyMenu()}>
-                  <div class="text-note-menu">
+                  <div class="absolute top-full right-0 mt-1 bg-bg-elevated border border-border rounded-md p-1 z-[1000] shadow-lg">
                     <For each={[
                       { name: 'Sans', value: 'sans' as const },
                       { name: 'Serif', value: 'serif' as const },
@@ -295,7 +290,7 @@ export const TextNote: Component<TextNoteProps> = (props) => {
                     ]}>
                       {(family) => (
                         <button
-                          class="text-note-menu-option"
+                          class="text-note-menu-option block w-full py-2 px-3 bg-transparent border-none rounded-sm text-text-primary cursor-pointer text-left transition-all duration-(--transition-fast) hover:bg-surface-hover"
                           style={{ 'font-family': FONT_FAMILIES[family.value] }}
                           onClick={(e) => { e.stopPropagation(); selectFontFamily(family.value); }}
                         >
@@ -308,19 +303,19 @@ export const TextNote: Component<TextNoteProps> = (props) => {
               </div>
               
               {/* Color Button */}
-              <div style={{ position: 'relative' }}>
+              <div class="relative">
                 <button
-                  class="text-note-btn text-note-color"
+                  class="text-note-color relative flex items-center justify-center w-6 h-6 border-2 border-border rounded-sm cursor-pointer transition-all duration-(--transition-fast) hover:scale-110"
                   onClick={handleColorClick}
                   title="Text color"
                   style={{ 'background-color': n().color || '#ffffff' }}
                 />
                 <Show when={showColorMenu()}>
-                  <div class="text-note-menu text-note-color-menu">
+                  <div class="absolute top-full right-0 mt-1 bg-bg-elevated border border-border rounded-md p-2 z-[1000] shadow-lg flex gap-1">
                     <For each={COLOR_PALETTE}>
                       {(color) => (
                         <button
-                          class="text-note-color-option"
+                          class="text-note-color-option w-6 h-6 border-2 border-border rounded-sm cursor-pointer transition-all duration-(--transition-fast) hover:scale-110 hover:shadow-[0_0_8px_rgba(255,255,255,0.3)]"
                           style={{ 'background-color': color.value }}
                           title={color.name}
                           onClick={(e) => { e.stopPropagation(); selectColor(color.value); }}
@@ -332,7 +327,7 @@ export const TextNote: Component<TextNoteProps> = (props) => {
               </div>
               
               {/* Close Button */}
-              <button class="text-note-close" onClick={handleClose} title="Delete note">
+              <button class="text-note-close flex items-center justify-center w-6 h-6 bg-transparent border-none rounded-sm text-text-muted cursor-pointer transition-all duration-(--transition-fast) hover:bg-danger/20 hover:text-danger" onClick={handleClose} title="Delete note">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <line x1="18" y1="6" x2="6" y2="18" />
                   <line x1="6" y1="6" x2="18" y2="18" />
@@ -340,10 +335,10 @@ export const TextNote: Component<TextNoteProps> = (props) => {
               </button>
             </div>
           </div>
-          <div class="text-note-content">
+          <div class="h-[calc(100%-40px)] p-2">
             <textarea
               ref={textareaRef}
-              class="text-note-textarea"
+              class="text-note-textarea w-full h-full bg-transparent border-none text-white font-[inherit] text-lg leading-relaxed resize-none outline-none placeholder:text-text-muted"
               value={displayContent()}
               onInput={handleContentChange}
               onFocus={handleFocus}

@@ -67,7 +67,7 @@ export const Avatar: Component<AvatarProps> = (props) => {
     
     const handleMouseMove = (e: MouseEvent) => {
       if (!isDragging()) return;
-      e.preventDefault();
+      e.preventDefault(); // Prevent scrolling while dragging
       
       const deltaX = e.clientX - startDragX;
       const deltaY = e.clientY - startDragY;
@@ -138,10 +138,9 @@ export const Avatar: Component<AvatarProps> = (props) => {
       {(p) => (
         <div
           ref={setAvatarRef}
-          class="avatar"
+          class={`avatar absolute w-[var(--avatar-size)] h-[var(--avatar-size)] cursor-grab transition-transform duration-(--transition-fast) z-10 overflow-visible ${props.isLocal ? 'self' : ''}`}
           classList={{
-            'self': props.isLocal,
-            'dragging': isDragging(),
+            'z-15': false, // speaking state would go here
           }}
           style={{
             position: 'absolute',
@@ -150,25 +149,27 @@ export const Avatar: Component<AvatarProps> = (props) => {
           }}
           data-peer-id={props.peerId}
         >
-          <div class="avatar-video-container">
+          {/* Video container */}
+          <div class={`avatar-video-container relative w-full h-full rounded-full overflow-hidden bg-bg-tertiary shadow-lg transition-all duration-(--transition-fast) ${props.isLocal ? 'border-3 border-accent' : 'border-3 border-border'}`}>
             <video
               ref={videoRef}
-              class="avatar-video"
-              classList={{ 'hidden': p().isVideoOff }}
+              class={`w-full h-full object-cover -scale-x-100 ${p().isVideoOff ? 'hidden' : ''}`}
               autoplay
               playsinline
               muted={props.isLocal}
             />
             <Show when={p().isVideoOff}>
-              <div class="avatar-placeholder">
+              <div class="flex items-center justify-center w-full h-full bg-[linear-gradient(135deg,#6366f1_0%,#8b5cf6_50%,#a855f7_100%)] text-2xl font-bold text-white">
                 <span>{p().username.charAt(0).toUpperCase()}</span>
               </div>
             </Show>
           </div>
+
+          {/* Mute indicator */}
           <Show when={p().isMuted}>
-            <div class="avatar-indicators">
-              <div class="avatar-indicator muted">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <div class="absolute -top-2 -right-2 flex gap-1">
+              <div class="avatar-indicator muted flex items-center justify-center w-7 h-7 bg-[rgba(239,68,68,0.9)] border border-danger rounded-full backdrop-blur-[8px]">
+                <svg class="w-3.5 h-3.5" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <line x1="1" y1="1" x2="23" y2="23" />
                   <path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6" />
                   <path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2c0 .74-.11 1.46-.32 2.14" />
@@ -176,11 +177,17 @@ export const Avatar: Component<AvatarProps> = (props) => {
               </div>
             </div>
           </Show>
+
+          {/* Name and status area */}
           <div class="avatar-info">
-            <span class="avatar-name">{p().username}</span>
+            <span class="avatar-name absolute -bottom-7 left-1/2 -translate-x-1/2 py-1 px-3 bg-bg-elevated border border-border rounded-full text-xs font-medium whitespace-nowrap backdrop-blur-[8px]">
+              {p().username}
+            </span>
+
+            {/* Status trigger (+) button — only for local avatar without status */}
             <Show when={props.isLocal && !peer()?.status}>
-              <button 
-                class="avatar-status-trigger" 
+              <button
+                class="avatar-status-trigger flex absolute -top-5 left-1/2 -translate-x-1/2 items-center justify-center w-6 h-6 bg-bg-elevated border border-border rounded-full text-text-muted cursor-pointer backdrop-blur-[8px] transition-all duration-(--transition-fast) z-[15] hover:bg-accent hover:border-accent hover:text-white hover:scale-110 hover:shadow-[0_0_12px_var(--color-accent-glow)]"
                 onClick={(e) => {
                   e.stopPropagation();
                   setStatusInput('');
@@ -190,9 +197,11 @@ export const Avatar: Component<AvatarProps> = (props) => {
                 +
               </button>
             </Show>
+
+            {/* Status display */}
             <Show when={peer()?.status}>
-              <span 
-                class="avatar-status" 
+              <span
+                class={`avatar-status block absolute -top-6 left-1/2 -translate-x-1/2 py-1 px-2 bg-[rgba(99,102,241,0.9)] border border-accent rounded-md text-xs font-medium text-white whitespace-nowrap max-w-[150px] overflow-hidden text-ellipsis backdrop-blur-[8px] shadow-[0_0_10px_var(--color-accent-glow)] ${props.isLocal ? 'cursor-pointer transition-all duration-(--transition-fast) hover:bg-[rgba(99,102,241,1)] hover:scale-105' : ''}`}
                 onClick={(e) => {
                   if (props.isLocal) {
                     e.stopPropagation();
@@ -200,25 +209,26 @@ export const Avatar: Component<AvatarProps> = (props) => {
                     setShowStatusPopover(true);
                   }
                 }}
-                style={{ cursor: props.isLocal ? 'pointer' : 'default' }}
               >
                 {peer()?.status}
               </span>
             </Show>
           </div>
+
+          {/* Status popover editor */}
           <Show when={showStatusPopover()}>
-            <div class="status-popover" onClick={(e) => e.stopPropagation()}>
+            <div class="absolute -top-[60px] left-1/2 -translate-x-1/2 flex items-center gap-2 p-2 bg-bg-elevated border border-border rounded-lg backdrop-blur-[12px] shadow-[var(--shadow-xl),0_0_20px_var(--color-accent-glow)] z-[100] animate-popover-in" onClick={(e) => e.stopPropagation()}>
               <input
                 ref={statusInputRef}
-                class="status-popover-input"
                 type="text"
                 value={statusInput()}
                 onInput={(e) => setStatusInput(e.currentTarget.value)}
                 placeholder="Set status..."
                 autofocus
+                class="status-popover-input w-40 py-2 px-3 bg-surface border border-border rounded-md text-text-primary text-sm font-[inherit] transition-all duration-(--transition-fast) placeholder:text-text-muted focus:outline-none focus:border-accent focus:shadow-[0_0_0_2px_var(--color-accent-glow)]"
               />
-              <button 
-                class="status-popover-btn status-popover-save"
+              <button
+                class="status-popover-save flex items-center justify-center w-8 h-8 bg-accent border border-accent rounded-md text-white text-base cursor-pointer transition-all duration-(--transition-fast) hover:bg-accent/80"
                 onClick={() => {
                   // Read directly from DOM in case Playwright fill() doesn't trigger onInput
                   const value = statusInputRef?.value ?? statusInput();
@@ -226,17 +236,17 @@ export const Avatar: Component<AvatarProps> = (props) => {
                   setShowStatusPopover(false);
                 }}
               >
-                Save
+                ✓
               </button>
               <Show when={peer()?.status}>
-                <button 
-                  class="status-popover-btn status-popover-clear"
+                <button
+                  class="status-popover-clear flex items-center justify-center w-8 h-8 bg-surface border border-border rounded-md text-text-secondary text-base cursor-pointer transition-all duration-(--transition-fast) hover:bg-danger/20 hover:border-danger hover:text-danger"
                   onClick={() => {
                     ctx.updatePeerStatus(props.peerId, '');
                     setShowStatusPopover(false);
                   }}
                 >
-                  Clear
+                  ✕
                 </button>
               </Show>
             </div>

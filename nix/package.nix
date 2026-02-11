@@ -11,7 +11,7 @@ buildNpmPackage {
 
   src = ./..;
 
-  npmDepsHash = "sha256-HiLuRCIUQg012Ch/rK8t7JT5mPolSiGRzOKWUMyUVns=";
+  npmDepsHash = "sha256-iIwf43Vl3dPJUHfYHvi8T1NbEc8E30z6uhLNhsEKcCM=";
 
   nodejs = nodejs_22;
 
@@ -30,6 +30,7 @@ buildNpmPackage {
     # Main server binary
     cat > $out/bin/openspatial <<EOF
 #!${bash}/bin/bash
+export DATA_DIR="\''${DATA_DIR:-\$HOME/.local/share/openspatial}"
 cd $out/lib/openspatial
 exec ${nodejs_22}/bin/npx tsx $out/lib/openspatial/server/standalone.ts "\$@"
 EOF

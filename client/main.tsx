@@ -3,7 +3,7 @@
  */
 import { render } from 'solid-js/web';
 import { App } from './App';
-import './index.css';
+import './base.css';
 
 // Mark body as loaded to trigger CSS transition
 document.body.classList.add('loaded');

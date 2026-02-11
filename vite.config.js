@@ -1,4 +1,5 @@
 import { defineConfig } from 'vite';
+import tailwindcss from '@tailwindcss/vite';
 import solidPlugin from 'vite-plugin-solid';
 import basicSsl from '@vitejs/plugin-basic-ssl';
 import { Server } from 'socket.io';
@@ -73,6 +74,7 @@ function spaFallbackPlugin() {
 
 export default defineConfig({
   plugins: [
+    tailwindcss(),
     solidPlugin(),
     basicSsl({ domains: ['localhost', hostname] }),
     spaFallbackPlugin(),
