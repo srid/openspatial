@@ -207,8 +207,8 @@ export const Canvas: Component = () => {
   }
   
   return (
-    <div id="canvas-container" ref={containerRef}>
-      <div id="space" ref={spaceRef} style={{ transform: transform() }}>
+    <div id="canvas-container" ref={containerRef} class="fixed inset-0 overflow-hidden cursor-grab active:cursor-grabbing">
+      <div id="space" ref={spaceRef} class="absolute w-[4000px] h-[4000px] left-0 top-0 origin-top-left space-background" style={{ transform: transform() }}>
         {/* Avatars */}
         <For each={peerIds()}>
           {(peerId) => (
@@ -232,9 +232,9 @@ export const Canvas: Component = () => {
       </div>
       
       {/* Space Info */}
-      <div id="space-info">
-        <span id="space-name">{ctx.session()?.spaceId}</span>
-        <span id="participant-count">{ctx.peers().size} participant{ctx.peers().size !== 1 ? 's' : ''}</span>
+      <div id="space-info" class="fixed top-4 left-4 flex items-center gap-4 py-3 px-5 bg-bg-elevated border border-border rounded-full backdrop-blur-[12px] z-[100]">
+        <span id="space-name" class="font-semibold text-text-primary">{ctx.session()?.spaceId}</span>
+        <span id="participant-count" class="text-sm text-text-muted">{ctx.peers().size} participant{ctx.peers().size !== 1 ? 's' : ''}</span>
       </div>
       
       {/* Minimap */}

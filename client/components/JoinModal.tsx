@@ -141,28 +141,28 @@ export const JoinModal: Component = () => {
   }
   
   return (
-    <div id="join-modal" class="modal">
-      <div class="modal-content">
-        <div class="modal-header">
-          <div class="logo">
-            <img src="/logo.svg" alt="OpenSpatial" class="logo-icon" />
-            <h1>OpenSpatial</h1>
+    <div id="join-modal" class="fixed inset-0 flex items-center justify-center bg-black/80 backdrop-blur-[8px] z-[1000] animate-fade-in">
+      <div class="bg-bg-elevated border border-border rounded-2xl p-10 w-full max-w-[420px] backdrop-blur-[20px] shadow-[var(--shadow-xl),var(--shadow-glow)] animate-slide-up">
+        <div class="text-center mb-8">
+          <div class="flex items-center justify-center gap-3 mb-2">
+            <img src="/logo.svg" alt="OpenSpatial" class="w-12 h-12 animate-float" />
+            <h1 class="text-[2rem] font-bold bg-[linear-gradient(135deg,#6366f1_0%,#8b5cf6_50%,#a855f7_100%)] bg-clip-text text-transparent">OpenSpatial</h1>
           </div>
-          <p class="tagline">A virtual space where distance disappears</p>
+          <p class="text-text-secondary text-sm">A virtual space where distance disappears</p>
         </div>
         
         {/* Space Info */}
-        <div id="space-info-preview" class="space-info-preview">
-          <div class="space-name-display">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <div id="space-info-preview" class="mb-6 p-4 bg-surface border border-border rounded-lg">
+          <div class="flex items-center gap-2 text-lg font-semibold text-text-primary mb-3">
+            <svg class="text-accent" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
               <polyline points="9 22 9 12 15 12 15 22" />
             </svg>
             <span id="space-name-label">{spaceId() || 'Loading...'}</span>
           </div>
-          <div id="space-participants" class="space-participants">
+          <div id="space-participants" class="flex items-center gap-2 mt-0 py-2 px-3 bg-accent/10 border border-accent/30 rounded-md text-sm text-text-secondary">
             <Show when={loading()}>
-              <svg class="spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <svg class="animate-spin-slow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M21 12a9 9 0 1 1-6.219-8.56" />
               </svg>
               <span>Checking who's here...</span>
@@ -173,9 +173,9 @@ export const JoinModal: Component = () => {
               </Show>
               <Show when={participants().length > 0}>
                 <span>{participants().length === 1 ? 'Here now:' : `${participants().length} people here:`}</span>
-                <div class="participant-list">
+                <div class="flex flex-wrap gap-1 mt-1">
                   {participants().map((name) => (
-                    <span class="participant-name">{name}</span>
+                    <span class="py-1 px-2 bg-accent rounded-sm text-xs font-medium text-white">{name}</span>
                   ))}
                 </div>
               </Show>
@@ -185,8 +185,8 @@ export const JoinModal: Component = () => {
         
         {/* Error Message */}
         <Show when={error()}>
-          <div id="join-error" class="join-error">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <div id="join-error" class="mb-4 py-3 px-4 bg-danger/15 border border-danger/50 rounded-md text-danger text-sm flex items-center gap-2">
+            <svg class="shrink-0" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <circle cx="12" cy="12" r="10" />
               <line x1="12" y1="8" x2="12" y2="12" />
               <line x1="12" y1="16" x2="12.01" y2="16" />
@@ -197,8 +197,8 @@ export const JoinModal: Component = () => {
         
         <form id="join-form" onSubmit={handleSubmit}>
           <input type="hidden" id="space-id" value={spaceId()} />
-          <div class="form-group">
-            <label for="username">Your Name</label>
+          <div class="mb-5">
+            <label for="username" class="block text-sm font-medium text-text-secondary mb-2">Your Name</label>
             <input
               type="text"
               id="username"
@@ -207,16 +207,17 @@ export const JoinModal: Component = () => {
               autocomplete="off"
               value={username()}
               onInput={(e) => setUsername(e.currentTarget.value)}
+              class="w-full py-3 px-4 bg-surface border border-border rounded-lg text-text-primary text-base font-[inherit] transition-all duration-(--transition-fast) placeholder:text-text-muted focus:outline-none focus:border-accent focus:shadow-[0_0_0_3px_var(--color-accent-glow)] read-only:bg-white/[0.02] read-only:text-text-secondary read-only:cursor-not-allowed"
             />
           </div>
-          <button type="submit" class="btn btn-primary" disabled={!spaceExists()}>
+          <button type="submit" class="inline-flex items-center justify-center gap-2 py-3 px-6 font-[inherit] text-base font-semibold border-none rounded-lg cursor-pointer transition-all duration-(--transition-fast) w-full p-4 bg-[linear-gradient(135deg,#6366f1_0%,#8b5cf6_50%,#a855f7_100%)] text-white shadow-[var(--shadow-md),0_0_20px_var(--color-accent-glow)] hover:-translate-y-0.5 hover:shadow-[var(--shadow-lg),0_0_30px_var(--color-accent-glow)] active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0" disabled={!spaceExists()}>
             <span>Join Space</span>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M5 12h14M12 5l7 7-7 7" />
             </svg>
           </button>
         </form>
-        <a href="/" class="back-link">
+        <a href="/" class="flex items-center justify-center gap-2 mt-4 text-text-muted text-sm no-underline transition-colors duration-(--transition-fast) hover:text-text-primary">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M19 12H5M12 19l-7-7 7-7" />
           </svg>

@@ -115,9 +115,9 @@ export const ActivityPanel: Component<ActivityPanelProps> = (props) => {
     }
   }
   
-  function getIconClass(eventType: string): string {
-    if (eventType.startsWith('join')) return 'activity-icon-join';
-    if (eventType.startsWith('leave')) return 'activity-icon-leave';
+  function getIconColor(eventType: string): string {
+    if (eventType.startsWith('join')) return 'text-success';
+    if (eventType.startsWith('leave')) return 'text-text-muted';
     return '';
   }
   
@@ -132,32 +132,32 @@ export const ActivityPanel: Component<ActivityPanelProps> = (props) => {
   return (
     <div
       id="activity-panel"
-      class="activity-panel"
+      class="absolute bottom-[calc(100%+12px)] left-1/2 -translate-x-1/2 w-[280px] max-h-[320px] overflow-y-auto bg-bg-elevated border border-border rounded-xl backdrop-blur-[12px] shadow-[var(--shadow-xl),0_0_20px_var(--color-accent-glow)] z-[200] text-sm animate-popover-up"
       classList={{ 'hidden': !props.isOpen }}
       onClick={handlePanelClick}
       onWheel={handleWheel}
     >
-      <div class="activity-header">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <div class="flex items-center gap-2 py-3 px-4 border-b border-border font-medium text-text-secondary">
+        <svg class="text-accent" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <circle cx="12" cy="12" r="10" />
           <polyline points="12 6 12 12 16 14" />
         </svg>
         <span>Recent Activity</span>
       </div>
-      <div class="activity-list">
+      <div class="p-2 max-h-[250px] overflow-y-auto">
         <Show when={activities().length === 0}>
-          <span class="activity-empty">No recent activity</span>
+          <span class="block p-4 text-center text-text-muted italic">No recent activity</span>
         </Show>
         <For each={activities()}>
           {(event) => (
-            <div class={`activity-item activity-${event.event_type}`}>
-              <span class={`activity-icon ${getIconClass(event.event_type)}`}>
+            <div class={`activity-item ${event.event_type} flex items-center gap-2 p-2 rounded-md transition-colors duration-(--transition-fast) hover:bg-surface`}>
+              <span class={`shrink-0 w-[18px] text-center text-xs ${getIconColor(event.event_type)}`}>
                 {getEventIcon(event.event_type)}
               </span>
-              <span class="activity-text">
-                <strong>{event.username}</strong> {getEventAction(event.event_type)}
+              <span class="activity-text flex-1 text-text-secondary overflow-hidden text-ellipsis whitespace-nowrap">
+                <strong class="text-text-primary font-medium">{event.username}</strong> {getEventAction(event.event_type)}
               </span>
-              <span class="activity-time" title={formatFullTime(event.created_at)}>
+              <span class="activity-time shrink-0 text-xs text-text-muted" title={formatFullTime(event.created_at)}>
                 {formatTimeAgo(event.created_at)}
               </span>
             </div>

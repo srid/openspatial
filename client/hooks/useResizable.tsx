@@ -134,7 +134,16 @@ export function useResizable(config: ResizeConfig): ResizeResult {
   }
   
   const ResizeHandle = () => (
-    <div class="resize-handle resize-handle-se" />
+    <div
+      class="resize-handle resize-handle-se absolute bottom-0 right-0 w-5 h-5 cursor-se-resize z-10 flex items-end justify-end p-0.5 opacity-60 hover:opacity-100 transition-opacity"
+      title="Drag to resize"
+    >
+      <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+        <circle cx="8" cy="2" r="1" fill="currentColor" class="text-text-muted" />
+        <circle cx="8" cy="6" r="1" fill="currentColor" class="text-text-muted" />
+        <circle cx="4" cy="6" r="1" fill="currentColor" class="text-text-muted" />
+      </svg>
+    </div>
   );
   
   return {
