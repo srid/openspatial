@@ -7,6 +7,10 @@
 - **Keep the codebase lean.** Don't leave behind scaffolding, commented-out code, or "just in case" abstractions.
 - **DRY (Don't Repeat Yourself), but respect the [Rule of Three](https://en.wikipedia.org/wiki/Rule_of_three_(computer_programming)).** Don't prematurely abstract. Once you do extract, keep it in reusable functions, components, or modules.
 
+## Styling
+
+**Always use Tailwind CSS utility classes** in JSX. Do not write custom CSS in `base.css` unless it's genuinely impossible with utilities (e.g., complex pseudo-element patterns, CodeMirror/third-party overrides). Prefer inline Tailwind over custom classes.
+
 ## Git Workflow
 
 **NEVER commit changes.** The user will handle all git commits. Do not mutate the git repository state (no `git add`, `git commit`, etc).
