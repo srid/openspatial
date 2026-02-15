@@ -20,7 +20,7 @@ ssh root@<server-ip>
 # TURN secret
 openssl rand -hex 32 > /etc/openspatial/turn-secret
 
-# Slack bot token (see README.md for setup)
+# Slack bot token (see docs/slack-notifications.md for setup)
 echo "xoxb-your-bot-token" > /etc/openspatial/slack-bot-token
 
 systemctl restart openspatial coturn
