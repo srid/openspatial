@@ -11,7 +11,7 @@ buildNpmPackage {
 
   src = ./..;
 
-  npmDepsHash = "sha256-BFO/tkogd74hhyoaE/2IsTawAvMzCXKE3otVU01I+pc=";
+  npmDepsHash = "sha256-i1+rVJ/WN3SgSVbjvcrSa2iMS9+PVQjgK+s7zEgXJhA=";
 
   nodejs = nodejs_22;
 

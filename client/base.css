@@ -189,6 +189,7 @@
   /* Collaborative Editor (CodeMirror 6) */
   .collab-editor {
     height: 100%;
+    cursor: text;
   }
 
   .collab-editor .cm-editor {
@@ -210,6 +211,74 @@
   .collab-editor .cm-line {
     padding: 0 2px;
   }
+
+  /* Markdown: Headings */
+  .collab-editor .tok-heading1 {
+    font-size: 1.6em;
+    font-weight: 700;
+    color: #c4b5fd;
+  }
+  .collab-editor .tok-heading2 {
+    font-size: 1.35em;
+    font-weight: 600;
+    color: #a5b4fc;
+  }
+  .collab-editor .tok-heading3 {
+    font-size: 1.15em;
+    font-weight: 600;
+    color: #93c5fd;
+  }
+  .collab-editor .tok-heading4,
+  .collab-editor .tok-heading5,
+  .collab-editor .tok-heading6 {
+    font-size: 1.05em;
+    font-weight: 600;
+    color: #7dd3fc;
+  }
+
+  /* Markdown: Heading markers (# ## ###) */
+  .collab-editor .tok-heading .tok-meta {
+    color: oklch(1 0 0 / 0.3);
+  }
+
+  /* Markdown: Bold & Italic */
+  .collab-editor .tok-strong { font-weight: 700; }
+  .collab-editor .tok-emphasis { font-style: italic; }
+  .collab-editor .tok-strikethrough { text-decoration: line-through; opacity: 0.6; }
+
+  /* Markdown: Inline code */
+  .collab-editor .tok-monospace {
+    background: oklch(1 0 0 / 0.08);
+    border-radius: 3px;
+    padding: 1px 4px;
+    font-family: 'JetBrains Mono', 'Fira Code', 'SF Mono', monospace;
+    font-size: 0.9em;
+  }
+
+  /* Markdown: Links */
+  .collab-editor .tok-link { color: #60a5fa; }
+  .collab-editor .tok-url { color: #60a5fa; opacity: 0.7; text-decoration: underline; }
+
+  /* Markdown: Lists & quotes */
+  .collab-editor .tok-meta { color: oklch(1 0 0 / 0.4); }
+  .collab-editor .tok-quote { color: oklch(1 0 0 / 0.6); border-left: 2px solid oklch(1 0 0 / 0.2); padding-left: 8px; }
+
+  /* Markdown: Horizontal rule */
+  .collab-editor .tok-contentSeparator { color: oklch(1 0 0 / 0.3); }
+
+  /* Syntax highlighting for fenced code blocks */
+  .collab-editor .tok-keyword { color: #c084fc; }
+  .collab-editor .tok-string, .collab-editor .tok-string2 { color: #86efac; }
+  .collab-editor .tok-comment { color: oklch(1 0 0 / 0.35); font-style: italic; }
+  .collab-editor .tok-number { color: #fbbf24; }
+  .collab-editor .tok-operator { color: #67e8f9; }
+  .collab-editor .tok-variableName { color: #f0abfc; }
+  .collab-editor .tok-typeName { color: #7dd3fc; }
+  .collab-editor .tok-bool { color: #fbbf24; }
+  .collab-editor .tok-propertyName { color: #93c5fd; }
+  .collab-editor .tok-punctuation { color: oklch(1 0 0 / 0.5); }
+  .collab-editor .tok-definition { color: #67e8f9; }
+  .collab-editor .tok-atom { color: #fbbf24; }
 
   /* Remote cursor labels */
   .collab-editor .cm-ySelectionInfo {

@@ -8,8 +8,47 @@ import { useSpace } from '@/context/SpaceContext';
 import { EditorState } from '@codemirror/state';
 import { EditorView, keymap } from '@codemirror/view';
 import { defaultKeymap, history, historyKeymap } from '@codemirror/commands';
+import { markdown } from '@codemirror/lang-markdown';
+import { languages } from '@codemirror/language-data';
+import { syntaxHighlighting, HighlightStyle } from '@codemirror/language';
+import { tags } from '@lezer/highlight';
 import { yCollab } from 'y-codemirror.next';
 import * as Y from 'yjs';
+
+// Custom dark-theme highlight style for Markdown + code blocks
+const markdownHighlightStyle = HighlightStyle.define([
+  // Markdown headings
+  { tag: tags.heading1, fontSize: '1.6em', fontWeight: '700', color: '#c4b5fd' },
+  { tag: tags.heading2, fontSize: '1.35em', fontWeight: '600', color: '#a5b4fc' },
+  { tag: tags.heading3, fontSize: '1.15em', fontWeight: '600', color: '#93c5fd' },
+  { tag: tags.heading4, fontSize: '1.05em', fontWeight: '600', color: '#7dd3fc' },
+  { tag: tags.heading5, fontSize: '1.05em', fontWeight: '600', color: '#7dd3fc' },
+  { tag: tags.heading6, fontSize: '1.05em', fontWeight: '600', color: '#7dd3fc' },
+  // Markdown inline formatting
+  { tag: tags.strong, fontWeight: '700' },
+  { tag: tags.emphasis, fontStyle: 'italic' },
+  { tag: tags.strikethrough, textDecoration: 'line-through', opacity: '0.6' },
+  // Markdown meta (markers like #, >, -, *)
+  { tag: tags.meta, color: 'oklch(1 0 0 / 0.35)' },
+  { tag: tags.quote, color: 'oklch(1 0 0 / 0.6)' },
+  { tag: tags.link, color: '#60a5fa' },
+  { tag: tags.url, color: '#60a5fa', textDecoration: 'underline' },
+  { tag: tags.monospace, fontFamily: "'JetBrains Mono', 'Fira Code', 'SF Mono', monospace", fontSize: '0.9em' },
+  { tag: tags.contentSeparator, color: 'oklch(1 0 0 / 0.3)' },
+  // Syntax highlighting for code blocks
+  { tag: tags.keyword, color: '#c084fc' },
+  { tag: tags.string, color: '#86efac' },
+  { tag: tags.comment, color: 'oklch(1 0 0 / 0.35)', fontStyle: 'italic' },
+  { tag: tags.number, color: '#fbbf24' },
+  { tag: tags.operator, color: '#67e8f9' },
+  { tag: tags.variableName, color: '#f0abfc' },
+  { tag: tags.typeName, color: '#7dd3fc' },
+  { tag: tags.bool, color: '#fbbf24' },
+  { tag: tags.propertyName, color: '#93c5fd' },
+  { tag: tags.punctuation, color: 'oklch(1 0 0 / 0.5)' },
+  { tag: tags.definition(tags.variableName), color: '#67e8f9' },
+  { tag: tags.atom, color: '#fbbf24' },
+]);
 
 // Random color palette for remote cursors
 const CURSOR_COLORS = [
@@ -57,6 +96,8 @@ export const CollabEditor: Component<CollabEditorProps> = (props) => {
       extensions: [
         keymap.of([...defaultKeymap, ...historyKeymap]),
         history(),
+        markdown({ codeLanguages: languages }),
+        syntaxHighlighting(markdownHighlightStyle),
         EditorView.lineWrapping,
         yCollab(ytext, awareness, { undoManager }),
         // Minimal dark theme for sticky-note look
