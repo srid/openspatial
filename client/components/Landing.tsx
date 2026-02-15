@@ -85,9 +85,9 @@ export const Landing: Component = () => {
   return (
     <div id="landing-page" class="fixed inset-0 flex items-center justify-center bg-[linear-gradient(135deg,#f0f0ff_0%,#e8e0f0_40%,#ddeeff_100%)] z-[1000] overflow-y-auto p-8">
       <Show when={showBrowserWarning()}>
-        <div class="fixed top-0 left-0 right-0 bg-warning text-black text-center py-2 px-10 z-[9999] font-bold text-sm shadow-md flex items-center justify-center">
+        <div class="browser-warning fixed top-0 left-0 right-0 bg-warning text-black text-center py-2 px-10 z-[9999] font-bold text-sm shadow-md flex items-center justify-center">
           <span>Warning: This application is tested on Chrome only. You may experience issues on other browsers.</span>
-          <button class="absolute right-4 top-1/2 -translate-y-1/2 bg-transparent border-none text-black text-xl leading-none cursor-pointer opacity-60 hover:opacity-100 transition-opacity duration-(--transition-fast)" onClick={() => setShowBrowserWarning(false)}>×</button>
+          <button class="browser-warning-close absolute right-4 top-1/2 -translate-y-1/2 bg-transparent border-none text-black text-xl leading-none cursor-pointer opacity-60 hover:opacity-100 transition-opacity duration-(--transition-fast)" onClick={() => setShowBrowserWarning(false)}>×</button>
         </div>
       </Show>
 
