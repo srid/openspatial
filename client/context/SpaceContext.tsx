@@ -11,6 +11,7 @@ import * as Y from 'yjs';
 import { WebsocketProvider } from 'y-websocket';
 import type { Awareness } from 'y-protocols/awareness';
 import type { PeerState, ScreenShareState, TextNoteState } from '../../shared/yjs-schema';
+import { getTextNoteText, createTextNoteObservers } from '../../shared/yjs-schema';
 import type { ConnectedEvent, SpaceInfoEvent, PeerJoinedEvent, PeerLeftEvent } from '../../shared/types/events';
 
 export type View = 'landing' | 'join' | 'space';
@@ -310,7 +311,7 @@ export const SpaceProvider: ParentComponent = (props) => {
   const [ydocSignal, setYdocSignal] = createSignal<Y.Doc | null>(null);
   const [awarenessSignal, setAwarenessSignal] = createSignal<Awareness | null>(null);
   // Track Y.Text observers so we can clean them up
-  const textContentObservers = new Map<string, () => void>();
+  let contentObservers: ReturnType<typeof createTextNoteObservers> | null = null;
   let ydoc: Y.Doc | null = null;
   let yprovider: WebsocketProvider | null = null;
   let peersMap: Y.Map<PeerState> | null = null;
@@ -324,6 +325,14 @@ export const SpaceProvider: ParentComponent = (props) => {
     
     ydoc = new Y.Doc();
     setYdocSignal(ydoc);
+    
+    contentObservers = createTextNoteObservers(ydoc, (noteId) => {
+      setTextNoteContents(prev => {
+        const next = new Map(prev);
+        next.set(noteId, getTextNoteText(ydoc!, noteId).toString());
+        return next;
+      });
+    });
     
     const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const wsUrl = `${wsProtocol}//${window.location.host}/yjs`;
@@ -359,9 +368,20 @@ export const SpaceProvider: ParentComponent = (props) => {
       // Set up Y.Text observers for new notes, clean up for deleted
       event.changes.keys.forEach((change, key) => {
         if (change.action === 'add') {
-          observeTextNoteContent(key);
+          // Update contents immediately for new notes
+          setTextNoteContents(prev => {
+            const next = new Map(prev);
+            next.set(key, getTextNoteText(ydoc!, key).toString());
+            return next;
+          });
+          contentObservers!.observe(key);
         } else if (change.action === 'delete') {
-          unobserveTextNoteContent(key);
+          contentObservers!.unobserve(key);
+          setTextNoteContents(prev => {
+            const next = new Map(prev);
+            next.delete(key);
+            return next;
+          });
         }
       });
     });
@@ -388,59 +408,22 @@ export const SpaceProvider: ParentComponent = (props) => {
         
         // Set up Y.Text observers for existing notes after initial sync
         textNotesMap!.forEach((_value, key) => {
-          observeTextNoteContent(key);
+          // Update contents immediately
+          setTextNoteContents(prev => {
+            const next = new Map(prev);
+            next.set(key, getTextNoteText(ydoc!, key).toString());
+            return next;
+          });
+          contentObservers!.observe(key);
         });
       }
     });
   }
   
-  /**
-   * Observe a specific text note's Y.Text content and update the reactive signal.
-   */
-  function observeTextNoteContent(noteId: string) {
-    if (!ydoc || textContentObservers.has(noteId)) return;
-    const ytext = ydoc.getText('note:' + noteId);
-    
-    // Update immediately
-    setTextNoteContents(prev => {
-      const next = new Map(prev);
-      next.set(noteId, ytext.toString());
-      return next;
-    });
-    
-    const observer = () => {
-      setTextNoteContents(prev => {
-        const next = new Map(prev);
-        next.set(noteId, ytext.toString());
-        return next;
-      });
-    };
-    ytext.observe(observer);
-    textContentObservers.set(noteId, () => ytext.unobserve(observer));
-  }
-  
-  /**
-   * Stop observing a text note's Y.Text content.
-   */
-  function unobserveTextNoteContent(noteId: string) {
-    const cleanup = textContentObservers.get(noteId);
-    if (cleanup) {
-      cleanup();
-      textContentObservers.delete(noteId);
-    }
-    setTextNoteContents(prev => {
-      const next = new Map(prev);
-      next.delete(noteId);
-      return next;
-    });
-  }
-  
   function disconnectCRDT() {
     // Clean up all Y.Text observers
-    for (const cleanup of textContentObservers.values()) {
-      cleanup();
-    }
-    textContentObservers.clear();
+    contentObservers?.clear();
+    contentObservers = null;
     
     yprovider?.disconnect();
     yprovider?.destroy();
@@ -534,8 +517,7 @@ export const SpaceProvider: ParentComponent = (props) => {
     textNotesMap?.set(noteId, { x, y, width, height, fontSize: 'medium', fontFamily: 'sans', color: '#ffffff' });
     // Initialize Y.Text with content
     if (ydoc && content) {
-      const ytext = ydoc.getText('note:' + noteId);
-      ytext.insert(0, content);
+      getTextNoteText(ydoc, noteId).insert(0, content);
     }
   }
   
@@ -543,7 +525,7 @@ export const SpaceProvider: ParentComponent = (props) => {
     textNotesMap?.delete(noteId);
     // Clean up Y.Text content
     if (ydoc) {
-      const ytext = ydoc.getText('note:' + noteId);
+      const ytext = getTextNoteText(ydoc, noteId);
       if (ytext.length > 0) {
         ytext.delete(0, ytext.length);
       }

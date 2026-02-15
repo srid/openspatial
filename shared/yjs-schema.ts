@@ -52,6 +52,37 @@ export function getTextNoteText(doc: Y.Doc, noteId: string): Y.Text {
   return doc.getText('note:' + noteId);
 }
 
+/**
+ * Manage Y.Text observers for text note content changes.
+ * Shared between server (persistence) and client (reactivity).
+ */
+export function createTextNoteObservers(doc: Y.Doc, onChange: (noteId: string) => void) {
+  const observers = new Map<string, () => void>();
+
+  function observe(noteId: string) {
+    if (observers.has(noteId)) return;
+    const ytext = getTextNoteText(doc, noteId);
+    const handler = () => onChange(noteId);
+    ytext.observe(handler);
+    observers.set(noteId, () => ytext.unobserve(handler));
+  }
+
+  function unobserve(noteId: string) {
+    const cleanup = observers.get(noteId);
+    if (cleanup) {
+      cleanup();
+      observers.delete(noteId);
+    }
+  }
+
+  function clear() {
+    for (const cleanup of observers.values()) cleanup();
+    observers.clear();
+  }
+
+  return { observe, unobserve, clear };
+}
+
 // === Persistence Types ===
 
 export interface Space {

@@ -11,12 +11,8 @@ import * as Y from 'yjs';
 // @ts-expect-error - y-websocket utils has no types
 import { setupWSConnection, docs, getYDoc } from 'y-websocket/bin/utils';
 import { getTextNotes, upsertTextNote, deleteTextNote, getSpace, createSpace } from './db.js';
+import { getTextNoteText, createTextNoteObservers } from '../shared/yjs-schema.js';
 import type { TextNoteState } from '../shared/yjs-schema.js';
-
-interface TextNoteRow extends TextNoteState {
-  id: string;
-  content: string;
-}
 
 import type { ServerConfig } from './config.js';
 
@@ -62,7 +58,7 @@ async function hydrateFromSQLite(doc: Y.Doc, spaceId: string): Promise<void> {
     return;
   }
   
-  const rows = await getTextNotes(spaceId) as TextNoteRow[];
+  const rows = await getTextNotes(spaceId);
   if (rows.length === 0) {
     console.log(`[Yjs] No text notes to hydrate for space ${spaceId}`);
     hydratedDocs.add(doc);
@@ -79,8 +75,7 @@ async function hydrateFromSQLite(doc: Y.Doc, spaceId: string): Promise<void> {
       textNotes.set(id, state);
       // Set content in Y.Text
       if (content) {
-        const ytext = doc.getText('note:' + id);
-        ytext.insert(0, content);
+        getTextNoteText(doc, id).insert(0, content);
       }
     }
   });
@@ -99,26 +94,10 @@ async function observeAndPersist(doc: Y.Doc, spaceId: string): Promise<void> {
   
   const textNotes = doc.getMap<TextNoteState>('textNotes');
   
-  // Track Y.Text observers for content changes
-  const ytextObservers = new Map<string, () => void>();
-  
-  function observeNoteContent(noteId: string) {
-    if (ytextObservers.has(noteId)) return;
-    const ytext = doc.getText('note:' + noteId);
-    const observer = () => {
-      schedulePersist(noteId, 'upsert');
-    };
-    ytext.observe(observer);
-    ytextObservers.set(noteId, () => ytext.unobserve(observer));
-  }
-  
-  function unobserveNoteContent(noteId: string) {
-    const cleanup = ytextObservers.get(noteId);
-    if (cleanup) {
-      cleanup();
-      ytextObservers.delete(noteId);
-    }
-  }
+  // Use shared observer pattern for Y.Text content changes
+  const contentObservers = createTextNoteObservers(doc, (noteId) => {
+    schedulePersist(noteId, 'upsert');
+  });
   
   function schedulePersist(noteId: string, action: 'upsert' | 'delete') {
     if (!pendingWrites.has(spaceId)) {
@@ -128,7 +107,7 @@ async function observeAndPersist(doc: Y.Doc, spaceId: string): Promise<void> {
     
     if (action === 'delete') {
       pending.set(noteId, { action: 'delete' });
-      unobserveNoteContent(noteId);
+      contentObservers.unobserve(noteId);
     } else {
       const value = textNotes.get(noteId);
       if (value) {
@@ -149,9 +128,8 @@ async function observeAndPersist(doc: Y.Doc, spaceId: string): Promise<void> {
         schedulePersist(key, 'delete');
       } else {
         schedulePersist(key, 'upsert');
-        // Start observing Y.Text for new notes
         if (change.action === 'add') {
-          observeNoteContent(key);
+          contentObservers.observe(key);
         }
       }
     });
@@ -159,7 +137,7 @@ async function observeAndPersist(doc: Y.Doc, spaceId: string): Promise<void> {
   
   // Observe existing notes' Y.Text content
   textNotes.forEach((_value, key) => {
-    observeNoteContent(key);
+    contentObservers.observe(key);
   });
 }
 
@@ -179,7 +157,7 @@ async function flushToSQLite(spaceId: string, doc?: Y.Doc): Promise<void> {
       deletes++;
     } else if (change.value) {
       // Read content from Y.Text
-      const content = doc ? doc.getText('note:' + noteId).toString() : '';
+      const content = doc ? getTextNoteText(doc, noteId).toString() : '';
       await upsertTextNote(spaceId, noteId, { ...change.value, content } as any);
       upserts++;
     }

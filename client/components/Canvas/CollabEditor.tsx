@@ -13,6 +13,7 @@ import { languages } from '@codemirror/language-data';
 import { syntaxHighlighting, HighlightStyle } from '@codemirror/language';
 import { tags } from '@lezer/highlight';
 import { yCollab } from 'y-codemirror.next';
+import { getTextNoteText } from '../../../shared/yjs-schema';
 import * as Y from 'yjs';
 
 // Custom dark-theme highlight style for Markdown + code blocks
@@ -77,7 +78,7 @@ export const CollabEditor: Component<CollabEditorProps> = (props) => {
     const awareness = ctx.awareness();
     if (!doc || !awareness || !containerRef) return;
 
-    const ytext = doc.getText('note:' + props.noteId);
+    const ytext = getTextNoteText(doc, props.noteId);
     const undoManager = new Y.UndoManager(ytext);
 
     // Set awareness user info for remote cursor display

@@ -16,17 +16,10 @@ export interface SpacesTable {
 
 // Text elements table — content is stored here for persistence,
 // even though the CRDT uses Y.Text separately from TextNoteState metadata.
-export interface TextElementsTable {
+export interface TextElementsTable extends TextNoteState {
   id: string;
   spaceId: string;
   content: string;
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  fontSize: string;
-  fontFamily: string;
-  color: string;
 }
 
 // Space activity events
