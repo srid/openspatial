@@ -25,6 +25,17 @@ interface Space {
   screenShares: Map<string, ScreenShareData>;
 }
 
+// Grace period for disconnect: delay leave notifications to absorb reconnects
+const DISCONNECT_GRACE_MS = parseInt(process.env.DISCONNECT_GRACE_MS || '15000', 10);
+
+interface PendingLeave {
+  timeout: ReturnType<typeof setTimeout>;
+  spaceId: string;
+  username: string;
+}
+// Key: "spaceId:username"
+const pendingLeaves = new Map<string, PendingLeave>();
+
 /**
  * Clean up a peer from the CRDT document when they disconnect.
  * This handles cases like browser refresh where client-side cleanup doesn't run.
@@ -97,6 +108,15 @@ export function attachSignaling(io: Server): void {
       currentUsername = username;
       socket.join(spaceId);
 
+      // Cancel any pending leave for this user in this space (reconnect within grace period)
+      const pendingKey = `${spaceId}:${username}`;
+      const pendingLeave = pendingLeaves.get(pendingKey);
+      if (pendingLeave) {
+        clearTimeout(pendingLeave.timeout);
+        pendingLeaves.delete(pendingKey);
+        console.log(`[Signaling] ${username} reconnected to ${spaceId} within grace period — leave cancelled`);
+      }
+
       const space = getSpace(spaceId);
       const wasEmpty = space.peers.size === 0;
       const position = {
@@ -127,12 +147,16 @@ export function attachSignaling(io: Server): void {
 
       console.log(`[Signaling] ${username} joined space ${spaceId} (${space.peers.size} peers)`);
       // Record space event and notify
-      if (wasEmpty) {
+      // If there was a pending leave that we just cancelled, treat this as a regular join
+      // (the space never truly went empty from the notification perspective)
+      if (wasEmpty && !pendingLeave) {
         recordSpaceEvent(spaceId, 'join_first', username);
         notifySpaceActive(spaceId, username);
       } else {
         recordSpaceEvent(spaceId, 'join', username);
-        notifyUserJoined(spaceId, username);
+        if (!pendingLeave) {
+          notifyUserJoined(spaceId, username);
+        }
       }
       
       // Push recent activity to ALL users in the space (including existing users)
@@ -214,24 +238,43 @@ export function attachSignaling(io: Server): void {
           // Clean up CRDT - remove peer and their screen shares from Yjs document
           cleanupCRDTOnDisconnect(currentSpace, peerId);
           
+          // Broadcast peer-left immediately so the UI stays responsive
           socket.to(currentSpace).emit('peer-left', { peerId });
           console.log(`[Signaling] ${currentUsername} left space ${currentSpace} (${space.peers.size} peers)`);
           
-          // Record leave event
-          if (space.peers.size === 0) {
-            recordSpaceEvent(currentSpace, 'leave_last', currentUsername || 'unknown');
-            notifySpaceInactive(currentSpace);
-            spaces.delete(currentSpace);
-            console.log(`[Signaling] Space ${currentSpace} deleted (empty)`);
-          } else {
-            recordSpaceEvent(currentSpace, 'leave', currentUsername || 'unknown');
-            notifyUserLeft(currentSpace, currentUsername || 'unknown');
-            // Push updated activity to remaining peers
-            const spaceIdForActivity = currentSpace;
-            getRecentActivity(currentSpace).then((events) => {
-              socket.to(spaceIdForActivity).emit('space-activity', { spaceId: spaceIdForActivity, events });
-            });
+          // Defer notification side-effects behind a grace period
+          // to absorb transient connection drops (reconnects cancel the pending leave)
+          const username = currentUsername || 'unknown';
+          const spaceId = currentSpace;
+          const pendingKey = `${spaceId}:${username}`;
+          
+          // Cancel any existing pending leave for this user (shouldn't happen, but be safe)
+          const existing = pendingLeaves.get(pendingKey);
+          if (existing) {
+            clearTimeout(existing.timeout);
           }
+          
+          const timeout = setTimeout(() => {
+            pendingLeaves.delete(pendingKey);
+            
+            // Re-check the space state — another user may have joined during the grace period
+            const currentSpaceState = spaces.get(spaceId);
+            if (!currentSpaceState || currentSpaceState.peers.size === 0) {
+              recordSpaceEvent(spaceId, 'leave_last', username);
+              notifySpaceInactive(spaceId);
+              spaces.delete(spaceId);
+              console.log(`[Signaling] Space ${spaceId} deleted (empty after grace period)`);
+            } else {
+              recordSpaceEvent(spaceId, 'leave', username);
+              notifyUserLeft(spaceId, username);
+              // Push updated activity to remaining peers
+              getRecentActivity(spaceId).then((events) => {
+                io.to(spaceId).emit('space-activity', { spaceId, events });
+              });
+            }
+          }, DISCONNECT_GRACE_MS);
+          
+          pendingLeaves.set(pendingKey, { timeout, spaceId, username });
         }
       }
     });
