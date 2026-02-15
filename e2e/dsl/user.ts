@@ -263,8 +263,6 @@ export class UserImpl implements User {
     await option.click({ force: true });
   }
 
-
-
   async deleteTextNote(): Promise<void> {
     // Since notes are ownerless, just get the first/most recent text note
     const note = this.page.locator('.text-note').first();

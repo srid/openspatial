@@ -236,8 +236,6 @@ export const TextNote: Component<TextNoteProps> = (props) => {
                 </Show>
               </div>
               
-
-              
               {/* Close Button */}
               <button class="text-note-close flex items-center justify-center w-6 h-6 bg-transparent border-none rounded-sm text-text-muted cursor-pointer transition-all duration-(--transition-fast) hover:bg-danger/20 hover:text-danger" onClick={handleClose} title="Delete note">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -252,7 +250,6 @@ export const TextNote: Component<TextNoteProps> = (props) => {
               noteId={props.noteId}
               fontSize={FONT_SIZES[n().fontSize || 'medium']}
               fontFamily={FONT_FAMILIES[n().fontFamily || 'sans']}
-
             />
           </div>
           <resizable.ResizeHandle />
@@ -261,4 +258,3 @@ export const TextNote: Component<TextNoteProps> = (props) => {
     </Show>
   );
 };
-

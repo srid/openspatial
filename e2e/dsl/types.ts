@@ -90,7 +90,6 @@ export interface User {
   setTextNoteFontSize(size: 'small' | 'medium' | 'large'): Promise<void>;
   setTextNoteFontFamily(family: 'sans' | 'serif' | 'mono'): Promise<void>;
 
-
   // Queries
   waitForUser(name: string): Promise<void>;
   waitForScreenShare(owner: string): Promise<void>;

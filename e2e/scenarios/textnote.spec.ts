@@ -224,5 +224,3 @@ scenario('text note font-family syncs to other users', 'note-fontfamily-sync', a
     return s.fontFamily;
   }, { timeout: 5000 }).toBe('mono');
 });
-
-
