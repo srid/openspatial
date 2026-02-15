@@ -8,6 +8,9 @@ A virtual space where distance disappears — spatial audio and shared canvas fo
 
 Live demo: https://spatial.srid.ca/s/demo
 
+> [!TIP]
+> Want to use [spatial.srid.ca](https://spatial.srid.ca/) for your spaces? [Contact me](https://x.com/sridca)!
+
 ## Quick Start
 
 **Run instantly with Nix:**
