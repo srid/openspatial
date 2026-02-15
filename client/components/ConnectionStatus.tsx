@@ -26,7 +26,7 @@ export const ConnectionStatus: Component = () => {
   
   const stateClasses = () => {
     const state = ctx.connectionState();
-    if (state === 'disconnected') return 'bg-[rgba(239,68,68,0.9)] border border-danger text-white shadow-[0_0_20px_rgba(239,68,68,0.4)] animate-[pulse-conn_2s_ease-in-out_infinite]';
+    if (state === 'disconnected') return 'bg-[rgba(239,68,68,0.9)] border border-danger text-white shadow-[0_0_20px_rgba(239,68,68,0.4)] animate-pulse-conn';
     if (state === 'reconnecting') return 'bg-[rgba(245,158,11,0.9)] border border-warning text-white shadow-[0_0_20px_rgba(245,158,11,0.4)]';
     if (state === 'connected') return 'bg-[rgba(34,197,94,0.3)] border border-[rgba(34,197,94,0.5)] text-success p-2 opacity-70 justify-center gap-0 group hover:bg-[rgba(34,197,94,0.9)] hover:text-white hover:py-3 hover:px-5 hover:opacity-100 hover:shadow-[0_0_20px_rgba(34,197,94,0.4)]';
     return '';

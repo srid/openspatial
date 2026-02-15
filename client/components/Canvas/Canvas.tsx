@@ -208,7 +208,7 @@ export const Canvas: Component = () => {
   
   return (
     <div id="canvas-container" ref={containerRef} class="fixed inset-0 overflow-hidden cursor-grab active:cursor-grabbing">
-      <div id="space" ref={spaceRef} class="absolute w-[4000px] h-[4000px] left-0 top-0 origin-top-left space-background" style={{ transform: transform() }}>
+      <div id="space" ref={spaceRef} class="absolute w-[4000px] h-[4000px] left-0 top-0 origin-top-left" style={{ transform: transform(), background: 'radial-gradient(ellipse 600px 400px at 10% 20%, rgba(167, 139, 250, 0.15) 0%, transparent 70%), radial-gradient(ellipse 500px 500px at 85% 15%, rgba(129, 230, 217, 0.12) 0%, transparent 60%), radial-gradient(ellipse 700px 350px at 70% 60%, rgba(253, 186, 116, 0.1) 0%, transparent 65%), radial-gradient(ellipse 450px 600px at 20% 75%, rgba(147, 197, 253, 0.12) 0%, transparent 60%), radial-gradient(ellipse 550px 450px at 55% 35%, rgba(249, 168, 212, 0.08) 0%, transparent 55%), radial-gradient(ellipse 400px 500px at 90% 80%, rgba(134, 239, 172, 0.1) 0%, transparent 60%), repeating-linear-gradient(0deg, transparent, transparent 99px, rgba(255, 255, 255, 0.03) 99px, rgba(255, 255, 255, 0.03) 100px), repeating-linear-gradient(90deg, transparent, transparent 99px, rgba(255, 255, 255, 0.03) 99px, rgba(255, 255, 255, 0.03) 100px), linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #1a1a2e 100%)' }}>
         {/* Avatars */}
         <For each={peerIds()}>
           {(peerId) => (

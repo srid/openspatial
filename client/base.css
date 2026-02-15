@@ -42,9 +42,10 @@
   /* Avatar */
   --avatar-size: 120px;
 
-  /* Animations */
+  /* Animations — keyframes defined below in @layer base */
   --animate-spin-slow: spin 1s linear infinite;
   --animate-pulse-badge: pulse-badge 2s ease-in-out infinite;
+  --animate-pulse-conn: pulse-conn 2s ease-in-out infinite;
   --animate-popover-in: popover-in 150ms ease-out;
   --animate-popover-up: popover-up 150ms ease-out;
   --animate-fade-in: fade-in 200ms ease;
@@ -53,29 +54,7 @@
 }
 
 @layer base {
-  *, *::before, *::after {
-    box-sizing: border-box;
-    margin: 0;
-    padding: 0;
-  }
-
-  html, body {
-    height: 100%;
-    overflow: hidden;
-  }
-
-  body {
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-    font-size: 1rem;
-    color: var(--color-text-primary);
-    background: radial-gradient(ellipse at center, #1a1a2e 0%, #0a0a0f 70%);
-    background-color: var(--color-bg-primary);
-    line-height: 1.5;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-  }
-
-  /* Keyframes */
+  /* Keyframes — required by --animate-* tokens above */
   @keyframes spin {
     from { transform: rotate(0deg); }
     to { transform: rotate(360deg); }
@@ -89,10 +68,6 @@
   @keyframes pulse-conn {
     0%, 100% { box-shadow: 0 0 20px rgba(239, 68, 68, 0.4); }
     50% { box-shadow: 0 0 30px rgba(239, 68, 68, 0.6); }
-  }
-
-  .hidden {
-    display: none !important;
   }
 
   @keyframes popover-in {
@@ -117,40 +92,6 @@
     }
   }
 
-  /* Resize handle grip pattern - too complex for utilities */
-  .resize-grip::before {
-    content: '';
-    position: absolute;
-    bottom: 3px;
-    right: 3px;
-    width: 10px;
-    height: 10px;
-    background: linear-gradient(135deg,
-      transparent 0%,
-      transparent 50%,
-      var(--color-text-muted) 50%,
-      var(--color-text-muted) 60%,
-      transparent 60%,
-      transparent 70%,
-      var(--color-text-muted) 70%,
-      var(--color-text-muted) 80%,
-      transparent 80%,
-      transparent 90%,
-      var(--color-text-muted) 90%
-    );
-    opacity: 0.6;
-    transition: opacity var(--transition-fast);
-  }
-
-  .resize-grip:hover::before {
-    opacity: 1;
-  }
-
-  /* Avatar video mirror for self-view */
-  .avatar-mirror video {
-    transform: scaleX(-1);
-  }
-
   @keyframes fade-in {
     from { opacity: 0; }
     to { opacity: 1; }
@@ -172,21 +113,8 @@
     50% { transform: translateY(-5px); }
   }
 
-  /* Canvas space background - complex multi-gradient */
-  .space-background {
-    background:
-      radial-gradient(ellipse 600px 400px at 10% 20%, rgba(167, 139, 250, 0.15) 0%, transparent 70%),
-      radial-gradient(ellipse 500px 500px at 85% 15%, rgba(129, 230, 217, 0.12) 0%, transparent 60%),
-      radial-gradient(ellipse 700px 350px at 70% 60%, rgba(253, 186, 116, 0.1) 0%, transparent 65%),
-      radial-gradient(ellipse 450px 600px at 20% 75%, rgba(147, 197, 253, 0.12) 0%, transparent 60%),
-      radial-gradient(ellipse 550px 450px at 55% 35%, rgba(249, 168, 212, 0.08) 0%, transparent 55%),
-      radial-gradient(ellipse 400px 500px at 90% 80%, rgba(134, 239, 172, 0.1) 0%, transparent 60%),
-      repeating-linear-gradient(0deg, transparent, transparent 99px, rgba(255, 255, 255, 0.03) 99px, rgba(255, 255, 255, 0.03) 100px),
-      repeating-linear-gradient(90deg, transparent, transparent 99px, rgba(255, 255, 255, 0.03) 99px, rgba(255, 255, 255, 0.03) 100px),
-      linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #1a1a2e 100%);
-  }
-
-  /* Collaborative Editor (CodeMirror 6) */
+  /* CodeMirror 6 overrides — these target third-party internal classes
+     (.cm-editor, .cm-content, .tok-*) that cannot be styled with Tailwind utilities. */
   .collab-editor {
     height: 100%;
     cursor: text;
@@ -290,4 +218,3 @@
     z-index: 100;
   }
 }
-
