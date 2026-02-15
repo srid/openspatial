@@ -11,10 +11,18 @@ scenario('status updates sync', 'status-sync', async ({ createUser }) => {
 
   await alice.setStatus('BRB ~10 mins');
   expect(await alice.avatarOf('Alice').status()).toBe('BRB ~10 mins');
-  expect(await bob.avatarOf('Alice').status()).toBe('BRB ~10 mins');
+
+  // Wait for CRDT sync to Bob
+  await expect.poll(async () => {
+    return await bob.avatarOf('Alice').status();
+  }, { timeout: 5000 }).toBe('BRB ~10 mins');
 
   await alice.clearStatus();
-  expect(await bob.avatarOf('Alice').status()).toBeNull();
+
+  // Wait for clear to propagate
+  await expect.poll(async () => {
+    return await bob.avatarOf('Alice').status();
+  }, { timeout: 5000 }).toBeNull();
 });
 
 scenario('late-joiner sees status', 'status-late', async ({ createUser }) => {
@@ -23,7 +31,9 @@ scenario('late-joiner sees status', 'status-late', async ({ createUser }) => {
 
   const bob = await createUser('Bob').join();
   await bob.waitForUser('Alice');
-  expect(await bob.avatarOf('Alice').status()).toBe('In a meeting');
+  await expect.poll(async () => {
+    return await bob.avatarOf('Alice').status();
+  }, { timeout: 5000 }).toBe('In a meeting');
 });
 
 scenario('late-joiner sees muted', 'muted-late', async ({ createUser }) => {
