@@ -89,7 +89,6 @@ export interface User {
   resizeTextNote(size: Size): Promise<void>;
   setTextNoteFontSize(size: 'small' | 'medium' | 'large'): Promise<void>;
   setTextNoteFontFamily(family: 'sans' | 'serif' | 'mono'): Promise<void>;
-  setTextNoteColor(color: string): Promise<void>;
 
   // Queries
   waitForUser(name: string): Promise<void>;
@@ -135,7 +134,6 @@ export interface ScreenShareView {
 export interface TextNoteStyle {
   fontSize: 'small' | 'medium' | 'large';
   fontFamily: 'sans' | 'serif' | 'mono';
-  color: string;
 }
 
 export interface TextNoteView {

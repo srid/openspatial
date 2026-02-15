@@ -1,5 +1,16 @@
 # Claude/Gemini AI Assistant Notes
 
+## Design Principles
+
+- **No backwards compatibility concerns.** This is a greenfield project — break things freely when improving the design.
+- **Aggressively remove unused code.** When removing a feature, delete all related code, types, constants, CSS, and tests. Dead code is a liability.
+- **Keep the codebase lean.** Don't leave behind scaffolding, commented-out code, or "just in case" abstractions.
+- **DRY (Don't Repeat Yourself), but respect the [Rule of Three](https://en.wikipedia.org/wiki/Rule_of_three_(computer_programming)).** Don't prematurely abstract. Once you do extract, keep it in reusable functions, components, or modules.
+
+## Git Workflow
+
+**NEVER commit changes.** The user will handle all git commits. Do not mutate the git repository state (no `git add`, `git commit`, etc).
+
 ## E2E Testing
 
 **ALWAYS use `just e2e-quick` for e2e tests** - not `npx playwright test` directly.
@@ -42,3 +53,5 @@ The only acceptable use of `wait()` is simulating intentional user pauses (e.g.,
 ## Terminal Commands
 
 **Never use `| tail` or `| head`** - run commands directly in terminal so the user can see output in real-time. Use `command_status` to check results after.
+
+**Always use `git --no-pager`** for git commands that produce output (e.g. `git --no-pager diff`, `git --no-pager log`). The default pager will hang.

@@ -110,13 +110,14 @@ export const ControlBar: Component = () => {
     if (!user) return;
     
     const noteId = uuidv4();
+    const sampleMarkdown = `# Welcome\n\nThis note supports **Markdown** as well as _real-time_ collaborative editing!\n\n\`\`\`haskell\nmain = do\n  putStrLn "hello"\n\`\`\`\n`;
     ctx.addTextNote(
       noteId,
-      '',
+      sampleMarkdown,
       user.x + 150,
       user.y - 100,
-      300,
-      200
+      400,
+      350
     );
   }
   

@@ -45,7 +45,7 @@ export const Landing: Component = () => {
 
         {/* Features */}
         <div class="grid grid-cols-2 gap-4 mb-10 max-[480px]:grid-cols-1">
-          <div class="flex items-center gap-3 p-4 bg-surface border border-border rounded-lg transition-all duration-(--transition-fast) hover:bg-surface-hover hover:border-accent hover:-translate-y-0.5">
+          <div class="flex items-center gap-3 p-4 bg-surface border border-border rounded-lg transition-all duration-(--transition-fast) hover:bg-surface-hover hover:border-accent hover:-translate-y-0.5" title="Audio that gets louder or quieter based on how close avatars are — just like real life">
             <svg class="text-accent shrink-0" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
               <circle cx="9" cy="7" r="4" />
@@ -54,14 +54,14 @@ export const Landing: Component = () => {
             </svg>
             <span class="font-medium text-text-primary">Spatial Audio</span>
           </div>
-          <div class="flex items-center gap-3 p-4 bg-surface border border-border rounded-lg transition-all duration-(--transition-fast) hover:bg-surface-hover hover:border-accent hover:-translate-y-0.5">
+          <div class="flex items-center gap-3 p-4 bg-surface border border-border rounded-lg transition-all duration-(--transition-fast) hover:bg-surface-hover hover:border-accent hover:-translate-y-0.5" title="Live webcam feeds shown as draggable avatars on the shared canvas">
             <svg class="text-accent shrink-0" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <polygon points="23 7 16 12 23 17 23 7" />
               <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
             </svg>
             <span class="font-medium text-text-primary">Video Avatars</span>
           </div>
-          <div class="flex items-center gap-3 p-4 bg-surface border border-border rounded-lg transition-all duration-(--transition-fast) hover:bg-surface-hover hover:border-accent hover:-translate-y-0.5">
+          <div class="flex items-center gap-3 p-4 bg-surface border border-border rounded-lg transition-all duration-(--transition-fast) hover:bg-surface-hover hover:border-accent hover:-translate-y-0.5" title="Share your screen as a resizable, draggable window on the canvas">
             <svg class="text-accent shrink-0" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <rect x="2" y="3" width="20" height="14" rx="2" ry="2" />
               <line x1="8" y1="21" x2="16" y2="21" />
@@ -69,12 +69,12 @@ export const Landing: Component = () => {
             </svg>
             <span class="font-medium text-text-primary">Screen Sharing</span>
           </div>
-          <div class="flex items-center gap-3 p-4 bg-surface border border-border rounded-lg transition-all duration-(--transition-fast) hover:bg-surface-hover hover:border-accent hover:-translate-y-0.5">
+          <div class="flex items-center gap-3 p-4 bg-surface border border-border rounded-lg transition-all duration-(--transition-fast) hover:bg-surface-hover hover:border-accent hover:-translate-y-0.5" title="Rich Markdown notes with syntax-highlighted code blocks, edited collaboratively in real time with live cursors">
             <svg class="text-accent shrink-0" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M12 20h9" />
               <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
             </svg>
-            <span class="font-medium text-text-primary">Shared Notes</span>
+            <span class="font-medium text-text-primary">Collaborative Markdown</span>
           </div>
         </div>
 

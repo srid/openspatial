@@ -115,16 +115,16 @@ export async function deleteSpace(id: string): Promise<void> {
 
 // === Text Note Operations ===
 
-export async function getTextNotes(spaceId: string): Promise<(TextNoteState & { id: string })[]> {
+export async function getTextNotes(spaceId: string): Promise<(TextNoteState & { id: string; content: string })[]> {
   const rows = await db
     .selectFrom('text_elements')
     .select(['id', 'content', 'x', 'y', 'width', 'height', 'fontSize', 'fontFamily', 'color'])
     .where('spaceId', '=', spaceId)
     .execute();
-  return rows as (TextNoteState & { id: string })[];
+  return rows as (TextNoteState & { id: string; content: string })[];
 }
 
-export async function upsertTextNote(spaceId: string, id: string, note: TextNoteState): Promise<void> {
+export async function upsertTextNote(spaceId: string, id: string, note: TextNoteState & { content: string }): Promise<void> {
   await db
     .insertInto('text_elements')
     .values({

@@ -291,8 +291,22 @@ export class TextNoteViewImpl implements TextNoteView {
 
   async content(): Promise<string> {
     await expect(this.locator).toBeVisible({ timeout: SYNC_TIMEOUT });
-    const textarea = this.locator.locator('.text-note-textarea');
-    return await textarea.inputValue();
+    const cmContent = this.locator.locator('.cm-content');
+    // Read content from CodeMirror lines, recursively walking Text nodes
+    // but skipping yCollab widget containers
+    return await cmContent.evaluate((el: HTMLElement) => {
+      const SKIP_CLASSES = ['cm-ySelectionInfo', 'cm-ySelectionCaret', 'cm-widgetBuffer'];
+      function extractText(node: Node): string {
+        if (node.nodeType === Node.TEXT_NODE) return node.textContent || '';
+        if (node.nodeType === Node.ELEMENT_NODE) {
+          const elem = node as HTMLElement;
+          if (SKIP_CLASSES.some(cls => elem.classList?.contains(cls))) return '';
+          return Array.from(elem.childNodes).map(extractText).join('');
+        }
+        return '';
+      }
+      return Array.from(el.querySelectorAll('.cm-line')).map(line => extractText(line)).join('\n');
+    }) || '';
   }
 
   async rect(): Promise<Rect> {
@@ -309,32 +323,30 @@ export class TextNoteViewImpl implements TextNoteView {
     }));
   }
 
-  async style(): Promise<{ fontSize: 'small' | 'medium' | 'large'; fontFamily: 'sans' | 'serif' | 'mono'; color: string }> {
+  async style(): Promise<{ fontSize: 'small' | 'medium' | 'large'; fontFamily: 'sans' | 'serif' | 'mono' }> {
     await expect(this.locator).toBeVisible({ timeout: SYNC_TIMEOUT });
     return await this.locator.evaluate((el: HTMLElement) => {
-      const textarea = el.querySelector('.text-note-textarea') as HTMLTextAreaElement;
-      const computedStyle = textarea ? window.getComputedStyle(textarea) : null;
+      const editor = el.querySelector('.collab-editor') as HTMLElement;
+      
+      // Read from CSS custom properties set by CollabEditor
+      const fontSizeVar = editor?.style.getPropertyValue('--note-font-size') || '18px';
+      const fontFamilyVar = editor?.style.getPropertyValue('--note-font-family') || '';
       
       // Reverse map font sizes
       const fontSize = (() => {
-        const size = computedStyle?.fontSize || '18px';
-        if (size === '14px') return 'small';
-        if (size === '24px') return 'large';
+        if (fontSizeVar === '14px') return 'small';
+        if (fontSizeVar === '24px') return 'large';
         return 'medium';
       })();
       
       // Reverse map font families
       const fontFamily = (() => {
-        const family = computedStyle?.fontFamily || '';
-        if (family.includes('Georgia') || family.includes('Times')) return 'serif';
-        if (family.includes('Mono') || family.includes('Consolas') || family.includes('monospace')) return 'mono';
+        if (fontFamilyVar.includes('Georgia') || fontFamilyVar.includes('Times')) return 'serif';
+        if (fontFamilyVar.includes('Mono') || fontFamilyVar.includes('Consolas') || fontFamilyVar.includes('monospace')) return 'mono';
         return 'sans';
       })();
       
-      // Get color from textarea inline style (rgb or hex)
-      const color = textarea?.style.color || '#ffffff';
-      
-      return { fontSize, fontFamily, color };
+      return { fontSize, fontFamily };
     });
   }
 }

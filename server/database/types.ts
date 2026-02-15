@@ -14,10 +14,12 @@ export interface SpacesTable {
   created_at: Generated<string>;
 }
 
-// Use shared TextNoteState and add id + spaceId for DB
+// Text elements table — content is stored here for persistence,
+// even though the CRDT uses Y.Text separately from TextNoteState metadata.
 export interface TextElementsTable extends TextNoteState {
   id: string;
   spaceId: string;
+  content: string;
 }
 
 // Space activity events

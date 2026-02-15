@@ -11,6 +11,7 @@ import * as Y from 'yjs';
 // @ts-expect-error - y-websocket utils has no types
 import { setupWSConnection, docs, getYDoc } from 'y-websocket/bin/utils';
 import { getTextNotes, upsertTextNote, deleteTextNote, getSpace, createSpace } from './db.js';
+import { getTextNoteText, createTextNoteObservers } from '../shared/yjs-schema.js';
 import type { TextNoteState } from '../shared/yjs-schema.js';
 
 import type { ServerConfig } from './config.js';
@@ -69,8 +70,13 @@ async function hydrateFromSQLite(doc: Y.Doc, spaceId: string): Promise<void> {
   // Apply all inserts in a single transaction
   doc.transact(() => {
     for (const note of rows) {
-      const { id, ...state } = note;
+      const { id, content, ...state } = note;
+      // Set metadata in Y.Map (without content)
       textNotes.set(id, state);
+      // Set content in Y.Text
+      if (content) {
+        getTextNoteText(doc, id).insert(0, content);
+      }
     }
   });
   
@@ -88,38 +94,57 @@ async function observeAndPersist(doc: Y.Doc, spaceId: string): Promise<void> {
   
   const textNotes = doc.getMap<TextNoteState>('textNotes');
   
-  textNotes.observe((event) => {
-    // Get or create pending writes for this space
+  // Use shared observer pattern for Y.Text content changes
+  const contentObservers = createTextNoteObservers(doc, (noteId) => {
+    schedulePersist(noteId, 'upsert');
+  });
+  
+  function schedulePersist(noteId: string, action: 'upsert' | 'delete') {
     if (!pendingWrites.has(spaceId)) {
       pendingWrites.set(spaceId, new Map());
     }
     const pending = pendingWrites.get(spaceId)!;
     
+    if (action === 'delete') {
+      pending.set(noteId, { action: 'delete' });
+      contentObservers.unobserve(noteId);
+    } else {
+      const value = textNotes.get(noteId);
+      if (value) {
+        pending.set(noteId, { action: 'upsert', value });
+      }
+    }
+    
+    const existingTimeout = writeTimeouts.get(spaceId);
+    if (existingTimeout) clearTimeout(existingTimeout);
+    writeTimeouts.set(spaceId, setTimeout(() => {
+      flushToSQLite(spaceId, doc);
+    }, DEBOUNCE_MS));
+  }
+  
+  textNotes.observe((event) => {
     event.changes.keys.forEach((change, key) => {
       if (change.action === 'delete') {
-        pending.set(key, { action: 'delete' });
+        schedulePersist(key, 'delete');
       } else {
-        const value = textNotes.get(key);
-        if (value) {
-          pending.set(key, { action: 'upsert', value });
+        schedulePersist(key, 'upsert');
+        if (change.action === 'add') {
+          contentObservers.observe(key);
         }
       }
     });
-    
-    // Debounce writes
-    const existingTimeout = writeTimeouts.get(spaceId);
-    if (existingTimeout) clearTimeout(existingTimeout);
-    
-    writeTimeouts.set(spaceId, setTimeout(() => {
-      flushToSQLite(spaceId);
-    }, DEBOUNCE_MS));
+  });
+  
+  // Observe existing notes' Y.Text content
+  textNotes.forEach((_value, key) => {
+    contentObservers.observe(key);
   });
 }
 
 /**
  * Flush pending writes to SQLite
  */
-async function flushToSQLite(spaceId: string): Promise<void> {
+async function flushToSQLite(spaceId: string, doc?: Y.Doc): Promise<void> {
   const pending = pendingWrites.get(spaceId);
   if (!pending || pending.size === 0) return;
   
@@ -131,7 +156,9 @@ async function flushToSQLite(spaceId: string): Promise<void> {
       await deleteTextNote(noteId);
       deletes++;
     } else if (change.value) {
-      await upsertTextNote(spaceId, noteId, change.value);
+      // Read content from Y.Text
+      const content = doc ? getTextNoteText(doc, noteId).toString() : '';
+      await upsertTextNote(spaceId, noteId, { ...change.value, content } as any);
       upserts++;
     }
   }
@@ -209,7 +236,7 @@ export function attachYjsServer(server: HttpServer | HttpsServer, config: Server
       }
       
       // Flush any pending writes to SQLite
-      await flushToSQLite(spaceId);
+      await flushToSQLite(spaceId, docs.get(spaceId) as Y.Doc | undefined);
       
       // Decrement connection count
       const count = connectionCounts.get(spaceId) || 1;
