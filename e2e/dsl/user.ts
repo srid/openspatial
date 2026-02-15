@@ -234,10 +234,13 @@ export class UserImpl implements User {
   async editTextNote(content: string): Promise<void> {
     // Since notes are ownerless, just get the first/most recent text note
     const note = this.page.locator('.text-note').first();
-    const textarea = note.locator('.text-note-textarea');
-    await textarea.fill(content);
-    // Blur to exit editing mode so CRDT content shows for other users' edits
-    await textarea.blur();
+    const editor = note.locator('.cm-content');
+    // Use force: true because avatars may overlap the text note
+    await editor.click({ force: true });
+    await this.page.keyboard.press('Meta+A');
+    await this.page.keyboard.type(content);
+    // Click outside to blur
+    await this.page.click('.text-note-header', { force: true });
     await this.page.waitForTimeout(SYNC_WAIT);
   }
 
@@ -245,11 +248,11 @@ export class UserImpl implements User {
     const note = this.page.locator('.text-note').first();
     // Click the font size button to open menu
     const fontSizeBtn = note.locator('.text-note-font-size');
-    await fontSizeBtn.click();
+    await fontSizeBtn.click({ force: true });
     // Click the menu option with matching text
     const sizeLabel = size.charAt(0).toUpperCase() + size.slice(1); // 'small' -> 'Small'
     const option = this.page.locator('.text-note-menu-option', { hasText: sizeLabel });
-    await option.click();
+    await option.click({ force: true });
     await this.page.waitForTimeout(SYNC_WAIT);
   }
 
@@ -257,11 +260,11 @@ export class UserImpl implements User {
     const note = this.page.locator('.text-note').first();
     // Click the font family button to open menu
     const fontFamilyBtn = note.locator('.text-note-font-family');
-    await fontFamilyBtn.click();
+    await fontFamilyBtn.click({ force: true });
     // Click the menu option with matching text
     const familyLabels: Record<string, string> = { sans: 'Sans', serif: 'Serif', mono: 'Mono' };
     const option = this.page.locator('.text-note-menu-option', { hasText: familyLabels[family] });
-    await option.click();
+    await option.click({ force: true });
     await this.page.waitForTimeout(SYNC_WAIT);
   }
 
@@ -269,7 +272,7 @@ export class UserImpl implements User {
     const note = this.page.locator('.text-note').first();
     // Click the color button to open menu
     const colorBtn = note.locator('.text-note-color');
-    await colorBtn.click();
+    await colorBtn.click({ force: true });
     // Click the color option - use title attribute which contains the color name
     // Colors: White=#ffffff, Yellow=#fef08a, Cyan=#67e8f9, Pink=#f9a8d4, Green=#86efac
     const colorNames: Record<string, string> = {
@@ -277,7 +280,7 @@ export class UserImpl implements User {
     };
     const colorName = colorNames[color] || 'White';
     const option = this.page.locator(`.text-note-color-option[title="${colorName}"]`);
-    await option.click();
+    await option.click({ force: true });
     await this.page.waitForTimeout(SYNC_WAIT);
   }
 
@@ -427,7 +430,21 @@ export class UserImpl implements User {
     for (let i = 0; i < count; i++) {
       const note = notes.nth(i);
       // Notes are ownerless now
-      const content = await note.locator('.text-note-textarea').first().inputValue() || '';
+      // Read text content from CodeMirror lines, recursively walking Text nodes
+      // but skipping yCollab widget containers
+      const content = await note.locator('.cm-content').first().evaluate((el: HTMLElement) => {
+        const SKIP_CLASSES = ['cm-ySelectionInfo', 'cm-ySelectionCaret', 'cm-widgetBuffer'];
+        function extractText(node: Node): string {
+          if (node.nodeType === Node.TEXT_NODE) return node.textContent || '';
+          if (node.nodeType === Node.ELEMENT_NODE) {
+            const elem = node as HTMLElement;
+            if (SKIP_CLASSES.some(cls => elem.classList?.contains(cls))) return '';
+            return Array.from(elem.childNodes).map(extractText).join('');
+          }
+          return '';
+        }
+        return Array.from(el.querySelectorAll('.cm-line')).map(line => extractText(line)).join('\n');
+      }) || '';
       const rect = await note.evaluate((el: HTMLElement) => ({
         position: {
           x: parseFloat(el.style.left) || 0,

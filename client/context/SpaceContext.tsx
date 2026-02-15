@@ -1,12 +1,15 @@
 /**
- * SpaceContext - Central state and connection management
- * 
- * Connections (signaling, CRDT) are managed here to survive component unmounts.
+ * SpaceContext
+ * Central state manager for OpenSpatial.
+ * Manages Socket.io, CRDT (Yjs), and WebRTC connections.
  */
-import { createContext, useContext, createSignal, createMemo, ParentComponent, onCleanup, Accessor, Setter, batch } from 'solid-js';
-import { io, Socket } from 'socket.io-client';
+import { createContext, useContext, createSignal, createMemo, onCleanup, batch } from 'solid-js';
+import type { Accessor, Setter, ParentComponent } from 'solid-js';
+import { io } from 'socket.io-client';
+import type { Socket } from 'socket.io-client';
 import * as Y from 'yjs';
 import { WebsocketProvider } from 'y-websocket';
+import type { Awareness } from 'y-protocols/awareness';
 import type { PeerState, ScreenShareState, TextNoteState } from '../../shared/yjs-schema';
 import type { ConnectedEvent, SpaceInfoEvent, PeerJoinedEvent, PeerLeftEvent } from '../../shared/types/events';
 
@@ -43,9 +46,12 @@ interface SpaceContextValue {
   crdtSynced: Accessor<boolean>;
   
   // CRDT-derived reactive state
+  ydoc: Accessor<Y.Doc | null>;
+  awareness: Accessor<Awareness | null>;
   peers: Accessor<Map<string, PeerState>>;
   screenShares: Accessor<Map<string, ScreenShareState>>;
   textNotes: Accessor<Map<string, TextNoteState>>;
+  textNoteContents: Accessor<Map<string, string>>;
   
   // Derived state
   participantCount: Accessor<number>;
@@ -94,7 +100,6 @@ interface SpaceContextValue {
   removeTextNote: (noteId: string) => void;
   updateTextNotePosition: (noteId: string, x: number, y: number) => void;
   updateTextNoteSize: (noteId: string, width: number, height: number) => void;
-  updateTextNoteContent: (noteId: string, content: string) => void;
   updateTextNoteStyle: (noteId: string, fontSize: 'small' | 'medium' | 'large', fontFamily: 'sans' | 'serif' | 'mono', color: string) => void;
 }
 
@@ -115,6 +120,7 @@ export const SpaceProvider: ParentComponent = (props) => {
   const [peers, setPeers] = createSignal<Map<string, PeerState>>(new Map());
   const [screenShares, setScreenShares] = createSignal<Map<string, ScreenShareState>>(new Map());
   const [textNotes, setTextNotes] = createSignal<Map<string, TextNoteState>>(new Map());
+  const [textNoteContents, setTextNoteContents] = createSignal<Map<string, string>>(new Map());
   
   // Local media streams (not in CRDT, but needed for rendering)
   const [screenShareStreams, setScreenShareStreams] = createSignal<Map<string, MediaStream>>(new Map());
@@ -301,6 +307,10 @@ export const SpaceProvider: ParentComponent = (props) => {
   }
   
   // --------------- CRDT Management ---------------
+  const [ydocSignal, setYdocSignal] = createSignal<Y.Doc | null>(null);
+  const [awarenessSignal, setAwarenessSignal] = createSignal<Awareness | null>(null);
+  // Track Y.Text observers so we can clean them up
+  const textContentObservers = new Map<string, () => void>();
   let ydoc: Y.Doc | null = null;
   let yprovider: WebsocketProvider | null = null;
   let peersMap: Y.Map<PeerState> | null = null;
@@ -313,10 +323,12 @@ export const SpaceProvider: ParentComponent = (props) => {
     }
     
     ydoc = new Y.Doc();
+    setYdocSignal(ydoc);
     
     const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const wsUrl = `${wsProtocol}//${window.location.host}/yjs`;
     yprovider = new WebsocketProvider(wsUrl, spaceId, ydoc);
+    setAwarenessSignal(yprovider.awareness as Awareness);
     
     peersMap = ydoc.getMap<PeerState>('peers');
     screenSharesMap = ydoc.getMap<ScreenShareState>('screenShares');
@@ -336,13 +348,22 @@ export const SpaceProvider: ParentComponent = (props) => {
       setScreenShares(new Map(screenSharesMap!.entries()));
     });
     
-    textNotesMap.observe(() => {
+    textNotesMap.observe((event) => {
       // Deep-clone to create new object references for SolidJS reactivity
       const clonedMap = new Map<string, TextNoteState>();
       textNotesMap!.forEach((value, key) => {
         clonedMap.set(key, { ...value });
       });
       setTextNotes(clonedMap);
+      
+      // Set up Y.Text observers for new notes, clean up for deleted
+      event.changes.keys.forEach((change, key) => {
+        if (change.action === 'add') {
+          observeTextNoteContent(key);
+        } else if (change.action === 'delete') {
+          unobserveTextNoteContent(key);
+        }
+      });
     });
     
     yprovider.on('status', ({ status }: { status: string }) => {
@@ -364,11 +385,63 @@ export const SpaceProvider: ParentComponent = (props) => {
           setScreenShares(new Map(screenSharesMap!.entries()));
           setTextNotes(clonedTextNotes);
         });
+        
+        // Set up Y.Text observers for existing notes after initial sync
+        textNotesMap!.forEach((_value, key) => {
+          observeTextNoteContent(key);
+        });
       }
     });
   }
   
+  /**
+   * Observe a specific text note's Y.Text content and update the reactive signal.
+   */
+  function observeTextNoteContent(noteId: string) {
+    if (!ydoc || textContentObservers.has(noteId)) return;
+    const ytext = ydoc.getText('note:' + noteId);
+    
+    // Update immediately
+    setTextNoteContents(prev => {
+      const next = new Map(prev);
+      next.set(noteId, ytext.toString());
+      return next;
+    });
+    
+    const observer = () => {
+      setTextNoteContents(prev => {
+        const next = new Map(prev);
+        next.set(noteId, ytext.toString());
+        return next;
+      });
+    };
+    ytext.observe(observer);
+    textContentObservers.set(noteId, () => ytext.unobserve(observer));
+  }
+  
+  /**
+   * Stop observing a text note's Y.Text content.
+   */
+  function unobserveTextNoteContent(noteId: string) {
+    const cleanup = textContentObservers.get(noteId);
+    if (cleanup) {
+      cleanup();
+      textContentObservers.delete(noteId);
+    }
+    setTextNoteContents(prev => {
+      const next = new Map(prev);
+      next.delete(noteId);
+      return next;
+    });
+  }
+  
   function disconnectCRDT() {
+    // Clean up all Y.Text observers
+    for (const cleanup of textContentObservers.values()) {
+      cleanup();
+    }
+    textContentObservers.clear();
+    
     yprovider?.disconnect();
     yprovider?.destroy();
     ydoc?.destroy();
@@ -379,6 +452,8 @@ export const SpaceProvider: ParentComponent = (props) => {
     screenSharesMap = null;
     textNotesMap = null;
     
+    setYdocSignal(null);
+    setAwarenessSignal(null);
     setCrdtSynced(false);
   }
   
@@ -456,11 +531,23 @@ export const SpaceProvider: ParentComponent = (props) => {
   }
   
   function addTextNote(noteId: string, content: string, x: number, y: number, width: number, height: number) {
-    textNotesMap?.set(noteId, { content, x, y, width, height, fontSize: 'medium', fontFamily: 'sans', color: '#ffffff' });
+    textNotesMap?.set(noteId, { x, y, width, height, fontSize: 'medium', fontFamily: 'sans', color: '#ffffff' });
+    // Initialize Y.Text with content
+    if (ydoc && content) {
+      const ytext = ydoc.getText('note:' + noteId);
+      ytext.insert(0, content);
+    }
   }
   
   function removeTextNote(noteId: string) {
     textNotesMap?.delete(noteId);
+    // Clean up Y.Text content
+    if (ydoc) {
+      const ytext = ydoc.getText('note:' + noteId);
+      if (ytext.length > 0) {
+        ytext.delete(0, ytext.length);
+      }
+    }
   }
   
   function updateTextNotePosition(noteId: string, x: number, y: number) {
@@ -470,12 +557,7 @@ export const SpaceProvider: ParentComponent = (props) => {
     }
   }
   
-  function updateTextNoteContent(noteId: string, content: string) {
-    const note = textNotesMap?.get(noteId);
-    if (note) {
-      textNotesMap?.set(noteId, { ...note, content });
-    }
-  }
+  // Note: updateTextNoteContent removed — content is now edited via CodeMirror → Y.Text directly
   
   function updateTextNoteSize(noteId: string, width: number, height: number) {
     const note = textNotesMap?.get(noteId);
@@ -761,9 +843,12 @@ export const SpaceProvider: ParentComponent = (props) => {
     setSession,
     connectionState,
     crdtSynced,
+    ydoc: ydocSignal,
+    awareness: awarenessSignal,
     peers,
     screenShares,
     textNotes,
+    textNoteContents,
     participantCount,
     spaceId,
     connectSignaling,
@@ -786,7 +871,6 @@ export const SpaceProvider: ParentComponent = (props) => {
     removeTextNote,
     updateTextNotePosition,
     updateTextNoteSize,
-    updateTextNoteContent,
     updateTextNoteStyle,
     screenShareStreams,
     setScreenShareStream,

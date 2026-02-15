@@ -185,4 +185,40 @@
       repeating-linear-gradient(90deg, transparent, transparent 99px, rgba(255, 255, 255, 0.03) 99px, rgba(255, 255, 255, 0.03) 100px),
       linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #1a1a2e 100%);
   }
+
+  /* Collaborative Editor (CodeMirror 6) */
+  .collab-editor {
+    height: 100%;
+  }
+
+  .collab-editor .cm-editor {
+    height: 100%;
+    background: transparent;
+  }
+
+  .collab-editor .cm-scroller {
+    overflow: auto;
+  }
+
+  .collab-editor .cm-content {
+    font-size: var(--note-font-size, 18px);
+    font-family: var(--note-font-family, 'Inter', -apple-system, BlinkMacSystemFont, sans-serif);
+    color: var(--note-color, #ffffff);
+    line-height: 1.6;
+  }
+
+  .collab-editor .cm-line {
+    padding: 0 2px;
+  }
+
+  /* Remote cursor labels */
+  .collab-editor .cm-ySelectionInfo {
+    font-size: 11px;
+    font-family: 'Inter', sans-serif;
+    padding: 2px 6px;
+    border-radius: 4px;
+    opacity: 0.85;
+    z-index: 100;
+  }
 }
+

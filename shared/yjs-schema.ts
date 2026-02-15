@@ -31,7 +31,6 @@ export function getScreenSharesMap(doc: Y.Doc): Y.Map<ScreenShareState> {
 }
 
 export interface TextNoteState {
-  content: string;
   x: number;
   y: number;
   width: number;
@@ -43,6 +42,14 @@ export interface TextNoteState {
 
 export function getTextNotesMap(doc: Y.Doc): Y.Map<TextNoteState> {
   return doc.getMap('textNotes');
+}
+
+/**
+ * Get the Y.Text for a specific text note's content.
+ * Each note has its own Y.Text keyed by 'note:<noteId>'.
+ */
+export function getTextNoteText(doc: Y.Doc, noteId: string): Y.Text {
+  return doc.getText('note:' + noteId);
 }
 
 // === Persistence Types ===

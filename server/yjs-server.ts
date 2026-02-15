@@ -13,6 +13,11 @@ import { setupWSConnection, docs, getYDoc } from 'y-websocket/bin/utils';
 import { getTextNotes, upsertTextNote, deleteTextNote, getSpace, createSpace } from './db.js';
 import type { TextNoteState } from '../shared/yjs-schema.js';
 
+interface TextNoteRow extends TextNoteState {
+  id: string;
+  content: string;
+}
+
 // Environment config
 const AUTO_CREATE_SPACES = process.env.AUTO_CREATE_SPACES === 'true';
 
@@ -58,7 +63,7 @@ async function hydrateFromSQLite(doc: Y.Doc, spaceId: string): Promise<void> {
     return;
   }
   
-  const rows = await getTextNotes(spaceId);
+  const rows = await getTextNotes(spaceId) as TextNoteRow[];
   if (rows.length === 0) {
     console.log(`[Yjs] No text notes to hydrate for space ${spaceId}`);
     hydratedDocs.add(doc);
@@ -70,8 +75,14 @@ async function hydrateFromSQLite(doc: Y.Doc, spaceId: string): Promise<void> {
   // Apply all inserts in a single transaction
   doc.transact(() => {
     for (const note of rows) {
-      const { id, ...state } = note;
+      const { id, content, ...state } = note;
+      // Set metadata in Y.Map (without content)
       textNotes.set(id, state);
+      // Set content in Y.Text
+      if (content) {
+        const ytext = doc.getText('note:' + id);
+        ytext.insert(0, content);
+      }
     }
   });
   
@@ -89,38 +100,74 @@ async function observeAndPersist(doc: Y.Doc, spaceId: string): Promise<void> {
   
   const textNotes = doc.getMap<TextNoteState>('textNotes');
   
-  textNotes.observe((event) => {
-    // Get or create pending writes for this space
+  // Track Y.Text observers for content changes
+  const ytextObservers = new Map<string, () => void>();
+  
+  function observeNoteContent(noteId: string) {
+    if (ytextObservers.has(noteId)) return;
+    const ytext = doc.getText('note:' + noteId);
+    const observer = () => {
+      schedulePersist(noteId, 'upsert');
+    };
+    ytext.observe(observer);
+    ytextObservers.set(noteId, () => ytext.unobserve(observer));
+  }
+  
+  function unobserveNoteContent(noteId: string) {
+    const cleanup = ytextObservers.get(noteId);
+    if (cleanup) {
+      cleanup();
+      ytextObservers.delete(noteId);
+    }
+  }
+  
+  function schedulePersist(noteId: string, action: 'upsert' | 'delete') {
     if (!pendingWrites.has(spaceId)) {
       pendingWrites.set(spaceId, new Map());
     }
     const pending = pendingWrites.get(spaceId)!;
     
+    if (action === 'delete') {
+      pending.set(noteId, { action: 'delete' });
+      unobserveNoteContent(noteId);
+    } else {
+      const value = textNotes.get(noteId);
+      if (value) {
+        pending.set(noteId, { action: 'upsert', value });
+      }
+    }
+    
+    const existingTimeout = writeTimeouts.get(spaceId);
+    if (existingTimeout) clearTimeout(existingTimeout);
+    writeTimeouts.set(spaceId, setTimeout(() => {
+      flushToSQLite(spaceId, doc);
+    }, DEBOUNCE_MS));
+  }
+  
+  textNotes.observe((event) => {
     event.changes.keys.forEach((change, key) => {
       if (change.action === 'delete') {
-        pending.set(key, { action: 'delete' });
+        schedulePersist(key, 'delete');
       } else {
-        const value = textNotes.get(key);
-        if (value) {
-          pending.set(key, { action: 'upsert', value });
+        schedulePersist(key, 'upsert');
+        // Start observing Y.Text for new notes
+        if (change.action === 'add') {
+          observeNoteContent(key);
         }
       }
     });
-    
-    // Debounce writes
-    const existingTimeout = writeTimeouts.get(spaceId);
-    if (existingTimeout) clearTimeout(existingTimeout);
-    
-    writeTimeouts.set(spaceId, setTimeout(() => {
-      flushToSQLite(spaceId);
-    }, DEBOUNCE_MS));
+  });
+  
+  // Observe existing notes' Y.Text content
+  textNotes.forEach((_value, key) => {
+    observeNoteContent(key);
   });
 }
 
 /**
  * Flush pending writes to SQLite
  */
-async function flushToSQLite(spaceId: string): Promise<void> {
+async function flushToSQLite(spaceId: string, doc?: Y.Doc): Promise<void> {
   const pending = pendingWrites.get(spaceId);
   if (!pending || pending.size === 0) return;
   
@@ -132,7 +179,9 @@ async function flushToSQLite(spaceId: string): Promise<void> {
       await deleteTextNote(noteId);
       deletes++;
     } else if (change.value) {
-      await upsertTextNote(spaceId, noteId, change.value);
+      // Read content from Y.Text
+      const content = doc ? doc.getText('note:' + noteId).toString() : '';
+      await upsertTextNote(spaceId, noteId, { ...change.value, content } as any);
       upserts++;
     }
   }
@@ -210,7 +259,7 @@ export function attachYjsServer(server: HttpServer | HttpsServer): void {
       }
       
       // Flush any pending writes to SQLite
-      await flushToSQLite(spaceId);
+      await flushToSQLite(spaceId, docs.get(spaceId) as Y.Doc | undefined);
       
       // Decrement connection count
       const count = connectionCounts.get(spaceId) || 1;

@@ -245,5 +245,5 @@ scenario('text note color syncs to other users', 'note-color-sync', async ({ cre
 
   // Bob should see the updated color (browser returns rgb format)
   const afterStyle = await bob.textNoteOf('any').style();
-  expect(afterStyle.color).toBe('rgb(249, 168, 212)');
+  expect(afterStyle.color).toBe('#f9a8d4');
 });

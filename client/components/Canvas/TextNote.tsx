@@ -1,11 +1,12 @@
 /**
  * TextNote Component
  * Collaborative text note in the space with header.
- * Uses local state for editing and only syncs to CRDT on blur.
+ * Uses CodeMirror 6 + y-codemirror.next for real-time collaborative editing.
  */
 import { Component, createMemo, Show, createSignal, onMount, onCleanup, createEffect, For } from 'solid-js';
 import { useSpace } from '@/context/SpaceContext';
 import { useResizable } from '@/hooks/useResizable';
+import { CollabEditor } from './CollabEditor';
 
 interface TextNoteProps {
   noteId: string;
@@ -36,7 +37,6 @@ export const TextNote: Component<TextNoteProps> = (props) => {
   
   let containerRef: HTMLDivElement | undefined;
   let headerRef: HTMLDivElement | undefined;
-  let textareaRef: HTMLTextAreaElement | undefined;
   
   // Use plain object refs for drag state to avoid reactivity issues
   const dragState = {
@@ -48,9 +48,6 @@ export const TextNote: Component<TextNoteProps> = (props) => {
   };
   
   const [isDraggingSignal, setIsDraggingSignal] = createSignal(false);
-  const [isEditing, setIsEditing] = createSignal(false);
-  // Local content is what the user is actively typing
-  const [localContent, setLocalContent] = createSignal('');
   const [showFontSizeMenu, setShowFontSizeMenu] = createSignal(false);
   const [showFontFamilyMenu, setShowFontFamilyMenu] = createSignal(false);
   const [showColorMenu, setShowColorMenu] = createSignal(false);
@@ -65,25 +62,6 @@ export const TextNote: Component<TextNoteProps> = (props) => {
   });
   
   const note = createMemo(() => ctx.textNotes().get(props.noteId));
-  
-  // Display content shows CRDT when not editing, local when editing
-  // Initialize local content from CRDT when first loaded
-  createEffect(() => {
-    const n = note();
-    const crdtContent = n?.content ?? '';
-    if (localContent() === '' && crdtContent !== '') {
-      setLocalContent(crdtContent);
-    }
-  });
-  
-  // What actually shows in the textarea - CRDT when not editing, localContent when editing
-  const displayContent = createMemo(() => {
-    if (isEditing()) {
-      return localContent();
-    }
-    // When not editing, show CRDT content directly
-    return note()?.content ?? '';
-  });
   
   onMount(() => {
     if (containerRef && headerRef) {
@@ -145,25 +123,6 @@ export const TextNote: Component<TextNoteProps> = (props) => {
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
     });
-  }
-  
-  // Resize is handled by useResizable hook
-  
-  function handleContentChange(e: Event) {
-    const target = e.target as HTMLTextAreaElement;
-    setLocalContent(target.value);
-    // Sync to CRDT immediately for real-time collaboration
-    ctx.updateTextNoteContent(props.noteId, target.value);
-  }
-  
-  function handleFocus() {
-    setIsEditing(true);
-  }
-  
-  function handleBlur() {
-    setIsEditing(false);
-    // Ensure final content is synced when leaving field
-    ctx.updateTextNoteContent(props.noteId, localContent());
   }
   
   function handleClose() {
@@ -336,19 +295,11 @@ export const TextNote: Component<TextNoteProps> = (props) => {
             </div>
           </div>
           <div class="h-[calc(100%-40px)] p-2">
-            <textarea
-              ref={textareaRef}
-              class="text-note-textarea w-full h-full bg-transparent border-none text-white font-[inherit] text-lg leading-relaxed resize-none outline-none placeholder:text-text-muted"
-              value={displayContent()}
-              onInput={handleContentChange}
-              onFocus={handleFocus}
-              onBlur={handleBlur}
-              placeholder="Type your note..."
-              style={{
-                'font-size': FONT_SIZES[n().fontSize || 'medium'],
-                'font-family': FONT_FAMILIES[n().fontFamily || 'sans'],
-                color: n().color || '#ffffff',
-              }}
+            <CollabEditor
+              noteId={props.noteId}
+              fontSize={FONT_SIZES[n().fontSize || 'medium']}
+              fontFamily={FONT_FAMILIES[n().fontFamily || 'sans']}
+              color={n().color || '#ffffff'}
             />
           </div>
           <resizable.ResizeHandle />
@@ -357,3 +308,4 @@ export const TextNote: Component<TextNoteProps> = (props) => {
     </Show>
   );
 };
+
