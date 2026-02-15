@@ -22,15 +22,14 @@ scenario('reconnect then screen share', 'reconnect', async ({ createUser }) => {
 
   // Simulate disconnect/reconnect
   await alice.goOffline();
-  await alice.wait(500);
+  await alice.wait(500); // Intentional pause to simulate network outage
   await alice.goOnline();
-  await alice.wait(1000); // Wait for reconnection
   
   // Start screen share after reconnection
   await alice.startScreenShare({ color: 'purple' });
-  await bob.wait(1000); // Wait for WebRTC
 
   // Bob should see the screen share
+  await bob.waitForScreenShare('Alice');
   const shares = await bob.screenShares();
   expect(shares.map(s => s.owner)).toEqual(['Alice']);
 });
@@ -38,29 +37,29 @@ scenario('reconnect then screen share', 'reconnect', async ({ createUser }) => {
 scenario('reconnected user visible to new joiner', 'reconnect-visibility', async ({ createUser }) => {
   // User A joins with webcam
   const alice = await createUser('Alice').withMockedWebcam('red').join();
-  await alice.wait(500);
   
   // User A disconnects
   await alice.goOffline();
-  await alice.wait(500);
+  await alice.wait(500); // Intentional pause
   
   // User A reconnects
   await alice.goOnline();
-  await alice.wait(1000); // Wait for reconnection
   
   // User B joins with webcam
   const bob = await createUser('Bob').withMockedWebcam('blue').join();
   await bob.waitForUser('Alice');
-  await bob.wait(1000); // Wait for WebRTC to establish
   
   // Bob should see Alice's webcam with actual video content (not black)
-  expect(await bob.avatarOf('Alice').isWebcamOn()).toBe(true);
+  await expect.poll(async () =>
+    await bob.avatarOf('Alice').isWebcamOn()
+  , { timeout: 10000 }).toBe(true);
   expect(await bob.avatarOf('Alice').hasVideoContent()).toBe(true);
   
   // Alice should also see Bob's webcam
   await alice.waitForUser('Bob');
-  await alice.wait(1000);
-  expect(await alice.avatarOf('Bob').isWebcamOn()).toBe(true);
+  await expect.poll(async () =>
+    await alice.avatarOf('Bob').isWebcamOn()
+  , { timeout: 10000 }).toBe(true);
   expect(await alice.avatarOf('Bob').hasVideoContent()).toBe(true);
 });
 
@@ -94,22 +93,18 @@ async function verifyAllCanvasElements(
 scenario('all canvas elements persist after reconnection', 'reconnect-all-elements', async ({ createUser }) => {
   // User A joins with webcam
   const alice = await createUser('Alice').withMockedWebcam('red').join();
-  await alice.wait(500);
   
   // Alice creates all canvas elements
   await alice.startScreenShare({ color: 'purple' });
-  await alice.wait(500);
   
   await alice.createTextNote();
   await alice.editTextNote('Hello from Alice!');
-  await alice.wait(500);
   
   // User B joins and sees all elements
   const bob = await createUser('Bob').withMockedWebcam('blue').join();
   await bob.waitForUser('Alice');
   await bob.waitForScreenShare('Alice');
   await bob.waitForTextNote();
-  await bob.wait(1000);
   
   // Verify Bob sees everything BEFORE disconnect
   await verifyAllCanvasElements(bob, 'Alice', {
@@ -120,11 +115,10 @@ scenario('all canvas elements persist after reconnection', 'reconnect-all-elemen
   
   // Alice has network glitch - disconnects
   await alice.goOffline();
-  await alice.wait(500);
+  await alice.wait(500); // Intentional pause
   
   // Alice reconnects
   await alice.goOnline();
-  await alice.wait(2000); // Wait for full reconnection + WebRTC re-establishment
   
   // Verify Alice still sees her own elements
   const aliceScreenShares = await alice.screenShares();
@@ -134,12 +128,15 @@ scenario('all canvas elements persist after reconnection', 'reconnect-all-elemen
   expect(aliceNotes.some(n => n.content.includes('Hello from Alice!'))).toBe(true);
   
   // Verify Bob STILL sees Alice's webcam with actual video content
-  expect(await bob.avatarOf('Alice').isWebcamOn()).toBe(true);
+  await expect.poll(async () =>
+    await bob.avatarOf('Alice').isWebcamOn()
+  , { timeout: 10000 }).toBe(true);
   expect(await bob.avatarOf('Alice').hasVideoContent()).toBe(true);
   
   // Verify Bob still sees Alice's screen share
-  const bobScreenShares = await bob.screenShares();
-  expect(bobScreenShares.some(s => s.owner === 'Alice')).toBe(true);
+  await expect.poll(async () =>
+    (await bob.screenShares()).some(s => s.owner === 'Alice')
+  , { timeout: 5000 }).toBe(true);
   
   // Verify Bob still sees the text note
   const bobNotes = await bob.textNotes();
@@ -147,7 +144,8 @@ scenario('all canvas elements persist after reconnection', 'reconnect-all-elemen
   
   // Verify Alice sees Bob's webcam after reconnection
   await alice.waitForUser('Bob');
-  await alice.wait(1000);
-  expect(await alice.avatarOf('Bob').isWebcamOn()).toBe(true);
+  await expect.poll(async () =>
+    await alice.avatarOf('Bob').isWebcamOn()
+  , { timeout: 10000 }).toBe(true);
   expect(await alice.avatarOf('Bob').hasVideoContent()).toBe(true);
 });

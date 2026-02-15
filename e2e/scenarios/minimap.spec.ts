@@ -41,12 +41,10 @@ scenario('minimap click pans canvas', 'minimap-pan', async ({ createUser }) => {
   // Click near top-left of minimap
   await minimapContent.click({ position: { x: 10, y: 10 } });
   
-  // Wait for pan to take effect
-  await user.page.waitForTimeout(100);
-  
   // Transform should have changed
-  const newTransform = await getTransform();
-  expect(newTransform).not.toBe(initialTransform);
+  await expect.poll(async () => {
+    return await getTransform();
+  }, { timeout: 2000 }).not.toBe(initialTransform);
 });
 
 scenario('minimap zoom controls work', 'minimap-zoom', async ({ createUser }) => {
@@ -65,17 +63,17 @@ scenario('minimap zoom controls work', 'minimap-zoom', async ({ createUser }) =>
   
   // Click zoom in button
   await user.page.click('.minimap-btn >> text=+');
-  await user.page.waitForTimeout(100);
   
-  const zoomedInScale = await getScale();
-  expect(zoomedInScale).toBeGreaterThan(initialScale);
+  await expect.poll(async () => {
+    return await getScale();
+  }, { timeout: 2000 }).toBeGreaterThan(initialScale);
   
   // Click reset button
   await user.page.click('.minimap-btn-reset');
-  await user.page.waitForTimeout(100);
   
-  const resetScale = await getScale();
-  expect(resetScale).toBe(1);
+  await expect.poll(async () => {
+    return await getScale();
+  }, { timeout: 2000 }).toBe(1);
 });
 
 scenario('minimap shows multiple users', 'minimap-multi-user', async ({ createUser }) => {

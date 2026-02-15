@@ -43,10 +43,13 @@ scenario('third user leaving updates mesh', 'mesh-leave', async ({ createUser })
 
   // Charlie leaves
   await charlie.leave();
-  await alice.wait(1000);
 
-  expect(await alice.participantCount()).toBe(2);
-  expect(await bob.participantCount()).toBe(2);
+  await expect.poll(async () =>
+    await alice.participantCount()
+  , { timeout: 5000 }).toBe(2);
+  await expect.poll(async () =>
+    await bob.participantCount()
+  , { timeout: 5000 }).toBe(2);
   expect(await alice.visibleUsers()).toEqual(['Bob']);
   expect(await bob.visibleUsers()).toEqual(['Alice']);
 });
@@ -63,9 +66,6 @@ scenario('position syncs across three users', 'mesh-position', async ({ createUs
   await bob.waitForUser('Charlie');
   await charlie.waitForUser('Alice');
   await charlie.waitForUser('Bob');
-  
-  // Wait for WebRTC mesh to fully stabilize
-  await alice.wait(1000);
 
   // Alice drags her avatar
   await alice.dragAvatar({ dx: 75, dy: 50 });
@@ -88,8 +88,8 @@ scenario('screen share visible to all mesh peers', 'mesh-screenshare', async ({ 
   await charlie.waitForUser('Alice');
 
   await alice.startScreenShare({ color: 'red' });
-  await bob.wait(1000);
-  await charlie.wait(1000);
+  await bob.waitForScreenShare('Alice');
+  await charlie.waitForScreenShare('Alice');
 
   // Both Bob and Charlie should see Alice's screen share
   const bobShares = await bob.screenShares();

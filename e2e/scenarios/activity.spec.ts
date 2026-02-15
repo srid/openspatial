@@ -31,12 +31,12 @@ scenario('activity panel shows join and leave events', 'activity-test-2', async 
   
   // Alice leaves
   await alice.leave();
-  await bob.wait(1000);
   
   // Bob should see Alice's leave event
-  const itemsAfterLeave = await bob.activityItems();
-  const aliceLeaveEvent = itemsAfterLeave.find(i => i.username === 'Alice' && (i.eventType === 'leave' || i.eventType === 'leave_last'));
-  expect(aliceLeaveEvent).toBeDefined();
+  await expect.poll(async () => {
+    const items = await bob.activityItems();
+    return items.some(i => i.username === 'Alice' && (i.eventType === 'leave' || i.eventType === 'leave_last'));
+  }, { timeout: 5000 }).toBe(true);
 });
 
 scenario('activity badge appears for new activity', 'activity-test-3', async ({ createUser }) => {
@@ -48,11 +48,11 @@ scenario('activity badge appears for new activity', 'activity-test-3', async ({ 
   
   // Another user joins
   const bob = await createUser('Bob').join();
-  await alice.wait(1000);
   
   // Alice should see badge (activity happened while panel closed)
-  const hasBadge = await alice.isActivityBadgeVisible();
-  expect(hasBadge).toBe(true);
+  await expect.poll(async () =>
+    await alice.isActivityBadgeVisible()
+  , { timeout: 5000 }).toBe(true);
   
   // Opening panel should hide badge and show Bob's join event
   await alice.openActivityPanel();
