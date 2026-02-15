@@ -90,6 +90,7 @@
           packages = with pkgs; [
             nodejs_22
             just
+            ffmpeg  # Used by `just gif` for webm→gif conversion
           ];
 
           shellHook = ''

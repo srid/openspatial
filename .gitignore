@@ -42,3 +42,6 @@ Thumbs.db
 /data/
 
 /.direnv
+
+# Demo video (MP4 is for Twitter; only GIF is committed)
+docs/demo.mp4

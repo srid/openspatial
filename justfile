@@ -46,3 +46,20 @@ clean:
 
 # Reinstall all dependencies
 reinstall: clean install
+
+# Generate demo video (MP4) and GIF from E2E recording
+demo:
+    rm -rf test-results/demo-recording
+    npx playwright test --grep="demo recording" --reporter=line --project=chromium
+    @echo "Converting recording..."
+    @webm=$(find test-results/demo-recording -name '*.webm' | head -1) && \
+      ffmpeg -y -i "$webm" \
+        -c:v libx264 -preset slow -crf 18 -pix_fmt yuv420p \
+        -vf "scale=1280:-2" \
+        -movflags +faststart \
+        docs/demo.mp4 && \
+      echo "✅ docs/demo.mp4 ($(du -h docs/demo.mp4 | cut -f1))" && \
+      ffmpeg -y -i "$webm" \
+        -vf "fps=10,scale=640:-1:flags=lanczos,split[s0][s1];[s0]palettegen=max_colors=128:stats_mode=diff[p];[s1][p]paletteuse=dither=bayer:bayer_scale=5:diff_mode=rectangle" \
+        -loop 0 docs/demo.gif && \
+      echo "✅ docs/demo.gif ($(du -h docs/demo.gif | cut -f1))"

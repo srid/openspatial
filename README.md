@@ -10,6 +10,10 @@
 
 A virtual space where distance disappears — spatial audio and shared canvas for gatherings of any kind.
 
+<p align="center">
+  <img src="./docs/demo.gif" alt="OpenSpatial Demo" width="640">
+</p>
+
 ## Features
 
 - 🎙️ **Spatial audio** — volume and panning change with distance between avatars
