@@ -6,7 +6,8 @@
  *   openspatial-cli create <id> [id2...]    # Create one or more spaces
  *   openspatial-cli delete <id>             # Delete a space
  */
-import { getAllSpaces, getSpace, createSpace, deleteSpace, runMigrations } from './db.js';
+import { configFromEnv } from './config.js';
+import { initDb, getAllSpaces, getSpace, createSpace, deleteSpace, runMigrations } from './db.js';
 
 function printUsage(): void {
   console.log(`
@@ -82,6 +83,8 @@ async function handleDelete(id: string | undefined): Promise<void> {
 
 // Main
 async function main(): Promise<void> {
+  const config = configFromEnv();
+  initDb(config);
   // Run migrations first
   await runMigrations();
   

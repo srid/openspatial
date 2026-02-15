@@ -4,6 +4,7 @@ import { createServer } from 'http';
 import { io as ioc, Socket } from 'socket.io-client';
 import { AddressInfo } from 'net';
 import { attachSignaling } from './signaling.js';
+import { devConfig } from './config.js';
 
 // Mock DB functions that require the space_events table (not available in unit test env)
 vi.mock('./db.js', async (importOriginal) => {
@@ -30,7 +31,7 @@ describe('Signaling Server', () => {
   beforeEach(async () => {
     httpServer = createServer();
     ioServer = new Server(httpServer);
-    attachSignaling(ioServer);
+    attachSignaling(ioServer, devConfig());
 
     await new Promise<void>((resolve) => {
       httpServer.listen(0, () => {
