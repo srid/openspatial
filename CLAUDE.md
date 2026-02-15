@@ -1,5 +1,11 @@
 # Claude/Gemini AI Assistant Notes
 
+## Design Principles
+
+- **No backwards compatibility concerns.** This is a greenfield project — break things freely when improving the design.
+- **Aggressively remove unused code.** When removing a feature, delete all related code, types, constants, CSS, and tests. Dead code is a liability.
+- **Keep the codebase lean.** Don't leave behind scaffolding, commented-out code, or "just in case" abstractions.
+
 ## E2E Testing
 
 **ALWAYS use `just e2e-quick` for e2e tests** - not `npx playwright test` directly.
