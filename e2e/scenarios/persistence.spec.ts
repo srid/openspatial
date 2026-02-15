@@ -44,7 +44,12 @@ scenario('text notes persist when space becomes empty', 'empty-space-persist', a
   expect(notes.length).toBeGreaterThanOrEqual(1);
   
   // Find our note by content - this is the critical assertion
+  // Find our note by content - this is the critical assertion
   const ourNote = notes.find(n => n.content === uniqueContent);
+  if (!ourNote) {
+    console.log('Note not found. Expected:', uniqueContent);
+    console.log('Available notes:', notes);
+  }
   expect(ourNote).toBeDefined();
 });
 
@@ -88,6 +93,11 @@ scenario('text notes persist after SPA leave and rejoin', 'spa-persist', async (
   expect(notes.length).toBeGreaterThanOrEqual(1);
   
   // Find our note by content - this is the critical assertion
+  // Find our note by content - this is the critical assertion
   const ourNote = notes.find(n => n.content === uniqueContent);
+  if (!ourNote) {
+    console.log('Note not found (SPA). Expected:', uniqueContent);
+    console.log('Available notes:', notes);
+  }
   expect(ourNote).toBeDefined();
 });

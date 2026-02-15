@@ -233,9 +233,16 @@ export class UserImpl implements User {
     // Since notes are ownerless, just get the first/most recent text note
     const note = this.page.locator('.text-note').first();
     const editor = note.locator('.cm-content');
+    
     // Use force: true because avatars may overlap the text note
     await editor.click({ force: true });
+    // Explicitly focus to ensure keyboard events go to the editor
+    await editor.focus();
+    
+    // Select all and delete to clear existing content (like the placeholder)
     await this.page.keyboard.press('ControlOrMeta+A');
+    await this.page.keyboard.press('Backspace');
+    
     await this.page.keyboard.type(content);
     // Click outside to blur
     await this.page.click('.text-note-header', { force: true });
