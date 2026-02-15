@@ -1,3 +1,8 @@
+// Dev/E2E environment: disable disconnect grace period so leave events record immediately
+process.env.DISCONNECT_GRACE_MS = '0';
+// Enable auto-creation of spaces in dev mode
+process.env.AUTO_CREATE_SPACES = 'true';
+
 import { defineConfig } from 'vite';
 import tailwindcss from '@tailwindcss/vite';
 import solidPlugin from 'vite-plugin-solid';
@@ -35,10 +40,8 @@ function socketPlugin() {
 // Uses the same implementation as production (yjs-server.ts) for consistency
 // DEV MODE: Sets AUTO_CREATE_SPACES=true for E2E testing
 function yjsPlugin() {
-  // Enable auto-creation of spaces in dev mode
-  process.env.AUTO_CREATE_SPACES = 'true';
-  // Disable disconnect grace period in dev/E2E so leave events are recorded immediately
-  process.env.DISCONNECT_GRACE_MS = '0';
+  // Note: AUTO_CREATE_SPACES and DISCONNECT_GRACE_MS are set at the top of this file
+  // (before imports, so signaling.ts reads the correct values at module load time)
   
   return {
     name: 'yjs-websocket',
