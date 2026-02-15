@@ -91,10 +91,9 @@ scenario('refreshing user does not leave ghost avatar', 'refresh-no-ghost', asyn
   await alice.leave();
   
   // Wait for cleanup to propagate
-  await bob.wait(1000);
-  
-  // Bob should no longer see any users (Alice is gone)
-  expect(await bob.visibleUsers()).toEqual([]);
+  await expect.poll(async () =>
+    (await bob.visibleUsers()).length
+  , { timeout: 5000 }).toBe(0);
   
   // Alice rejoins with the same name
   const aliceAgain = await createUser('Alice').join();

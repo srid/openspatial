@@ -20,7 +20,6 @@ import { AvatarViewImpl, ScreenShareViewImpl, TextNoteViewImpl } from './views';
 import { mockScreenShare } from './mocks';
 
 const SYNC_TIMEOUT = 10000;
-const SYNC_WAIT = 500;
 
 export class UserImpl implements User {
   constructor(
@@ -85,7 +84,6 @@ export class UserImpl implements User {
     // Fill in the popover input and save
     await this.page.fill('.status-popover-input', text);
     await this.page.click('.status-popover-save');
-    await this.page.waitForTimeout(SYNC_WAIT);
   }
 
   async clearStatus(): Promise<void> {
@@ -102,7 +100,9 @@ export class UserImpl implements User {
   async startScreenShare(opts?: { color?: string }): Promise<ScreenShareInfo> {
     await mockScreenShare(this.page, opts?.color ?? 'blue');
     await this.page.click('#btn-screen');
-    await this.page.waitForTimeout(1000);
+    // Wait for the screen share element to appear on canvas
+    const selfScreen = this.page.locator('.screen-share:has-text("Your Screen")');
+    await expect(selfScreen).toBeVisible({ timeout: SYNC_TIMEOUT });
 
     // Return info about the created screen share
     const rect = await this.screenShareOf(this.name).rect();
@@ -144,8 +144,6 @@ export class UserImpl implements User {
         bubbles: true 
       }));
     }, size);
-    
-    await this.page.waitForTimeout(SYNC_WAIT);
   }
 
   async dragScreenShare(owner: string, delta: { dx: number; dy: number }): Promise<void> {
@@ -160,7 +158,7 @@ export class UserImpl implements User {
       await this.page.mouse.move(box.x + 5 + delta.dx, box.y + 5 + delta.dy, { steps: 5 });
       await this.page.mouse.up();
     }
-    await this.page.waitForTimeout(1000);
+    await this.page.waitForTimeout(250);
   }
 
   async dragAvatar(delta: { dx: number; dy: number }): Promise<void> {
@@ -176,8 +174,7 @@ export class UserImpl implements User {
       );
       await this.page.mouse.up();
     }
-    // Longer wait to ensure CRDT sync propagates
-    await this.page.waitForTimeout(1000);
+    await this.page.waitForTimeout(250);
   }
 
   async touchDragAvatar(delta: { dx: number; dy: number }): Promise<void> {
@@ -196,8 +193,7 @@ export class UserImpl implements User {
     );
     await this.page.mouse.up();
 
-    // Wait for CRDT sync
-    await this.page.waitForTimeout(1000);
+    await this.page.waitForTimeout(250);
   }
 
   async goOffline(): Promise<void> {
@@ -218,7 +214,9 @@ export class UserImpl implements User {
 
   async createTextNote(): Promise<TextNoteInfo> {
     await this.page.click('#btn-note');
-    await this.page.waitForTimeout(500);
+    // Wait for the text note element to appear on canvas
+    const newNote = this.page.locator('.text-note').first();
+    await expect(newNote).toBeVisible({ timeout: SYNC_TIMEOUT });
 
     // Return info about the created text note
     const rect = await this.textNoteOf(this.name).rect();
@@ -238,7 +236,6 @@ export class UserImpl implements User {
     await textarea.fill(content);
     // Blur to exit editing mode so CRDT content shows for other users' edits
     await textarea.blur();
-    await this.page.waitForTimeout(SYNC_WAIT);
   }
 
   async setTextNoteFontSize(size: 'small' | 'medium' | 'large'): Promise<void> {
@@ -250,7 +247,6 @@ export class UserImpl implements User {
     const sizeLabel = size.charAt(0).toUpperCase() + size.slice(1); // 'small' -> 'Small'
     const option = this.page.locator('.text-note-menu-option', { hasText: sizeLabel });
     await option.click();
-    await this.page.waitForTimeout(SYNC_WAIT);
   }
 
   async setTextNoteFontFamily(family: 'sans' | 'serif' | 'mono'): Promise<void> {
@@ -262,7 +258,6 @@ export class UserImpl implements User {
     const familyLabels: Record<string, string> = { sans: 'Sans', serif: 'Serif', mono: 'Mono' };
     const option = this.page.locator('.text-note-menu-option', { hasText: familyLabels[family] });
     await option.click();
-    await this.page.waitForTimeout(SYNC_WAIT);
   }
 
   async setTextNoteColor(color: string): Promise<void> {
@@ -278,7 +273,6 @@ export class UserImpl implements User {
     const colorName = colorNames[color] || 'White';
     const option = this.page.locator(`.text-note-color-option[title="${colorName}"]`);
     await option.click();
-    await this.page.waitForTimeout(SYNC_WAIT);
   }
 
   async deleteTextNote(): Promise<void> {
@@ -324,7 +318,7 @@ export class UserImpl implements User {
       await this.page.mouse.up();
     }
     
-    await this.page.waitForTimeout(1500);
+    await this.page.waitForTimeout(250);
   }
 
   async resizeTextNote(size: { width: number; height: number }): Promise<void> {
@@ -337,8 +331,6 @@ export class UserImpl implements User {
         bubbles: true 
       }));
     }, size);
-    
-    await this.page.waitForTimeout(SYNC_WAIT);
   }
 
   //
@@ -370,14 +362,14 @@ export class UserImpl implements User {
 
   /**
    * Wait for a specified duration.
+   * @deprecated Prefer declarative waiting (expect.poll / toBeVisible) over imperative waits.
+   * Only use for simulating intentional user pauses (e.g., between disconnect/reconnect).
    */
   async wait(ms: number): Promise<void> {
     await this.page.waitForTimeout(ms);
   }
 
   async visibleUsers(): Promise<string[]> {
-    // Wait a bit for any pending syncs
-    await this.page.waitForTimeout(SYNC_WAIT);
     const avatars = this.page.locator('.avatar:not(.self) .avatar-name');
     const count = await avatars.count();
     const names: string[] = [];
@@ -389,7 +381,6 @@ export class UserImpl implements User {
   }
 
   async screenShares(): Promise<ScreenShareInfo[]> {
-    await this.page.waitForTimeout(SYNC_WAIT);
     const shares = this.page.locator('.screen-share');
     const count = await shares.count();
     const result: ScreenShareInfo[] = [];
@@ -419,7 +410,6 @@ export class UserImpl implements User {
   }
 
   async textNotes(): Promise<TextNoteInfo[]> {
-    await this.page.waitForTimeout(SYNC_WAIT);
     const notes = this.page.locator('.text-note');
     const count = await notes.count();
     const result: TextNoteInfo[] = [];
@@ -490,7 +480,6 @@ export class UserImpl implements User {
   }
 
   async activityItems(): Promise<ActivityItem[]> {
-    await this.page.waitForTimeout(SYNC_WAIT);
     const items = this.page.locator('.activity-item');
     const count = await items.count();
     const result: ActivityItem[] = [];

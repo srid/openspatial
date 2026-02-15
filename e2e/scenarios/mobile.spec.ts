@@ -42,16 +42,11 @@ test.describe('mobile touch', () => {
     // Alice performs touch drag
     await alice.touchDragAvatar({ dx: 75, dy: 25 });
     
-    // Get Alice's position after drag
-    const alicePos = await alice.avatarOf('Alice').position();
-    
     // Wait for sync and verify Bob sees Alice moved
-    await alice.wait(1500);
-    const aliceFinalPos = await bob.avatarOf('Alice').position();
-    
-    // Verify position matches (with tolerance)
-    expect(aliceFinalPos.x).toBeGreaterThan(aliceInitialPos.x + 35);
-    expect(aliceFinalPos.y).toBeGreaterThan(aliceInitialPos.y + 10);
+    await expect.poll(async () => {
+      const p = await bob.avatarOf('Alice').position();
+      return p.x > aliceInitialPos.x + 35 && p.y > aliceInitialPos.y + 10;
+    }, { timeout: 5000 }).toBe(true);
   });
 });
 

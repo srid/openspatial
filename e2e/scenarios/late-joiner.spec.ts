@@ -26,19 +26,16 @@ scenario('late-joiner sees complete canvas state', 'late-complete', async ({ cre
   
   // 5. Alice starts and resizes a screen share
   await alice.startScreenShare({ color: 'blue' });
-  await alice.wait(500);
   await alice.resizeScreenShare({
     position: { x: 2300, y: 2200 },
     size: { width: 720, height: 540 },
   });
-  await alice.wait(500);
   const aliceScreenRect = await alice.screenShareOf('Alice').rect();
   
   // Now Bob joins late
   const bob = await createUser('Bob').join();
   await bob.waitForUser('Alice');
   await bob.waitForScreenShare('Alice');
-  await bob.wait(500);
   
   // Verify Bob sees Alice's exact avatar position
   await expectPosition(() => bob.avatarOf('Alice').position(), alicePos);
@@ -69,14 +66,12 @@ scenario('late-joiner sees two users with complete state', 'late-mesh', async ({
   await alice.dragAvatar({ dx: 100, dy: 50 });
   await alice.mute();
   await alice.startScreenShare({ color: 'red' });
-  await alice.wait(500);
   const alicePos = await alice.avatarOf('Alice').position();
   
   // Bob: move, set status, turn off webcam
   await bob.dragAvatar({ dx: -100, dy: 75 });
   await bob.setStatus('BRB');
   await bob.toggleWebcam();
-  await bob.wait(500);
   const bobPos = await bob.avatarOf('Bob').position();
   
   // Charlie joins late
@@ -84,7 +79,6 @@ scenario('late-joiner sees two users with complete state', 'late-mesh', async ({
   await charlie.waitForUser('Alice');
   await charlie.waitForUser('Bob');
   await charlie.waitForScreenShare('Alice');
-  await charlie.wait(500);
   
   // Charlie sees both users
   expect(await charlie.visibleUsers()).toEqual(['Alice', 'Bob']);
