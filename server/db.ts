@@ -8,24 +8,27 @@ import { join, dirname } from 'path';
 import { mkdirSync, readdirSync } from 'fs';
 import { fileURLToPath } from 'url';
 import type { Database, Space, TextNoteState, SpaceEventType, SpaceEvent } from './database/types.js';
+import type { ServerConfig } from './config.js';
 
-// Database path from environment or default
-const DATA_DIR = process.env.DATA_DIR || './data';
-const DB_PATH = join(DATA_DIR, 'openspatial.db');
+let db: Kysely<Database>;
 
-// Ensure data directory exists
-mkdirSync(dirname(DB_PATH), { recursive: true });
+/**
+ * Initialize the database connection.
+ * Must be called before any other db operations.
+ */
+export function initDb(config: ServerConfig): void {
+  const dbPath = join(config.dataDir, 'openspatial.db');
+  mkdirSync(dirname(dbPath), { recursive: true });
 
-// Create better-sqlite3 instance
-const sqliteDb = new BetterSqlite3(DB_PATH);
-sqliteDb.pragma('journal_mode = WAL');
+  const sqliteDb = new BetterSqlite3(dbPath);
+  sqliteDb.pragma('journal_mode = WAL');
 
-// Create Kysely instance
-export const db = new Kysely<Database>({
-  dialect: new SqliteDialect({
-    database: sqliteDb,
-  }),
-});
+  db = new Kysely<Database>({
+    dialect: new SqliteDialect({
+      database: sqliteDb,
+    }),
+  });
+}
 
 // Migration provider that loads migrations dynamically
 const __filename = fileURLToPath(import.meta.url);
@@ -171,14 +174,14 @@ export async function clearAllTextNotes(): Promise<void> {
   }
 }
 
-export async function ensureDemoSpace(): Promise<void> {
+export async function ensureDemoSpace(config: ServerConfig): Promise<void> {
   const demoSpace = await getSpace('demo');
   if (!demoSpace) {
     await createSpace('demo');
     console.log('[DB] Created default "demo" space');
   }
-  // In dev mode (AUTO_CREATE_SPACES=true), clear all notes for clean E2E tests
-  if (process.env.AUTO_CREATE_SPACES === 'true') {
+  // In dev mode, clear all notes for clean E2E tests
+  if (config.autoCreateSpaces) {
     await clearAllTextNotes();
   }
 }

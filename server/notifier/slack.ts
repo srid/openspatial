@@ -134,17 +134,3 @@ function formatDuration(ms: number): string {
   const remainingMinutes = minutes % 60;
   return remainingMinutes > 0 ? `${hours}h ${remainingMinutes}m` : `${hours}h`;
 }
-
-/**
- * Create a Slack backend from environment variables.
- * Returns null if Slack is not configured.
- */
-export function createSlackBackendFromEnv(): SlackBackend | null {
-  const botToken = process.env.SLACK_BOT_TOKEN;
-  const channelId = process.env.SLACK_CHANNEL_ID;
-  if (!botToken || !channelId) {
-    return null;
-  }
-  
-  return new SlackBackend({ botToken, channelId });
-}

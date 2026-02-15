@@ -18,8 +18,7 @@ interface TextNoteRow extends TextNoteState {
   content: string;
 }
 
-// Environment config
-const AUTO_CREATE_SPACES = process.env.AUTO_CREATE_SPACES === 'true';
+import type { ServerConfig } from './config.js';
 
 // Track which doc instances have been hydrated (WeakSet auto-removes destroyed docs)
 const hydratedDocs = new WeakSet<Y.Doc>();
@@ -194,7 +193,7 @@ async function flushToSQLite(spaceId: string, doc?: Y.Doc): Promise<void> {
   }
 }
 
-export function attachYjsServer(server: HttpServer | HttpsServer): void {
+export function attachYjsServer(server: HttpServer | HttpsServer, config: ServerConfig): void {
   // Use noServer mode to manually handle upgrade requests
   // This allows Socket.io to continue handling /socket.io paths
   const wss = new WebSocketServer({ noServer: true });
@@ -222,7 +221,7 @@ export function attachYjsServer(server: HttpServer | HttpsServer): void {
     // Validate space exists before allowing connection
     let space = await getSpace(spaceId);
     if (!space) {
-      if (AUTO_CREATE_SPACES) {
+      if (config.autoCreateSpaces) {
         // Auto-create space (for dev/testing)
         try {
           await createSpace(spaceId);

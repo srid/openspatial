@@ -25,6 +25,16 @@ interface Space {
   screenShares: Map<string, ScreenShareData>;
 }
 
+import type { ServerConfig } from './config.js';
+
+interface PendingLeave {
+  timeout: ReturnType<typeof setTimeout>;
+  spaceId: string;
+  username: string;
+}
+// Key: "spaceId:username"
+const pendingLeaves = new Map<string, PendingLeave>();
+
 /**
  * Clean up a peer from the CRDT document when they disconnect.
  * This handles cases like browser refresh where client-side cleanup doesn't run.
@@ -54,7 +64,10 @@ function cleanupCRDTOnDisconnect(spaceId: string, peerId: string): void {
  * Attach Socket.io signaling handlers to a Socket.io server instance.
  * Shared between Vite plugin (dev) and standalone server (prod).
  */
-export function attachSignaling(io: Server): void {
+export function attachSignaling(io: Server, config: ServerConfig): void {
+  const disconnectGraceMs = config.disconnectGraceMs;
+  console.log(`[Signaling] Disconnect grace period: ${disconnectGraceMs}ms`);
+
   // Space state management
   const spaces = new Map<string, Space>();
   // Map peerId -> socketId for direct signaling
@@ -82,7 +95,7 @@ export function attachSignaling(io: Server): void {
       // Check if space exists in database (production) or in-memory (dev auto-create mode)
       const dbSpace = await getSpaceFromDb(spaceId);
       const memorySpace = spaces.get(spaceId);
-      const exists = dbSpace !== null || process.env.AUTO_CREATE_SPACES === 'true';
+      const exists = dbSpace !== null || config.autoCreateSpaces;
       
       if (memorySpace) {
         const participants = Array.from(memorySpace.peers.values()).map(p => p.username);
@@ -96,6 +109,15 @@ export function attachSignaling(io: Server): void {
       currentSpace = spaceId;
       currentUsername = username;
       socket.join(spaceId);
+
+      // Cancel any pending leave for this user in this space (reconnect within grace period)
+      const pendingKey = `${spaceId}:${username}`;
+      const pendingLeave = pendingLeaves.get(pendingKey);
+      if (pendingLeave) {
+        clearTimeout(pendingLeave.timeout);
+        pendingLeaves.delete(pendingKey);
+        console.log(`[Signaling] ${username} reconnected to ${spaceId} within grace period — leave cancelled`);
+      }
 
       const space = getSpace(spaceId);
       const wasEmpty = space.peers.size === 0;
@@ -127,12 +149,16 @@ export function attachSignaling(io: Server): void {
 
       console.log(`[Signaling] ${username} joined space ${spaceId} (${space.peers.size} peers)`);
       // Record space event and notify
-      if (wasEmpty) {
+      // If there was a pending leave that we just cancelled, treat this as a regular join
+      // (the space never truly went empty from the notification perspective)
+      if (wasEmpty && !pendingLeave) {
         recordSpaceEvent(spaceId, 'join_first', username);
         notifySpaceActive(spaceId, username);
       } else {
         recordSpaceEvent(spaceId, 'join', username);
-        notifyUserJoined(spaceId, username);
+        if (!pendingLeave) {
+          notifyUserJoined(spaceId, username);
+        }
       }
       
       // Push recent activity to ALL users in the space (including existing users)
@@ -214,24 +240,43 @@ export function attachSignaling(io: Server): void {
           // Clean up CRDT - remove peer and their screen shares from Yjs document
           cleanupCRDTOnDisconnect(currentSpace, peerId);
           
+          // Broadcast peer-left immediately so the UI stays responsive
           socket.to(currentSpace).emit('peer-left', { peerId });
           console.log(`[Signaling] ${currentUsername} left space ${currentSpace} (${space.peers.size} peers)`);
           
-          // Record leave event
-          if (space.peers.size === 0) {
-            recordSpaceEvent(currentSpace, 'leave_last', currentUsername || 'unknown');
-            notifySpaceInactive(currentSpace);
-            spaces.delete(currentSpace);
-            console.log(`[Signaling] Space ${currentSpace} deleted (empty)`);
-          } else {
-            recordSpaceEvent(currentSpace, 'leave', currentUsername || 'unknown');
-            notifyUserLeft(currentSpace, currentUsername || 'unknown');
-            // Push updated activity to remaining peers
-            const spaceIdForActivity = currentSpace;
-            getRecentActivity(currentSpace).then((events) => {
-              socket.to(spaceIdForActivity).emit('space-activity', { spaceId: spaceIdForActivity, events });
-            });
+          // Defer notification side-effects behind a grace period
+          // to absorb transient connection drops (reconnects cancel the pending leave)
+          const username = currentUsername || 'unknown';
+          const spaceId = currentSpace;
+          const pendingKey = `${spaceId}:${username}`;
+          
+          // Cancel any existing pending leave for this user (shouldn't happen, but be safe)
+          const existing = pendingLeaves.get(pendingKey);
+          if (existing) {
+            clearTimeout(existing.timeout);
           }
+          
+          const timeout = setTimeout(() => {
+            pendingLeaves.delete(pendingKey);
+            
+            // Re-check the space state — another user may have joined during the grace period
+            const currentSpaceState = spaces.get(spaceId);
+            if (!currentSpaceState || currentSpaceState.peers.size === 0) {
+              recordSpaceEvent(spaceId, 'leave_last', username);
+              notifySpaceInactive(spaceId);
+              spaces.delete(spaceId);
+              console.log(`[Signaling] Space ${spaceId} deleted (empty after grace period)`);
+            } else {
+              recordSpaceEvent(spaceId, 'leave', username);
+              notifyUserLeft(spaceId, username);
+              // Push updated activity to remaining peers
+              getRecentActivity(spaceId).then((events) => {
+                io.to(spaceId).emit('space-activity', { spaceId, events });
+              });
+            }
+          }, disconnectGraceMs);
+          
+          pendingLeaves.set(pendingKey, { timeout, spaceId, username });
         }
       }
     });

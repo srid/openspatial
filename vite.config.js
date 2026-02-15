@@ -5,10 +5,12 @@ import basicSsl from '@vitejs/plugin-basic-ssl';
 import { Server } from 'socket.io';
 import os from 'os';
 import path from 'path';
+import { devConfig } from './server/config.ts';
 import { attachSignaling } from './server/signaling.ts';
 import { initNotifier } from './server/notifier/index.ts';
 
 const hostname = os.hostname();
+const config = devConfig();
 
 // Socket.io signaling server plugin for Vite
 function socketPlugin() {
@@ -25,31 +27,27 @@ function socketPlugin() {
         pingInterval: 5000,
       });
 
-      initNotifier();
-      attachSignaling(io);
+      initNotifier(config);
+      attachSignaling(io, config);
     }
   };
 }
 
 // y-websocket server plugin for Yjs document sync
 // Uses the same implementation as production (yjs-server.ts) for consistency
-// DEV MODE: Sets AUTO_CREATE_SPACES=true for E2E testing
 function yjsPlugin() {
-  // Enable auto-creation of spaces in dev mode
-  process.env.AUTO_CREATE_SPACES = 'true';
-  
   return {
     name: 'yjs-websocket',
     configureServer(server) {
       // Use the same yjs-server implementation as production
       import('./server/yjs-server.ts').then(async ({ attachYjsServer }) => {
-        // Run migrations and ensure demo space before attaching
-        const { runMigrations, ensureDemoSpace } = await import('./server/db.ts');
+        const { initDb, runMigrations, ensureDemoSpace } = await import('./server/db.ts');
+        initDb(config);
         await runMigrations();
-        await ensureDemoSpace();
+        await ensureDemoSpace(config);
         
         // Attach the shared Yjs server (same as production)
-        attachYjsServer(server.httpServer);
+        attachYjsServer(server.httpServer, config);
         console.log('[Yjs Dev] Using shared yjs-server.ts implementation');
       });
     }
