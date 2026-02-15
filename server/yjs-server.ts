@@ -13,8 +13,7 @@ import { setupWSConnection, docs, getYDoc } from 'y-websocket/bin/utils';
 import { getTextNotes, upsertTextNote, deleteTextNote, getSpace, createSpace } from './db.js';
 import type { TextNoteState } from '../shared/yjs-schema.js';
 
-// Environment config
-const AUTO_CREATE_SPACES = process.env.AUTO_CREATE_SPACES === 'true';
+import type { ServerConfig } from './config.js';
 
 // Track which doc instances have been hydrated (WeakSet auto-removes destroyed docs)
 const hydratedDocs = new WeakSet<Y.Doc>();
@@ -145,7 +144,7 @@ async function flushToSQLite(spaceId: string): Promise<void> {
   }
 }
 
-export function attachYjsServer(server: HttpServer | HttpsServer): void {
+export function attachYjsServer(server: HttpServer | HttpsServer, config: ServerConfig): void {
   // Use noServer mode to manually handle upgrade requests
   // This allows Socket.io to continue handling /socket.io paths
   const wss = new WebSocketServer({ noServer: true });
@@ -173,7 +172,7 @@ export function attachYjsServer(server: HttpServer | HttpsServer): void {
     // Validate space exists before allowing connection
     let space = await getSpace(spaceId);
     if (!space) {
-      if (AUTO_CREATE_SPACES) {
+      if (config.autoCreateSpaces) {
         // Auto-create space (for dev/testing)
         try {
           await createSpace(spaceId);

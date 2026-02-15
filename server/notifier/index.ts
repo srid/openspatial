@@ -5,7 +5,8 @@
  * updating the Slack message when the space becomes inactive.
  */
 import type { NotificationBackend, NotifierConfig, SpaceNotification } from './types.js';
-import { createSlackBackendFromEnv } from './slack.js';
+import { SlackBackend } from './slack.js';
+import type { ServerConfig } from '../config.js';
 
 let notifierConfig: NotifierConfig | null = null;
 
@@ -25,15 +26,17 @@ interface LiveMessage {
 const liveMessages = new Map<string, LiveMessage>();
 
 /**
- * Initialize the notifier system from environment variables.
+ * Initialize the notifier system from server config.
  */
-export function initNotifier(): void {
+export function initNotifier(config: ServerConfig): void {
   const backends: NotificationBackend[] = [];
   
   // Initialize Slack backend if configured
-  const slackBackend = createSlackBackendFromEnv();
-  if (slackBackend) {
-    backends.push(slackBackend);
+  if (config.slack.botToken && config.slack.channelId) {
+    backends.push(new SlackBackend({
+      botToken: config.slack.botToken,
+      channelId: config.slack.channelId,
+    }));
     console.log('[Notifier] Slack backend enabled');
   }
   
@@ -44,19 +47,13 @@ export function initNotifier(): void {
     return;
   }
   
-  const baseUrl = process.env.SLACK_BASE_URL || process.env.BASE_URL || '';
-  
-  // Parse allowed spaces (comma-separated list, empty means all)
-  const spacesEnv = process.env.SLACK_SPACES;
-  const allowedSpaces = spacesEnv ? spacesEnv.split(',').map(s => s.trim()) : null;
-  
   notifierConfig = {
     backends,
-    baseUrl,
-    allowedSpaces,
+    baseUrl: config.slack.baseUrl,
+    allowedSpaces: config.slack.spaces,
   };
   
-  const spacesInfo = allowedSpaces ? `spaces: [${allowedSpaces.join(', ')}]` : 'all spaces';
+  const spacesInfo = config.slack.spaces ? `spaces: [${config.slack.spaces.join(', ')}]` : 'all spaces';
   console.log(`[Notifier] Initialized with ${backends.length} backend(s), ${spacesInfo}`);
 }
 
@@ -137,7 +134,6 @@ export async function notifyUserJoined(spaceId: string, username: string): Promi
   const live = liveMessages.get(spaceId);
   if (!live) return;
   
-  const { SlackBackend } = await import('./slack.js');
   if (live.backend instanceof SlackBackend) {
     await live.backend.postThreadReply(live.messageId, `👋 *${username}* joined`);
   }
@@ -150,7 +146,6 @@ export async function notifyUserLeft(spaceId: string, username: string): Promise
   const live = liveMessages.get(spaceId);
   if (!live) return;
   
-  const { SlackBackend } = await import('./slack.js');
   if (live.backend instanceof SlackBackend) {
     await live.backend.postThreadReply(live.messageId, `🚪 *${username}* left`);
   }

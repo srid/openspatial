@@ -25,8 +25,7 @@ interface Space {
   screenShares: Map<string, ScreenShareData>;
 }
 
-// Grace period for disconnect: delay leave notifications to absorb reconnects
-const DISCONNECT_GRACE_MS = parseInt(process.env.DISCONNECT_GRACE_MS || '15000', 10);
+import type { ServerConfig } from './config.js';
 
 interface PendingLeave {
   timeout: ReturnType<typeof setTimeout>;
@@ -65,7 +64,10 @@ function cleanupCRDTOnDisconnect(spaceId: string, peerId: string): void {
  * Attach Socket.io signaling handlers to a Socket.io server instance.
  * Shared between Vite plugin (dev) and standalone server (prod).
  */
-export function attachSignaling(io: Server): void {
+export function attachSignaling(io: Server, config: ServerConfig): void {
+  const disconnectGraceMs = config.disconnectGraceMs;
+  console.log(`[Signaling] Disconnect grace period: ${disconnectGraceMs}ms`);
+
   // Space state management
   const spaces = new Map<string, Space>();
   // Map peerId -> socketId for direct signaling
@@ -93,7 +95,7 @@ export function attachSignaling(io: Server): void {
       // Check if space exists in database (production) or in-memory (dev auto-create mode)
       const dbSpace = await getSpaceFromDb(spaceId);
       const memorySpace = spaces.get(spaceId);
-      const exists = dbSpace !== null || process.env.AUTO_CREATE_SPACES === 'true';
+      const exists = dbSpace !== null || config.autoCreateSpaces;
       
       if (memorySpace) {
         const participants = Array.from(memorySpace.peers.values()).map(p => p.username);
@@ -272,7 +274,7 @@ export function attachSignaling(io: Server): void {
                 io.to(spaceId).emit('space-activity', { spaceId, events });
               });
             }
-          }, DISCONNECT_GRACE_MS);
+          }, disconnectGraceMs);
           
           pendingLeaves.set(pendingKey, { timeout, spaceId, username });
         }
