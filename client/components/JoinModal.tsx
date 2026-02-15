@@ -16,7 +16,7 @@ export const JoinModal: Component = () => {
   const [participants, setParticipants] = createSignal<string[]>([]);
   const [loading, setLoading] = createSignal(true);
   const [error, setError] = createSignal<string | null>(null);
-  const [spaceExists, setSpaceExists] = createSignal(true);
+
   const [stream, setStream] = createSignal<MediaStream | null>(null);
   
   onMount(() => {
@@ -40,11 +40,11 @@ export const JoinModal: Component = () => {
       
       ctx.onceSocket<SpaceInfoEvent>('space-info', (data) => {
         if (!data.exists) {
-          setSpaceExists(false);
-          setError(`Space "${space}" doesn't exist. An admin needs to create it first.`);
-        } else {
-          setParticipants(data.participants || []);
+          ctx.disconnectSignaling();
+          ctx.setView('not-found');
+          return;
         }
+        setParticipants(data.participants || []);
         setLoading(false);
         // DON'T disconnect here - keep connection for joining
       });
@@ -167,7 +167,7 @@ export const JoinModal: Component = () => {
               </svg>
               <span>Checking who's here...</span>
             </Show>
-            <Show when={!loading() && spaceExists()}>
+            <Show when={!loading()}>
               <Show when={participants().length === 0}>
                 <span>No one here yet — be the first!</span>
               </Show>
@@ -210,7 +210,7 @@ export const JoinModal: Component = () => {
               class="w-full py-3 px-4 bg-surface border border-border rounded-lg text-text-primary text-base font-[inherit] transition-all duration-(--transition-fast) placeholder:text-text-muted focus:outline-none focus:border-accent focus:shadow-[0_0_0_3px_var(--color-accent-glow)] read-only:bg-white/[0.02] read-only:text-text-secondary read-only:cursor-not-allowed"
             />
           </div>
-          <button type="submit" class="inline-flex items-center justify-center gap-2 py-3 px-6 font-[inherit] text-base font-semibold border-none rounded-lg cursor-pointer transition-all duration-(--transition-fast) w-full p-4 bg-[linear-gradient(135deg,#6366f1_0%,#8b5cf6_50%,#a855f7_100%)] text-white shadow-[var(--shadow-md),0_0_20px_var(--color-accent-glow)] hover:-translate-y-0.5 hover:shadow-[var(--shadow-lg),0_0_30px_var(--color-accent-glow)] active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0" disabled={!spaceExists()}>
+          <button type="submit" class="inline-flex items-center justify-center gap-2 py-3 px-6 font-[inherit] text-base font-semibold border-none rounded-lg cursor-pointer transition-all duration-(--transition-fast) w-full p-4 bg-[linear-gradient(135deg,#6366f1_0%,#8b5cf6_50%,#a855f7_100%)] text-white shadow-[var(--shadow-md),0_0_20px_var(--color-accent-glow)] hover:-translate-y-0.5 hover:shadow-[var(--shadow-lg),0_0_30px_var(--color-accent-glow)] active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0">
             <span>Join Space</span>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M5 12h14M12 5l7 7-7 7" />

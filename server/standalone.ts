@@ -8,7 +8,6 @@ import { configFromEnv } from './config.js';
 import { attachSignaling } from './signaling.js';
 import { attachYjsServer } from './yjs-server.js';
 import { getIceServers } from './turn-config.js';
-import { validateSpace } from './spaces.js';
 import { initDb, runMigrations, ensureDemoSpace } from './db.js';
 import { initNotifier } from './notifier/index.js';
 
@@ -39,8 +38,8 @@ app.get('/api/ice-servers', (_req: Request, res: Response) => {
     res.json(getIceServers(config.turn));
 });
 
-// SPA fallback for /s/:spaceId routes with space validation
-app.get('/s/:spaceId', validateSpace, (_req: Request, res: Response) => {
+// SPA fallback for /s/:spaceId routes — always serve the SPA; client handles missing spaces
+app.get('/s/:spaceId', (_req: Request, res: Response) => {
     res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
     res.sendFile(join(__dirname, '../dist/index.html'));
 });
