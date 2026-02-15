@@ -13,7 +13,7 @@ scenario('creating text note appears on canvas', 'note-create', async ({ createU
   // Create a text note
   const note = await alice.createTextNote();
   
-  expect(note.content).toBe(''); // Initially empty
+  expect(note.content).toContain('# Welcome'); // Has placeholder markdown
   
   // Should be visible on our own canvas
   const notes = await alice.textNotes();
