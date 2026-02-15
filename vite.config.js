@@ -37,6 +37,8 @@ function socketPlugin() {
 function yjsPlugin() {
   // Enable auto-creation of spaces in dev mode
   process.env.AUTO_CREATE_SPACES = 'true';
+  // Disable disconnect grace period in dev/E2E so leave events are recorded immediately
+  process.env.DISCONNECT_GRACE_MS = '0';
   
   return {
     name: 'yjs-websocket',
