@@ -2,10 +2,12 @@ import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
   testDir: './e2e',
-  fullyParallel: false, // Multi-user tests need sequential execution
+  // Tests are safe to run in parallel because every scenario() uses a unique,
+  // deterministic space ID, ensuring zero cross-test state contamination.
+  fullyParallel: true,
   forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 2 : 0,
-  workers: 1, // Single worker for multi-context tests
+  retries: process.env.CI ? 1 : 0,
+  workers: process.env.CI ? 4 : undefined, // CI: 4 workers; local: Playwright default (half CPU cores)
   reporter: 'html',
   use: {
     baseURL: 'https://localhost:5173',

@@ -88,6 +88,9 @@ interface ScenarioConfig {
  * scenario('long running test', 'test-room', async ({ createUser }) => {
  *   // ...
  * }, { timeoutMs: 90000 });
+ *
+ * IMPORTANT: The spaceId parameter MUST be unique across all tests to enable
+ * parallel execution. Reusing a space ID will cause cross-test state contamination.
  */
 export function scenario(name: string, spaceId: string, fn: ScenarioFn, config?: ScenarioConfig): void {
   test(name, async ({ browser }) => {
