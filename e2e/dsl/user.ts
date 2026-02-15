@@ -237,7 +237,7 @@ export class UserImpl implements User {
     const editor = note.locator('.cm-content');
     // Use force: true because avatars may overlap the text note
     await editor.click({ force: true });
-    await this.page.keyboard.press('Meta+A');
+    await this.page.keyboard.press('ControlOrMeta+A');
     await this.page.keyboard.type(content);
     // Click outside to blur
     await this.page.click('.text-note-header', { force: true });
