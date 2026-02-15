@@ -252,22 +252,24 @@ export class UserImpl implements User {
     const note = this.page.locator('.text-note').first();
     // Click the font size button to open menu
     const fontSizeBtn = note.locator('.text-note-font-size');
-    await fontSizeBtn.click({ force: true });
-    // Click the menu option with matching text
+    await fontSizeBtn.click();
+    // Wait for menu to render, then click option
     const sizeLabel = size.charAt(0).toUpperCase() + size.slice(1); // 'small' -> 'Small'
     const option = this.page.locator('.text-note-menu-option', { hasText: sizeLabel });
-    await option.click({ force: true });
+    await option.waitFor({ state: 'visible' });
+    await option.click();
   }
 
   async setTextNoteFontFamily(family: 'sans' | 'serif' | 'mono'): Promise<void> {
     const note = this.page.locator('.text-note').first();
     // Click the font family button to open menu
     const fontFamilyBtn = note.locator('.text-note-font-family');
-    await fontFamilyBtn.click({ force: true });
-    // Click the menu option with matching text
+    await fontFamilyBtn.click();
+    // Wait for menu to render, then click option
     const familyLabels: Record<string, string> = { sans: 'Sans', serif: 'Serif', mono: 'Mono' };
     const option = this.page.locator('.text-note-menu-option', { hasText: familyLabels[family] });
-    await option.click({ force: true });
+    await option.waitFor({ state: 'visible' });
+    await option.click();
   }
 
   async deleteTextNote(): Promise<void> {

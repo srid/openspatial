@@ -64,13 +64,12 @@ export class AvatarViewImpl implements AvatarView {
   }
 
   async status(): Promise<string | null> {
+    // Quick snapshot — use expect.poll() at the call site for cross-user sync waiting
     const statusEl = this.locator.locator('.avatar-status');
-    try {
-      await expect(statusEl).toBeVisible({ timeout: SYNC_TIMEOUT });
+    if (await statusEl.isVisible()) {
       return await statusEl.textContent();
-    } catch {
-      return null;
     }
+    return null;
   }
 
   async state(): Promise<AvatarState> {
