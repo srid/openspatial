@@ -6,6 +6,10 @@
 - **Aggressively remove unused code.** When removing a feature, delete all related code, types, constants, CSS, and tests. Dead code is a liability.
 - **Keep the codebase lean.** Don't leave behind scaffolding, commented-out code, or "just in case" abstractions.
 
+## Git Workflow
+
+**NEVER commit changes.** The user will handle all git commits. Do not mutate the git repository state (no `git add`, `git commit`, etc).
+
 ## E2E Testing
 
 **ALWAYS use `just e2e-quick` for e2e tests** - not `npx playwright test` directly.
