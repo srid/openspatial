@@ -23,7 +23,6 @@ export class AvatarViewImpl implements AvatarView {
   }
 
   async position(): Promise<Position> {
-    await expect(this.locator).toBeVisible({ timeout: SYNC_TIMEOUT });
     return await this.locator.evaluate((el: HTMLElement) => ({
       x: parseFloat(el.style.left) || 0,
       y: parseFloat(el.style.top) || 0,
@@ -32,35 +31,22 @@ export class AvatarViewImpl implements AvatarView {
 
   async isMuted(): Promise<boolean> {
     const indicator = this.locator.locator('.avatar-indicator.muted');
-    try {
-      await expect(indicator).toBeVisible({ timeout: SYNC_TIMEOUT });
-      return true;
-    } catch {
-      return false;
-    }
+    return await indicator.isVisible();
   }
 
   async isWebcamOn(): Promise<boolean> {
     // Webcam is on if video element is visible (not hidden by isVideoOff)
     const video = this.locator.locator('.avatar-video-container video');
-    try {
-      await expect(video).toBeVisible({ timeout: SYNC_TIMEOUT });
-      // Also check that video has a srcObject (stream attached)
-      const hasStream = await video.evaluate((el: HTMLVideoElement) => !!el.srcObject);
-      return hasStream;
-    } catch {
-      return false;
-    }
+    const visible = await video.isVisible();
+    if (!visible) return false;
+    // Also check that video has a srcObject (stream attached)
+    const hasStream = await video.evaluate((el: HTMLVideoElement) => !!el.srcObject);
+    return hasStream;
   }
 
   async isWebcamMuted(): Promise<boolean> {
     const indicator = this.locator.locator('.avatar-indicator.webcam-muted');
-    try {
-      await expect(indicator).toBeVisible({ timeout: SYNC_TIMEOUT });
-      return true;
-    } catch {
-      return false;
-    }
+    return await indicator.isVisible();
   }
 
   async status(): Promise<string | null> {
@@ -89,36 +75,13 @@ export class AvatarViewImpl implements AvatarView {
    */
   async hasVideoContent(): Promise<boolean> {
     const video = this.locator.locator('.avatar-video-container video');
-    await expect(video).toBeVisible({ timeout: SYNC_TIMEOUT });
-    
-    // Wait for video to have dimensions (frames have arrived)
-    const maxWaitMs = 5000;
-    const pollIntervalMs = 200;
-    let attempts = 0;
-    const maxAttempts = maxWaitMs / pollIntervalMs;
-    
-    while (attempts < maxAttempts) {
-      const state = await video.evaluate((el: HTMLVideoElement) => ({
-        videoWidth: el.videoWidth,
-        videoHeight: el.videoHeight,
-        readyState: el.readyState,
-      }));
-      
-      if (state.videoWidth > 0 && state.videoHeight > 0 && state.readyState >= 2) {
-        break;
-      }
-      
-      attempts++;
-      await new Promise(r => setTimeout(r, pollIntervalMs));
-    }
+    const visible = await video.isVisible();
+    if (!visible) return false;
     
     return await video.evaluate((el: HTMLVideoElement) => {
-      if (el.videoWidth === 0 || el.videoHeight === 0) {
-        return false;
-      }
-      if (el.paused || el.ended) {
-        return false;
-      }
+      if (el.videoWidth === 0 || el.videoHeight === 0) return false;
+      if (el.readyState < 2) return false;
+      if (el.paused || el.ended) return false;
       
       // Sample pixels from the video
       const canvas = document.createElement('canvas');
@@ -161,7 +124,6 @@ export class ScreenShareViewImpl implements ScreenShareView {
   }
 
   async rect(): Promise<Rect> {
-    await expect(this.locator).toBeVisible({ timeout: SYNC_TIMEOUT });
     return await this.locator.evaluate((el: HTMLElement) => ({
       position: {
         x: parseFloat(el.style.left) || 0,
@@ -189,64 +151,16 @@ export class ScreenShareViewImpl implements ScreenShareView {
    * Waits for video to receive frames, then samples pixels to check for non-black values.
    */
   async hasVideoContent(): Promise<boolean> {
-    await expect(this.locator).toBeVisible({ timeout: SYNC_TIMEOUT });
+    const visible = await this.locator.isVisible();
+    if (!visible) return false;
     const video = this.locator.locator('.screen-share-video');
-    await expect(video).toBeVisible({ timeout: SYNC_TIMEOUT });
-    
-    // Wait for video to have dimensions (frames have arrived)
-    // Poll for up to 5 seconds for WebRTC frames to arrive
-    const maxWaitMs = 5000;
-    const pollIntervalMs = 200;
-    let attempts = 0;
-    const maxAttempts = maxWaitMs / pollIntervalMs;
-    
-    while (attempts < maxAttempts) {
-      const state = await video.evaluate((el: HTMLVideoElement) => ({
-        videoWidth: el.videoWidth,
-        videoHeight: el.videoHeight,
-        readyState: el.readyState,
-      }));
-      
-      if (state.videoWidth > 0 && state.videoHeight > 0 && state.readyState >= 2) {
-        // Video has dimensions and at least HAVE_CURRENT_DATA
-        break;
-      }
-      
-      attempts++;
-      await new Promise(r => setTimeout(r, pollIntervalMs));
-    }
-    
-    // Log final state for debugging
-    const debugInfo = await video.evaluate((el: HTMLVideoElement) => {
-      const stream = el.srcObject as MediaStream | null;
-      const tracks = stream?.getVideoTracks() || [];
-      const trackInfo = tracks.map(t => ({
-        kind: t.kind,
-        enabled: t.enabled,
-        muted: t.muted,
-        readyState: t.readyState,
-        id: t.id?.substring(0, 8),
-      }));
-      return {
-        hasSrcObject: !!el.srcObject,
-        videoWidth: el.videoWidth,
-        videoHeight: el.videoHeight,
-        readyState: el.readyState,
-        paused: el.paused,
-        trackCount: tracks.length,
-        tracks: trackInfo,
-      };
-    });
-    console.log(`[hasVideoContent DEBUG after wait] ${JSON.stringify(debugInfo)}`);
+    const videoVisible = await video.isVisible();
+    if (!videoVisible) return false;
     
     return await video.evaluate((el: HTMLVideoElement) => {
-      // Check for dimensions
-      if (el.videoWidth === 0 || el.videoHeight === 0) {
-        return false;
-      }
-      if (el.paused || el.ended) {
-        return false;
-      }
+      if (el.videoWidth === 0 || el.videoHeight === 0) return false;
+      if (el.readyState < 2) return false;
+      if (el.paused || el.ended) return false;
       
       // Sample pixels from the video by drawing to a canvas
       const canvas = document.createElement('canvas');
@@ -261,7 +175,7 @@ export class ScreenShareViewImpl implements ScreenShareView {
       
       // Check if any pixels have non-black/non-transparent content
       let nonBlackPixels = 0;
-      for (let i = 0; i < pixels.length; i += 40) { // Sample every 10th pixel
+      for (let i = 0; i < pixels.length; i += 40) {
         const r = pixels[i];
         const g = pixels[i + 1];
         const b = pixels[i + 2];
@@ -289,7 +203,6 @@ export class TextNoteViewImpl implements TextNoteView {
   }
 
   async content(): Promise<string> {
-    await expect(this.locator).toBeVisible({ timeout: SYNC_TIMEOUT });
     const cmContent = this.locator.locator('.cm-content');
     // Read content from CodeMirror lines, recursively walking Text nodes
     // but skipping yCollab widget containers
@@ -309,7 +222,6 @@ export class TextNoteViewImpl implements TextNoteView {
   }
 
   async rect(): Promise<Rect> {
-    await expect(this.locator).toBeVisible({ timeout: SYNC_TIMEOUT });
     return await this.locator.evaluate((el: HTMLElement) => ({
       position: {
         x: parseFloat(el.style.left) || 0,
@@ -323,7 +235,6 @@ export class TextNoteViewImpl implements TextNoteView {
   }
 
   async style(): Promise<{ fontSize: 'small' | 'medium' | 'large'; fontFamily: 'sans' | 'serif' | 'mono' }> {
-    await expect(this.locator).toBeVisible({ timeout: SYNC_TIMEOUT });
     return await this.locator.evaluate((el: HTMLElement) => {
       const editor = el.querySelector('.collab-editor') as HTMLElement;
       

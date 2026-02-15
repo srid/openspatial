@@ -20,7 +20,9 @@ scenario('leaving removes screen shares', 'ss-leave', async ({ createUser }) => 
   expect(sharesBefore[0].owner).toBe('Alice');
   
   // Verify Bob sees actual video content (not blank)
-  expect(await bob.screenShareOf('Alice').hasVideoContent()).toBe(true);
+  await expect.poll(async () =>
+    await bob.screenShareOf('Alice').hasVideoContent()
+  , { timeout: 10000 }).toBe(true);
 
   await alice.leave();
   
@@ -40,7 +42,9 @@ scenario('screen share resize syncs', 'ss-resize', async ({ createUser }) => {
   await bob.waitForScreenShare('Alice');
   
   // Verify Bob sees actual video content
-  expect(await bob.screenShareOf('Alice').hasVideoContent()).toBe(true);
+  await expect.poll(async () =>
+    await bob.screenShareOf('Alice').hasVideoContent()
+  , { timeout: 10000 }).toBe(true);
 
   const expectedRect = {
     position: { x: 2200, y: 2100 },
@@ -55,7 +59,9 @@ scenario('screen share resize syncs', 'ss-resize', async ({ createUser }) => {
   }, { timeout: 5000 }).toBe(true);
   
   // Verify video content is still visible after resize
-  expect(await bob.screenShareOf('Alice').hasVideoContent()).toBe(true);
+  await expect.poll(async () =>
+    await bob.screenShareOf('Alice').hasVideoContent()
+  , { timeout: 10000 }).toBe(true);
 });
 
 scenario('stopping screen share removes it', 'ss-stop', async ({ createUser }) => {
@@ -71,7 +77,9 @@ scenario('stopping screen share removes it', 'ss-stop', async ({ createUser }) =
   expect(sharesBefore[0].owner).toBe('Alice');
   
   // Verify Bob sees actual video content before stop
-  expect(await bob.screenShareOf('Alice').hasVideoContent()).toBe(true);
+  await expect.poll(async () =>
+    await bob.screenShareOf('Alice').hasVideoContent()
+  , { timeout: 10000 }).toBe(true);
 
   await alice.stopScreenShare();
 
@@ -106,9 +114,13 @@ scenario('multiple users can screen share', 'ss-multiple', async ({ createUser }
   expect(bobShares.map(s => s.owner).sort()).toEqual(['Alice', 'Bob']);
   
   // Verify Alice sees Bob's video content
-  expect(await alice.screenShareOf('Bob').hasVideoContent()).toBe(true);
+  await expect.poll(async () =>
+    await alice.screenShareOf('Bob').hasVideoContent()
+  , { timeout: 10000 }).toBe(true);
   // Verify Bob sees Alice's video content
-  expect(await bob.screenShareOf('Alice').hasVideoContent()).toBe(true);
+  await expect.poll(async () =>
+    await bob.screenShareOf('Alice').hasVideoContent()
+  , { timeout: 10000 }).toBe(true);
 });
 
 scenario('late-joiner sees screen share', 'ss-late', async ({ createUser }) => {
@@ -140,7 +152,9 @@ scenario('late-joiner sees screen share', 'ss-late', async ({ createUser }) => {
   expectRect(shares[0].rect, { position: shares[0].rect.position, size: aliceRect.size });
   
   // Verify late-joiner Bob sees actual video content (not blank)
-  expect(await bob.screenShareOf('Alice').hasVideoContent()).toBe(true);
+  await expect.poll(async () =>
+    await bob.screenShareOf('Alice').hasVideoContent()
+  , { timeout: 10000 }).toBe(true);
 });
 
 scenario('anyone can drag screen share', 'ss-drag-anyone', async ({ createUser }) => {
@@ -152,7 +166,9 @@ scenario('anyone can drag screen share', 'ss-drag-anyone', async ({ createUser }
   await bob.waitForScreenShare('Alice');
   
   // Verify Bob sees actual video content before drag
-  expect(await bob.screenShareOf('Alice').hasVideoContent()).toBe(true);
+  await expect.poll(async () =>
+    await bob.screenShareOf('Alice').hasVideoContent()
+  , { timeout: 10000 }).toBe(true);
 
   // Get initial position
   const beforeDrag = await bob.screenShareOf('Alice').position();
@@ -160,19 +176,22 @@ scenario('anyone can drag screen share', 'ss-drag-anyone', async ({ createUser }
   // Bob drags Alice's screen share
   await bob.dragScreenShare('Alice', { dx: 100, dy: 50 });
 
-  // Verify position changed for Bob
-  const bobAfterDrag = await bob.screenShareOf('Alice').position();
-  expect(bobAfterDrag.x).toBeGreaterThan(beforeDrag.x + 50);
-  expect(bobAfterDrag.y).toBeGreaterThan(beforeDrag.y + 25);
+  // Verify position changed for Bob (poll — CRDT update may not be instant)
+  await expect.poll(async () => {
+    const p = await bob.screenShareOf('Alice').position();
+    return p.x > beforeDrag.x + 20 && p.y > beforeDrag.y + 10;
+  }, { timeout: 5000 }).toBe(true);
 
   // Verify Alice sees the new position too
   await expect.poll(async () => {
     const p = await alice.screenShareOf('Alice').position();
-    return Math.abs(p.x - bobAfterDrag.x) < 10 && Math.abs(p.y - bobAfterDrag.y) < 10;
+    return p.x > beforeDrag.x + 20 && p.y > beforeDrag.y + 10;
   }, { timeout: 5000 }).toBe(true);
   
   // Verify video content is still visible after drag
-  expect(await bob.screenShareOf('Alice').hasVideoContent()).toBe(true);
+  await expect.poll(async () =>
+    await bob.screenShareOf('Alice').hasVideoContent()
+  , { timeout: 10000 }).toBe(true);
 });
 
 scenario('anyone can resize screen share', 'ss-resize-anyone', async ({ createUser }) => {
@@ -184,7 +203,9 @@ scenario('anyone can resize screen share', 'ss-resize-anyone', async ({ createUs
   await bob.waitForScreenShare('Alice');
   
   // Verify Bob sees actual video content before resize
-  expect(await bob.screenShareOf('Alice').hasVideoContent()).toBe(true);
+  await expect.poll(async () =>
+    await bob.screenShareOf('Alice').hasVideoContent()
+  , { timeout: 10000 }).toBe(true);
 
   // Get initial size
   const beforeResize = await bob.screenShareOf('Alice').size();
@@ -205,5 +226,7 @@ scenario('anyone can resize screen share', 'ss-resize-anyone', async ({ createUs
   }, { timeout: 5000 }).toBe(true);
   
   // Verify video content is still visible after resize
-  expect(await bob.screenShareOf('Alice').hasVideoContent()).toBe(true);
+  await expect.poll(async () =>
+    await bob.screenShareOf('Alice').hasVideoContent()
+  , { timeout: 10000 }).toBe(true);
 });

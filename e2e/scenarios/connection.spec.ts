@@ -53,14 +53,18 @@ scenario('reconnected user visible to new joiner', 'reconnect-visibility', async
   await expect.poll(async () =>
     await bob.avatarOf('Alice').isWebcamOn()
   , { timeout: 10000 }).toBe(true);
-  expect(await bob.avatarOf('Alice').hasVideoContent()).toBe(true);
+  await expect.poll(async () =>
+    await bob.avatarOf('Alice').hasVideoContent()
+  , { timeout: 10000 }).toBe(true);
   
   // Alice should also see Bob's webcam
   await alice.waitForUser('Bob');
   await expect.poll(async () =>
     await alice.avatarOf('Bob').isWebcamOn()
   , { timeout: 10000 }).toBe(true);
-  expect(await alice.avatarOf('Bob').hasVideoContent()).toBe(true);
+  await expect.poll(async () =>
+    await alice.avatarOf('Bob').hasVideoContent()
+  , { timeout: 10000 }).toBe(true);
 });
 
 /**
@@ -74,7 +78,9 @@ async function verifyAllCanvasElements(
   // Check webcam
   expect(await viewer.avatarOf(owner).isWebcamOn()).toBe(options.webcam);
   if (options.webcam) {
-    expect(await viewer.avatarOf(owner).hasVideoContent()).toBe(true);
+    await expect.poll(async () =>
+      await viewer.avatarOf(owner).hasVideoContent()
+    , { timeout: 10000 }).toBe(true);
   }
   
   // Check screen share
@@ -131,7 +137,9 @@ scenario('all canvas elements persist after reconnection', 'reconnect-all-elemen
   await expect.poll(async () =>
     await bob.avatarOf('Alice').isWebcamOn()
   , { timeout: 10000 }).toBe(true);
-  expect(await bob.avatarOf('Alice').hasVideoContent()).toBe(true);
+  await expect.poll(async () =>
+    await bob.avatarOf('Alice').hasVideoContent()
+  , { timeout: 10000 }).toBe(true);
   
   // Verify Bob still sees Alice's screen share
   await expect.poll(async () =>
@@ -147,5 +155,7 @@ scenario('all canvas elements persist after reconnection', 'reconnect-all-elemen
   await expect.poll(async () =>
     await alice.avatarOf('Bob').isWebcamOn()
   , { timeout: 10000 }).toBe(true);
-  expect(await alice.avatarOf('Bob').hasVideoContent()).toBe(true);
+  await expect.poll(async () =>
+    await alice.avatarOf('Bob').hasVideoContent()
+  , { timeout: 10000 }).toBe(true);
 });

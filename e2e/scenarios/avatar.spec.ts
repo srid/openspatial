@@ -59,7 +59,9 @@ scenario('participant count updates', 'count-test', async ({ createUser }) => {
   expect(await alice.participantCount()).toBe(1);
 
   const bob = await createUser('Bob').join();
-  expect(await alice.participantCount()).toBe(2);
+  await expect.poll(async () =>
+    await alice.participantCount()
+  , { timeout: 5000 }).toBe(2);
   expect(await bob.participantCount()).toBe(2);
 });
 

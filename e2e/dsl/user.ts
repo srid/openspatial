@@ -158,7 +158,6 @@ export class UserImpl implements User {
       await this.page.mouse.move(box.x + 5 + delta.dx, box.y + 5 + delta.dy, { steps: 5 });
       await this.page.mouse.up();
     }
-    await this.page.waitForTimeout(250);
   }
 
   async dragAvatar(delta: { dx: number; dy: number }): Promise<void> {
@@ -174,7 +173,6 @@ export class UserImpl implements User {
       );
       await this.page.mouse.up();
     }
-    await this.page.waitForTimeout(250);
   }
 
   async touchDragAvatar(delta: { dx: number; dy: number }): Promise<void> {
@@ -193,7 +191,6 @@ export class UserImpl implements User {
     );
     await this.page.mouse.up();
 
-    await this.page.waitForTimeout(250);
   }
 
   async goOffline(): Promise<void> {
@@ -315,7 +312,6 @@ export class UserImpl implements User {
       await this.page.mouse.up();
     }
     
-    await this.page.waitForTimeout(250);
   }
 
   async resizeTextNote(size: { width: number; height: number }): Promise<void> {

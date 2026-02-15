@@ -14,13 +14,15 @@ scenario('mute state syncs', 'mute-sync', async ({ createUser }) => {
 
   // Alice mutes
   await alice.mute();
-  await alice.wait(500);
-  expect(await bob.avatarOf('Alice').isMuted()).toBe(true);
+  await expect.poll(async () =>
+    await bob.avatarOf('Alice').isMuted()
+  , { timeout: 5000 }).toBe(true);
 
   // Alice unmutes
   await alice.unmute();
-  await alice.wait(500);
-  expect(await bob.avatarOf('Alice').isMuted()).toBe(false);
+  await expect.poll(async () =>
+    await bob.avatarOf('Alice').isMuted()
+  , { timeout: 5000 }).toBe(false);
 });
 
 scenario('mute toggle is bidirectional', 'mute-bidirectional', async ({ createUser }) => {
@@ -32,30 +34,36 @@ scenario('mute toggle is bidirectional', 'mute-bidirectional', async ({ createUs
   // Both users mute
   await alice.mute();
   await bob.mute();
-  await alice.wait(500);
 
-  expect(await alice.avatarOf('Bob').isMuted()).toBe(true);
-  expect(await bob.avatarOf('Alice').isMuted()).toBe(true);
+  await expect.poll(async () =>
+    await alice.avatarOf('Bob').isMuted()
+  , { timeout: 5000 }).toBe(true);
+  await expect.poll(async () =>
+    await bob.avatarOf('Alice').isMuted()
+  , { timeout: 5000 }).toBe(true);
 
   // Both users unmute
   await alice.unmute();
   await bob.unmute();
-  await alice.wait(500);
 
-  expect(await alice.avatarOf('Bob').isMuted()).toBe(false);
-  expect(await bob.avatarOf('Alice').isMuted()).toBe(false);
+  await expect.poll(async () =>
+    await alice.avatarOf('Bob').isMuted()
+  , { timeout: 5000 }).toBe(false);
+  await expect.poll(async () =>
+    await bob.avatarOf('Alice').isMuted()
+  , { timeout: 5000 }).toBe(false);
 });
 
 scenario('late-joiner sees mute state', 'audio-late', async ({ createUser }) => {
   const alice = await createUser('Alice').join();
   await alice.mute();
-  await alice.wait(500);
   
   // Bob joins later
   const bob = await createUser('Bob').join();
   await bob.waitForUser('Alice');
-  await bob.wait(500);
   
   // Bob should see Alice as muted
-  expect(await bob.avatarOf('Alice').isMuted()).toBe(true);
+  await expect.poll(async () =>
+    await bob.avatarOf('Alice').isMuted()
+  , { timeout: 5000 }).toBe(true);
 });
