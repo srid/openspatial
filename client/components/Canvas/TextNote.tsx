@@ -24,14 +24,6 @@ const FONT_FAMILIES = {
   mono: "'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace",
 } as const;
 
-const COLOR_PALETTE = [
-  { name: 'White', value: '#ffffff' },
-  { name: 'Yellow', value: '#fef08a' },
-  { name: 'Cyan', value: '#67e8f9' },
-  { name: 'Pink', value: '#f9a8d4' },
-  { name: 'Green', value: '#86efac' },
-];
-
 export const TextNote: Component<TextNoteProps> = (props) => {
   const ctx = useSpace();
   
@@ -50,7 +42,6 @@ export const TextNote: Component<TextNoteProps> = (props) => {
   const [isDraggingSignal, setIsDraggingSignal] = createSignal(false);
   const [showFontSizeMenu, setShowFontSizeMenu] = createSignal(false);
   const [showFontFamilyMenu, setShowFontFamilyMenu] = createSignal(false);
-  const [showColorMenu, setShowColorMenu] = createSignal(false);
   
   // Resizable hook for consistent resize behavior
   const resizable = useResizable({
@@ -133,28 +124,19 @@ export const TextNote: Component<TextNoteProps> = (props) => {
     e.stopPropagation();
     setShowFontSizeMenu(!showFontSizeMenu());
     setShowFontFamilyMenu(false);
-    setShowColorMenu(false);
   }
   
   function handleFontFamilyClick(e: MouseEvent) {
     e.stopPropagation();
     setShowFontFamilyMenu(!showFontFamilyMenu());
     setShowFontSizeMenu(false);
-    setShowColorMenu(false);
-  }
-  
-  function handleColorClick(e: MouseEvent) {
-    e.stopPropagation();
-    setShowColorMenu(!showColorMenu());
-    setShowFontSizeMenu(false);
-    setShowFontFamilyMenu(false);
   }
   
   function selectFontSize(size: 'small' | 'medium' | 'large') {
     setShowFontSizeMenu(false);
     const n = note();
     if (n) {
-      ctx.updateTextNoteStyle(props.noteId, size, n.fontFamily || 'sans', n.color || '#ffffff');
+      ctx.updateTextNoteStyle(props.noteId, size, n.fontFamily || 'sans', '#ffffff');
     }
   }
   
@@ -162,26 +144,19 @@ export const TextNote: Component<TextNoteProps> = (props) => {
     setShowFontFamilyMenu(false);
     const n = note();
     if (n) {
-      ctx.updateTextNoteStyle(props.noteId, n.fontSize || 'medium', family, n.color || '#ffffff');
+      ctx.updateTextNoteStyle(props.noteId, n.fontSize || 'medium', family, '#ffffff');
     }
   }
   
-  function selectColor(color: string) {
-    setShowColorMenu(false);
-    const n = note();
-    if (n) {
-      ctx.updateTextNoteStyle(props.noteId, n.fontSize || 'medium', n.fontFamily || 'sans', color);
-    }
-  }
+
   
   // Close menus when clicking outside
   createEffect(() => {
-    if (showFontSizeMenu() || showFontFamilyMenu() || showColorMenu()) {
+    if (showFontSizeMenu() || showFontFamilyMenu()) {
       const closeMenus = (e: MouseEvent) => {
         if (!containerRef?.contains(e.target as Node)) {
           setShowFontSizeMenu(false);
           setShowFontFamilyMenu(false);
-          setShowColorMenu(false);
         }
       };
       setTimeout(() => document.addEventListener('click', closeMenus), 0);
@@ -261,29 +236,7 @@ export const TextNote: Component<TextNoteProps> = (props) => {
                 </Show>
               </div>
               
-              {/* Color Button */}
-              <div class="relative">
-                <button
-                  class="text-note-color relative flex items-center justify-center w-6 h-6 border-2 border-border rounded-sm cursor-pointer transition-all duration-(--transition-fast) hover:scale-110"
-                  onClick={handleColorClick}
-                  title="Text color"
-                  style={{ 'background-color': n().color || '#ffffff' }}
-                />
-                <Show when={showColorMenu()}>
-                  <div class="absolute top-full right-0 mt-1 bg-bg-elevated border border-border rounded-md p-2 z-[1000] shadow-lg flex gap-1">
-                    <For each={COLOR_PALETTE}>
-                      {(color) => (
-                        <button
-                          class="text-note-color-option w-6 h-6 border-2 border-border rounded-sm cursor-pointer transition-all duration-(--transition-fast) hover:scale-110 hover:shadow-[0_0_8px_rgba(255,255,255,0.3)]"
-                          style={{ 'background-color': color.value }}
-                          title={color.name}
-                          onClick={(e) => { e.stopPropagation(); selectColor(color.value); }}
-                        />
-                      )}
-                    </For>
-                  </div>
-                </Show>
-              </div>
+
               
               {/* Close Button */}
               <button class="text-note-close flex items-center justify-center w-6 h-6 bg-transparent border-none rounded-sm text-text-muted cursor-pointer transition-all duration-(--transition-fast) hover:bg-danger/20 hover:text-danger" onClick={handleClose} title="Delete note">
@@ -299,7 +252,7 @@ export const TextNote: Component<TextNoteProps> = (props) => {
               noteId={props.noteId}
               fontSize={FONT_SIZES[n().fontSize || 'medium']}
               fontFamily={FONT_FAMILIES[n().fontFamily || 'sans']}
-              color={n().color || '#ffffff'}
+
             />
           </div>
           <resizable.ResizeHandle />

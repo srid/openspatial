@@ -204,7 +204,7 @@
   .collab-editor .cm-content {
     font-size: var(--note-font-size, 18px);
     font-family: var(--note-font-family, 'Inter', -apple-system, BlinkMacSystemFont, sans-serif);
-    color: var(--note-color, #ffffff);
+    color: #ffffff;
     line-height: 1.6;
   }
 

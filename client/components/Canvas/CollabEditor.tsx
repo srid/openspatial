@@ -65,7 +65,6 @@ interface CollabEditorProps {
   noteId: string;
   fontSize?: string;
   fontFamily?: string;
-  color?: string;
 }
 
 export const CollabEditor: Component<CollabEditorProps> = (props) => {
@@ -145,11 +144,9 @@ export const CollabEditor: Component<CollabEditorProps> = (props) => {
     if (!containerRef) return;
     const fontSize = props.fontSize || '18px';
     const fontFamily = props.fontFamily || "'Inter', -apple-system, BlinkMacSystemFont, sans-serif";
-    const color = props.color || '#ffffff';
 
     containerRef.style.setProperty('--note-font-size', fontSize);
     containerRef.style.setProperty('--note-font-family', fontFamily);
-    containerRef.style.setProperty('--note-color', color);
   });
 
   return (

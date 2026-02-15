@@ -263,20 +263,7 @@ export class UserImpl implements User {
     await option.click({ force: true });
   }
 
-  async setTextNoteColor(color: string): Promise<void> {
-    const note = this.page.locator('.text-note').first();
-    // Click the color button to open menu
-    const colorBtn = note.locator('.text-note-color');
-    await colorBtn.click({ force: true });
-    // Click the color option - use title attribute which contains the color name
-    // Colors: White=#ffffff, Yellow=#fef08a, Cyan=#67e8f9, Pink=#f9a8d4, Green=#86efac
-    const colorNames: Record<string, string> = {
-      '#ffffff': 'White', '#fef08a': 'Yellow', '#67e8f9': 'Cyan', '#f9a8d4': 'Pink', '#86efac': 'Green'
-    };
-    const colorName = colorNames[color] || 'White';
-    const option = this.page.locator(`.text-note-color-option[title="${colorName}"]`);
-    await option.click({ force: true });
-  }
+
 
   async deleteTextNote(): Promise<void> {
     // Since notes are ownerless, just get the first/most recent text note

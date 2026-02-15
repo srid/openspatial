@@ -323,16 +323,14 @@ export class TextNoteViewImpl implements TextNoteView {
     }));
   }
 
-  async style(): Promise<{ fontSize: 'small' | 'medium' | 'large'; fontFamily: 'sans' | 'serif' | 'mono'; color: string }> {
+  async style(): Promise<{ fontSize: 'small' | 'medium' | 'large'; fontFamily: 'sans' | 'serif' | 'mono' }> {
     await expect(this.locator).toBeVisible({ timeout: SYNC_TIMEOUT });
     return await this.locator.evaluate((el: HTMLElement) => {
       const editor = el.querySelector('.collab-editor') as HTMLElement;
-      const computedStyle = editor ? window.getComputedStyle(editor) : null;
       
       // Read from CSS custom properties set by CollabEditor
       const fontSizeVar = editor?.style.getPropertyValue('--note-font-size') || '18px';
       const fontFamilyVar = editor?.style.getPropertyValue('--note-font-family') || '';
-      const colorVar = editor?.style.getPropertyValue('--note-color') || '#ffffff';
       
       // Reverse map font sizes
       const fontSize = (() => {
@@ -348,7 +346,7 @@ export class TextNoteViewImpl implements TextNoteView {
         return 'sans';
       })();
       
-      return { fontSize, fontFamily, color: colorVar };
+      return { fontSize, fontFamily };
     });
   }
 }

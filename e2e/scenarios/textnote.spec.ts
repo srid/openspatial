@@ -225,24 +225,4 @@ scenario('text note font-family syncs to other users', 'note-fontfamily-sync', a
   }, { timeout: 5000 }).toBe('mono');
 });
 
-scenario('text note color syncs to other users', 'note-color-sync', async ({ createUser }) => {
-  const alice = await createUser('Alice').join();
-  const bob = await createUser('Bob').join();
 
-  // Alice creates a text note
-  await alice.createTextNote();
-  await alice.editTextNote('Color test');
-  await bob.waitForTextNote();
-
-  // Get initial color (default is white)
-  const beforeStyle = await bob.textNoteOf('any').style();
-  
-  // Alice changes color to pink (from palette: #f9a8d4)
-  await alice.setTextNoteColor('#f9a8d4');
-
-  // Bob should see the updated color (browser returns rgb format)
-  await expect.poll(async () => {
-    const s = await bob.textNoteOf('any').style();
-    return s.color;
-  }, { timeout: 5000 }).toBe('#f9a8d4');
-});
