@@ -19,6 +19,7 @@ const CONTROL_BAR_TIMEOUT = 10000;
  */
 async function joinSpace(page: Page, username: string, spaceId: string): Promise<void> {
   await page.goto(`/s/${spaceId}`);
+  await page.locator('#join-form').waitFor({ state: 'visible', timeout: CONTROL_BAR_TIMEOUT });
   await page.fill('#username', username);
   await page.locator('#join-form').evaluate((form: HTMLFormElement) => form.requestSubmit());
   await expect(page.locator('#control-bar')).toBeVisible({ timeout: CONTROL_BAR_TIMEOUT });
@@ -54,6 +55,7 @@ class UserBuilderImpl implements UserBuilder {
     }
     
     // Now fill and submit the join form
+    await page.locator('#join-form').waitFor({ state: 'visible', timeout: CONTROL_BAR_TIMEOUT });
     await page.fill('#username', this.name);
     await page.locator('#join-form').evaluate((form: HTMLFormElement) => form.requestSubmit());
     await expect(page.locator('#control-bar')).toBeVisible({ timeout: CONTROL_BAR_TIMEOUT });

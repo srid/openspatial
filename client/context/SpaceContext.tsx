@@ -14,7 +14,7 @@ import type { PeerState, ScreenShareState, TextNoteState } from '../../shared/yj
 import { getTextNoteText, createTextNoteObservers } from '../../shared/yjs-schema';
 import type { ConnectedEvent, SpaceInfoEvent, PeerJoinedEvent, PeerLeftEvent } from '../../shared/types/events';
 
-export type View = 'landing' | 'join' | 'space';
+export type View = 'landing' | 'join' | 'space' | 'not-found';
 export type ConnectionState = 'disconnected' | 'connecting' | 'connected' | 'reconnecting';
 
 export interface LocalUser {

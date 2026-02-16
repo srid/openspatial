@@ -51,7 +51,9 @@ scenario('leaving removes avatar', 'leave-test', async ({ createUser }) => {
 
   expect(await bob.visibleUsers()).toEqual(['Alice']);
   await alice.leave();
-  expect(await bob.visibleUsers()).toEqual([]);
+  await expect.poll(async () =>
+    await bob.visibleUsers()
+  , { timeout: 5000 }).toEqual([]);
 });
 
 scenario('participant count updates', 'count-test', async ({ createUser }) => {

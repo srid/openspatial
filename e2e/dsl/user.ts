@@ -41,6 +41,7 @@ export class UserImpl implements User {
    */
   async rejoin(): Promise<void> {
     // Fill in username (should be preserved) and submit join form
+    await this.page.locator('#join-form').waitFor({ state: 'visible', timeout: 10000 });
     await this.page.fill('#username', this.name);
     await this.page.locator('#join-form').evaluate((form: HTMLFormElement) => form.requestSubmit());
     // Wait for control bar to confirm we're back in the space
@@ -180,17 +181,34 @@ export class UserImpl implements User {
     const box = await avatar.boundingBox();
     if (!box) return;
 
-    // Use Playwright's native mouse API which works better across browser contexts
-    // Mobile viewport still responds to mouse events
-    await this.page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-    await this.page.mouse.down();
-    await this.page.mouse.move(
-      box.x + box.width / 2 + delta.dx,
-      box.y + box.height / 2 + delta.dy,
-      { steps: 10 }
-    );
-    await this.page.mouse.up();
+    const startX = box.x + box.width / 2;
+    const startY = box.y + box.height / 2;
+    const steps = 10;
 
+    // Use CDP for real touch events
+    const client = await this.page.context().newCDPSession(this.page);
+
+    await client.send('Input.dispatchTouchEvent', {
+      type: 'touchStart',
+      touchPoints: [{ x: startX, y: startY }],
+    });
+
+    for (let i = 1; i <= steps; i++) {
+      await client.send('Input.dispatchTouchEvent', {
+        type: 'touchMove',
+        touchPoints: [{
+          x: startX + (delta.dx * i) / steps,
+          y: startY + (delta.dy * i) / steps,
+        }],
+      });
+    }
+
+    await client.send('Input.dispatchTouchEvent', {
+      type: 'touchEnd',
+      touchPoints: [],
+    });
+
+    await client.detach();
   }
 
   async goOffline(): Promise<void> {

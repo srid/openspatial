@@ -16,7 +16,7 @@ export const JoinModal: Component = () => {
   const [participants, setParticipants] = createSignal<string[]>([]);
   const [loading, setLoading] = createSignal(true);
   const [error, setError] = createSignal<string | null>(null);
-  const [spaceExists, setSpaceExists] = createSignal(true);
+
   const [stream, setStream] = createSignal<MediaStream | null>(null);
   
   onMount(() => {
@@ -40,11 +40,11 @@ export const JoinModal: Component = () => {
       
       ctx.onceSocket<SpaceInfoEvent>('space-info', (data) => {
         if (!data.exists) {
-          setSpaceExists(false);
-          setError(`Space "${space}" doesn't exist. An admin needs to create it first.`);
-        } else {
-          setParticipants(data.participants || []);
+          ctx.disconnectSignaling();
+          ctx.setView('not-found');
+          return;
         }
+        setParticipants(data.participants || []);
         setLoading(false);
         // DON'T disconnect here - keep connection for joining
       });
@@ -165,9 +165,9 @@ export const JoinModal: Component = () => {
               <svg class="animate-spin-slow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M21 12a9 9 0 1 1-6.219-8.56" />
               </svg>
-              <span>Checking who's here...</span>
+              <span>Checking space...</span>
             </Show>
-            <Show when={!loading() && spaceExists()}>
+            <Show when={!loading()}>
               <Show when={participants().length === 0}>
                 <span>No one here yet — be the first!</span>
               </Show>
@@ -183,46 +183,49 @@ export const JoinModal: Component = () => {
           </div>
         </div>
         
-        {/* Error Message */}
-        <Show when={error()}>
-          <div id="join-error" class="mb-4 py-3 px-4 bg-danger/15 border border-danger/50 rounded-md text-danger text-sm flex items-center gap-2">
-            <svg class="shrink-0" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <circle cx="12" cy="12" r="10" />
-              <line x1="12" y1="8" x2="12" y2="12" />
-              <line x1="12" y1="16" x2="12.01" y2="16" />
+        {/* Only show the join form after the space check completes */}
+        <Show when={!loading()}>
+          {/* Error Message */}
+          <Show when={error()}>
+            <div id="join-error" class="mb-4 py-3 px-4 bg-danger/15 border border-danger/50 rounded-md text-danger text-sm flex items-center gap-2">
+              <svg class="shrink-0" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10" />
+                <line x1="12" y1="8" x2="12" y2="12" />
+                <line x1="12" y1="16" x2="12.01" y2="16" />
+              </svg>
+              <span>{error()}</span>
+            </div>
+          </Show>
+          
+          <form id="join-form" onSubmit={handleSubmit}>
+            <input type="hidden" id="space-id" value={spaceId()} />
+            <div class="mb-5">
+              <label for="username" class="block text-sm font-medium text-text-secondary mb-2">Your Name</label>
+              <input
+                type="text"
+                id="username"
+                placeholder="Enter your name"
+                required
+                autocomplete="off"
+                value={username()}
+                onInput={(e) => setUsername(e.currentTarget.value)}
+                class="w-full py-3 px-4 bg-surface border border-border rounded-lg text-text-primary text-base font-[inherit] transition-all duration-(--transition-fast) placeholder:text-text-muted focus:outline-none focus:border-accent focus:shadow-[0_0_0_3px_var(--color-accent-glow)] read-only:bg-white/[0.02] read-only:text-text-secondary read-only:cursor-not-allowed"
+              />
+            </div>
+            <button type="submit" class="inline-flex items-center justify-center gap-2 py-3 px-6 font-[inherit] text-base font-semibold border-none rounded-lg cursor-pointer transition-all duration-(--transition-fast) w-full p-4 bg-[linear-gradient(135deg,#6366f1_0%,#8b5cf6_50%,#a855f7_100%)] text-white shadow-[var(--shadow-md),0_0_20px_var(--color-accent-glow)] hover:-translate-y-0.5 hover:shadow-[var(--shadow-lg),0_0_30px_var(--color-accent-glow)] active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0">
+              <span>Join Space</span>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M5 12h14M12 5l7 7-7 7" />
+              </svg>
+            </button>
+          </form>
+          <a href="/" class="flex items-center justify-center gap-2 mt-4 text-text-muted text-sm no-underline transition-colors duration-(--transition-fast) hover:text-text-primary">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M19 12H5M12 19l-7-7 7-7" />
             </svg>
-            <span>{error()}</span>
-          </div>
+            <span>Back to home</span>
+          </a>
         </Show>
-        
-        <form id="join-form" onSubmit={handleSubmit}>
-          <input type="hidden" id="space-id" value={spaceId()} />
-          <div class="mb-5">
-            <label for="username" class="block text-sm font-medium text-text-secondary mb-2">Your Name</label>
-            <input
-              type="text"
-              id="username"
-              placeholder="Enter your name"
-              required
-              autocomplete="off"
-              value={username()}
-              onInput={(e) => setUsername(e.currentTarget.value)}
-              class="w-full py-3 px-4 bg-surface border border-border rounded-lg text-text-primary text-base font-[inherit] transition-all duration-(--transition-fast) placeholder:text-text-muted focus:outline-none focus:border-accent focus:shadow-[0_0_0_3px_var(--color-accent-glow)] read-only:bg-white/[0.02] read-only:text-text-secondary read-only:cursor-not-allowed"
-            />
-          </div>
-          <button type="submit" class="inline-flex items-center justify-center gap-2 py-3 px-6 font-[inherit] text-base font-semibold border-none rounded-lg cursor-pointer transition-all duration-(--transition-fast) w-full p-4 bg-[linear-gradient(135deg,#6366f1_0%,#8b5cf6_50%,#a855f7_100%)] text-white shadow-[var(--shadow-md),0_0_20px_var(--color-accent-glow)] hover:-translate-y-0.5 hover:shadow-[var(--shadow-lg),0_0_30px_var(--color-accent-glow)] active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0" disabled={!spaceExists()}>
-            <span>Join Space</span>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M5 12h14M12 5l7 7-7 7" />
-            </svg>
-          </button>
-        </form>
-        <a href="/" class="flex items-center justify-center gap-2 mt-4 text-text-muted text-sm no-underline transition-colors duration-(--transition-fast) hover:text-text-primary">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M19 12H5M12 19l-7-7 7-7" />
-          </svg>
-          <span>Back to home</span>
-        </a>
       </div>
     </div>
   );

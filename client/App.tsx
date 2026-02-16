@@ -6,6 +6,7 @@ import { Component, Show, createSignal, onMount, onCleanup } from 'solid-js';
 import { SpaceProvider, useSpace } from './context/SpaceContext';
 import { Landing } from './components/Landing';
 import { JoinModal } from './components/JoinModal';
+import { SpaceNotFound } from './components/SpaceNotFound';
 import { Canvas } from './components/Canvas/Canvas';
 import { ControlBar } from './components/Controls/ControlBar';
 import { ConnectionStatus } from './components/ConnectionStatus';
@@ -21,6 +22,10 @@ const AppContent: Component = () => {
       
       <Show when={view() === 'join'}>
         <JoinModal />
+      </Show>
+
+      <Show when={view() === 'not-found'}>
+        <SpaceNotFound />
       </Show>
       
       <Show when={view() === 'space'}>

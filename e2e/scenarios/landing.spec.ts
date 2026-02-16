@@ -95,3 +95,27 @@ test('landing page has GitHub link', async ({ browser }) => {
   
   await context.close();
 });
+
+test('arbitrary space URL loads styled SPA (not plain 404)', async ({ browser }) => {
+  const context = await browser.newContext({
+    ignoreHTTPSErrors: true,
+  });
+  const page = await context.newPage();
+  
+  // Navigate directly to an arbitrary space URL.
+  // In dev/E2E (autoCreateSpaces=true), the join modal loads normally.
+  // In production, the SpaceNotFound component would render instead.
+  await page.goto('/s/random-space-abc-123');
+  
+  // Should see the styled join modal (not a plain text 404)
+  await expect(page.locator('#join-modal')).toBeVisible();
+  
+  // Space name should be displayed
+  await expect(page.locator('#space-name-label')).toContainText('random-space-abc-123');
+  
+  // The "Back to home" link should be visible
+  const backLink = page.locator('a:has-text("Back to home")');
+  await expect(backLink).toBeVisible();
+  
+  await context.close();
+});
