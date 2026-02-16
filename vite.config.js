@@ -1,94 +1,19 @@
 import { defineConfig } from 'vite';
 import tailwindcss from '@tailwindcss/vite';
 import solidPlugin from 'vite-plugin-solid';
-import basicSsl from '@vitejs/plugin-basic-ssl';
-import { Server } from 'socket.io';
-import os from 'os';
 import path from 'path';
-import { devConfig } from './server/config.ts';
-import { attachSignaling } from './server/signaling.ts';
-import { initNotifier } from './server/notifier/index.ts';
 
-const hostname = os.hostname();
-const config = devConfig();
-
-// Socket.io signaling server plugin for Vite
-function socketPlugin() {
-  return {
-    name: 'socket-signaling',
-    configureServer(server) {
-      const io = new Server(server.httpServer, {
-        cors: {
-          origin: '*',
-          methods: ['GET', 'POST']
-        },
-        // Aggressive ping settings for mobile disconnect detection
-        pingTimeout: 10000,
-        pingInterval: 5000,
-      });
-
-      initNotifier(config);
-      attachSignaling(io, config);
-    }
-  };
-}
-
-// y-websocket server plugin for Yjs document sync
-// Uses the same implementation as production (yjs-server.ts) for consistency
-function yjsPlugin() {
-  return {
-    name: 'yjs-websocket',
-    configureServer(server) {
-      // Use the same yjs-server implementation as production
-      import('./server/yjs-server.ts').then(async ({ attachYjsServer }) => {
-        const { initDb, runMigrations, ensureDemoSpace } = await import('./server/db.ts');
-        initDb(config);
-        await runMigrations();
-        await ensureDemoSpace(config);
-        
-        // Attach the shared Yjs server (same as production)
-        attachYjsServer(server.httpServer, config);
-        console.log('[Yjs Dev] Using shared yjs-server.ts implementation');
-      });
-    }
-  };
-}
-
-// SPA fallback plugin for /s/* routes
-function spaFallbackPlugin() {
-  return {
-    name: 'spa-fallback',
-    configureServer(server) {
-      server.middlewares.use((req, res, next) => {
-        // Serve index.html for /s/* routes (SPA fallback)
-        if (req.url?.startsWith('/s/')) {
-          req.url = '/';
-        }
-        next();
-      });
-    }
-  };
-}
-
+// Client-only Vite config.
+// Server-side concerns (Socket.io, Yjs, DB) are handled by server/main.ts.
+// In dev mode, main.ts creates Vite in middleware mode using this config.
 export default defineConfig({
   plugins: [
     tailwindcss(),
     solidPlugin(),
-    basicSsl({ domains: ['localhost', hostname] }),
-    spaFallbackPlugin(),
-    socketPlugin(),
-    yjsPlugin()
   ],
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './client')
     }
   },
-  server: {
-    host: '0.0.0.0',
-    https: true,
-    hmr: {
-      host: hostname
-    }
-  }
 });

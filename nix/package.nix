@@ -32,7 +32,7 @@ buildNpmPackage {
 #!${bash}/bin/bash
 export DATA_DIR="\''${DATA_DIR:-\$HOME/.local/share/openspatial}"
 cd $out/lib/openspatial
-exec ${nodejs_22}/bin/npx tsx $out/lib/openspatial/server/standalone.ts "\$@"
+exec ${nodejs_22}/bin/npx tsx $out/lib/openspatial/server/main.ts "\$@"
 EOF
     chmod +x $out/bin/openspatial
 
