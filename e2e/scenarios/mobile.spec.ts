@@ -54,6 +54,7 @@ test.describe('mobile UI', () => {
   test('minimap is hidden on mobile', async ({ page }) => {
     // Navigate to a space and join
     await page.goto('/s/mobile-ui-test');
+    await page.locator('#join-form').waitFor({ state: 'visible', timeout: 10000 });
     await page.fill('#username', 'UITester');
     await page.locator('#join-form').evaluate((form: HTMLFormElement) => form.requestSubmit());
     await page.locator('#control-bar').waitFor({ state: 'visible', timeout: 10000 });
@@ -66,6 +67,7 @@ test.describe('mobile UI', () => {
   test('control bar is accessible on mobile', async ({ page }) => {
     // Navigate to a space and join
     await page.goto('/s/mobile-controls-test');
+    await page.locator('#join-form').waitFor({ state: 'visible', timeout: 10000 });
     await page.fill('#username', 'ControlTester');
     await page.locator('#join-form').evaluate((form: HTMLFormElement) => form.requestSubmit());
     await page.locator('#control-bar').waitFor({ state: 'visible', timeout: 10000 });
@@ -86,6 +88,7 @@ test.describe('mobile UI', () => {
   test('canvas touch pan works', async ({ page }) => {
     // Navigate to a space and join
     await page.goto('/s/mobile-pan-test');
+    await page.locator('#join-form').waitFor({ state: 'visible', timeout: 10000 });
     await page.fill('#username', 'PanTester');
     await page.locator('#join-form').evaluate((form: HTMLFormElement) => form.requestSubmit());
     await page.locator('#control-bar').waitFor({ state: 'visible', timeout: 10000 });

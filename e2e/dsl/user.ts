@@ -41,6 +41,7 @@ export class UserImpl implements User {
    */
   async rejoin(): Promise<void> {
     // Fill in username (should be preserved) and submit join form
+    await this.page.locator('#join-form').waitFor({ state: 'visible', timeout: 10000 });
     await this.page.fill('#username', this.name);
     await this.page.locator('#join-form').evaluate((form: HTMLFormElement) => form.requestSubmit());
     // Wait for control bar to confirm we're back in the space
