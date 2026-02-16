@@ -68,3 +68,7 @@ The only acceptable use of `wait()` is simulating intentional user pauses (e.g.,
 # Write body to temp file, then:
 gh issue create --title "Issue Title" --body-file /tmp/issue-body.md
 ```
+
+## Documentation
+
+**Update `docs/ARCHITECTURE.md`** when making structural changes — new server files, dependency swaps, directory reorganization, etc. Keep it in sync with reality.

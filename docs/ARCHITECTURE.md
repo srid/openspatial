@@ -42,7 +42,8 @@ openspatial/
 │   └── hooks/                  # useLocalMedia, useResizable
 │
 ├── server/                     # Node.js Backend
-│   ├── standalone.ts           # Production server entry
+│   ├── main.ts                 # Unified server entry (dev + prod)
+│   ├── app.ts                  # Hono HTTP app (API routes, static files)
 │   ├── signaling.ts            # Socket.io handlers
 │   ├── yjs-server.ts           # y-websocket server
 │   ├── db.ts                   # Database operations
@@ -100,11 +101,11 @@ All socket events are typed in `shared/types/events.ts`. Both client and server 
 | Layer | Technology | Purpose |
 |-------|------------|---------|
 | Frontend | SolidJS | Reactive UI framework |
-| Styling | Vanilla CSS | No dependencies |
+| Styling | Tailwind CSS | Utility-first CSS |
 | Signaling | Socket.io | Real-time events |
 | CRDT | Yjs + y-websocket | Conflict-free state sync |
 | Media | WebRTC | P2P audio/video |
-| Server | Node.js + Vite | Dev server + HMR |
+| Server | Node.js + Hono | HTTP framework + Vite middleware (dev) |
 | Database | SQLite + Kysely | Persistence |
 | Testing | Playwright | E2E tests |
 | Packaging | Nix | Reproducible builds |
