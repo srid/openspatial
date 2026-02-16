@@ -531,4 +531,8 @@ export class UserImpl implements User {
     const badge = this.page.locator('#activity-badge');
     return !(await badge.evaluate((el) => el.classList.contains('hidden')));
   }
+
+  async soundsPlayed(): Promise<string[]> {
+    return this.page.evaluate(() => (window as any).__openspatialSounds ?? []);
+  }
 }

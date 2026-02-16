@@ -110,6 +110,9 @@ export interface User {
   closeActivityPanel(): Promise<void>;
   activityItems(): Promise<ActivityItem[]>;
   isActivityBadgeVisible(): Promise<boolean>;
+
+  // Sound effects
+  soundsPlayed(): Promise<string[]>;
 }
 
 export interface AvatarView {

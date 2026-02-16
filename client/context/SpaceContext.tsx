@@ -13,6 +13,7 @@ import type { Awareness } from 'y-protocols/awareness';
 import type { PeerState, ScreenShareState, TextNoteState } from '../../shared/yjs-schema';
 import { getTextNoteText, createTextNoteObservers } from '../../shared/yjs-schema';
 import type { ConnectedEvent, SpaceInfoEvent, PeerJoinedEvent, PeerLeftEvent } from '../../shared/types/events';
+import { playJoinSound, playLeaveSound } from '../lib/sounds';
 
 export type View = 'landing' | 'join' | 'space' | 'not-found';
 export type ConnectionState = 'disconnected' | 'connecting' | 'connected' | 'reconnecting';
@@ -653,6 +654,7 @@ export const SpaceProvider: ParentComponent = (props) => {
     // When a new peer joins, initiate connection
     onSocket<{ peerId: string; username: string }>('peer-joined', async (data) => {
       const { peerId } = data;
+      playJoinSound();
       const pc = createPeerConnection(peerId);
       
       // Add local webcam tracks
@@ -693,6 +695,7 @@ export const SpaceProvider: ParentComponent = (props) => {
     
     // When a peer leaves, close connection
     onSocket<{ peerId: string }>('peer-left', (data) => {
+      playLeaveSound();
       const pc = peerConnections.get(data.peerId);
       if (pc) {
         pc.close();
