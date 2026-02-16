@@ -119,6 +119,10 @@ export class UserImpl implements User {
     const screenShare = this.page.locator('.screen-share:has-text("Your Screen")');
     const closeBtn = screenShare.locator('.screen-share-close');
     await closeBtn.click();
+    // Confirm the inline deletion prompt
+    const confirmBtn = screenShare.locator('.screen-share-confirm-delete');
+    await confirmBtn.waitFor({ state: 'visible' });
+    await confirmBtn.click();
   }
 
   async resizeScreenShare(rectOrOwner: Rect | string, sizeArg?: { width: number; height: number }): Promise<void> {

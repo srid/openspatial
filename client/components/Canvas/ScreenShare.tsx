@@ -6,6 +6,7 @@
 import { Component, createMemo, Show, createSignal, onMount, onCleanup, createEffect } from 'solid-js';
 import { useSpace } from '@/context/SpaceContext';
 import { useResizable } from '@/hooks/useResizable';
+import { CloseButton } from './CloseButton';
 
 interface ScreenShareProps {
   shareId: string;
@@ -120,11 +121,7 @@ export const ScreenShare: Component<ScreenShareProps> = (props) => {
   
   // Resize is handled by useResizable hook
   
-  function handleClose() {
-    ctx.removeScreenShareStream(props.shareId);
-    ctx.removeScreenShare(props.shareId);
-    ctx.emitSocket('screen-share-stopped', { shareId: props.shareId });
-  }
+
   
   async function handleCopySnapshot() {
     if (!videoRef) return;
@@ -195,12 +192,17 @@ export const ScreenShare: Component<ScreenShareProps> = (props) => {
                 </Show>
               </button>
               <Show when={isLocal()}>
-                <button class="screen-share-close flex items-center justify-center w-6 h-6 bg-transparent border-none rounded-sm text-text-muted cursor-pointer transition-all duration-(--transition-fast) hover:bg-surface-hover hover:text-danger" onClick={handleClose} title="Stop sharing">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <line x1="18" y1="6" x2="6" y2="18" />
-                    <line x1="6" y1="6" x2="18" y2="18" />
-                  </svg>
-                </button>
+                <CloseButton
+                  closeClass="screen-share-close"
+                  confirmClass="screen-share-confirm-delete"
+                  cancelClass="screen-share-cancel-delete"
+                  title="Stop sharing"
+                  onConfirm={() => {
+                    ctx.removeScreenShareStream(props.shareId);
+                    ctx.removeScreenShare(props.shareId);
+                    ctx.emitSocket('screen-share-stopped', { shareId: props.shareId });
+                  }}
+                />
               </Show>
             </div>
           </div>
