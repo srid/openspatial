@@ -5,6 +5,7 @@
  */
 import { Component, createMemo, Show, createSignal, onMount, onCleanup, createEffect } from 'solid-js';
 import { useSpace } from '@/context/SpaceContext';
+import { useDraggable } from '@/hooks/useDraggable';
 import { useResizable } from '@/hooks/useResizable';
 import { CloseButton } from './CloseButton';
 
@@ -19,20 +20,15 @@ export const ScreenShare: Component<ScreenShareProps> = (props) => {
   let headerRef: HTMLDivElement | undefined;
   let videoRef: HTMLVideoElement | undefined;
   
-  // Use refs for drag state to avoid reactive updates
-  let dragState = {
-    isDragging: false,
-    startX: 0,
-    startY: 0,
-    initialX: 0,
-    initialY: 0,
-  };
-  
-  const [isDraggingSignal, setIsDraggingSignal] = createSignal(false);
   const [copySuccess, setCopySuccess] = createSignal(false);
   
   const share = createMemo(() => ctx.screenShares().get(props.shareId));
   const stream = createMemo(() => ctx.screenShareStreams().get(props.shareId));
+  
+  const draggable = useDraggable({
+    position: () => ({ x: share()?.x ?? 0, y: share()?.y ?? 0 }),
+    onMove: (x, y) => ctx.updateScreenSharePosition(props.shareId, x, y),
+  });
   
   // Resizable hook for consistent resize behavior
   const resizable = useResizable({
@@ -62,62 +58,12 @@ export const ScreenShare: Component<ScreenShareProps> = (props) => {
   
   onMount(() => {
     if (containerRef && headerRef) {
-      setupDrag();
+      draggable.setup(headerRef);
       resizable.setup(containerRef);
-      
-      // Listen for test-resize events from e2e tests
-      containerRef.addEventListener('test-resize', ((e: CustomEvent) => {
-        const { width, height } = e.detail;
-        ctx.updateScreenShareSize(props.shareId, width, height);
-      }) as EventListener);
     }
   });
   
-  function setupDrag() {
-    if (!headerRef) return;
-    
-    const handleMouseDown = (e: MouseEvent) => {
-      e.stopPropagation();
-      e.preventDefault();
-      
-      const s = share();
-      if (!s) return;
-      
-      dragState.isDragging = true;
-      dragState.startX = e.clientX;
-      dragState.startY = e.clientY;
-      dragState.initialX = s.x;
-      dragState.initialY = s.y;
-      setIsDraggingSignal(true);
-    };
-    
-    const handleMouseMove = (e: MouseEvent) => {
-      if (!dragState.isDragging) return;
-      e.preventDefault();
-      
-      const deltaX = e.clientX - dragState.startX;
-      const deltaY = e.clientY - dragState.startY;
-      
-      ctx.updateScreenSharePosition(props.shareId, dragState.initialX + deltaX, dragState.initialY + deltaY);
-    };
-    
-    const handleMouseUp = () => {
-      if (dragState.isDragging) {
-        dragState.isDragging = false;
-        setIsDraggingSignal(false);
-      }
-    };
-    
-    headerRef.addEventListener('mousedown', handleMouseDown);
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
-    
-    onCleanup(() => {
-      headerRef?.removeEventListener('mousedown', handleMouseDown);
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
-    });
-  }
+
   
   // Resize is handled by useResizable hook
   

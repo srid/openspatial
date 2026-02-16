@@ -5,6 +5,7 @@
  */
 import { Component, createMemo, Show, createSignal, onMount, onCleanup, createEffect, For } from 'solid-js';
 import { useSpace } from '@/context/SpaceContext';
+import { useDraggable } from '@/hooks/useDraggable';
 import { useResizable } from '@/hooks/useResizable';
 import { CollabEditor } from './CollabEditor';
 import { CloseButton } from './CloseButton';
@@ -31,19 +32,15 @@ export const TextNote: Component<TextNoteProps> = (props) => {
   let containerRef: HTMLDivElement | undefined;
   let headerRef: HTMLDivElement | undefined;
   
-  // Use plain object refs for drag state to avoid reactivity issues
-  const dragState = {
-    isDragging: false,
-    startX: 0,
-    startY: 0,
-    initialX: 0,
-    initialY: 0,
-  };
-  
-  const [isDraggingSignal, setIsDraggingSignal] = createSignal(false);
   const [showFontSizeMenu, setShowFontSizeMenu] = createSignal(false);
   const [showFontFamilyMenu, setShowFontFamilyMenu] = createSignal(false);
 
+  const note = createMemo(() => ctx.textNotes().get(props.noteId));
+  
+  const draggable = useDraggable({
+    position: () => ({ x: note()?.x ?? 0, y: note()?.y ?? 0 }),
+    onMove: (x, y) => ctx.updateTextNotePosition(props.noteId, x, y),
+  });
   
   // Resizable hook for consistent resize behavior
   const resizable = useResizable({
@@ -54,69 +51,14 @@ export const TextNote: Component<TextNoteProps> = (props) => {
     minHeight: 150,
   });
   
-  const note = createMemo(() => ctx.textNotes().get(props.noteId));
-  
   onMount(() => {
     if (containerRef && headerRef) {
-      setupDrag();
+      draggable.setup(headerRef);
       resizable.setup(containerRef);
-      
-      // Listen for test-resize events from e2e tests
-      containerRef.addEventListener('test-resize', ((e: CustomEvent) => {
-        const { width, height } = e.detail;
-        ctx.updateTextNoteSize(props.noteId, width, height);
-      }) as EventListener);
     }
   });
   
-  function setupDrag() {
-    if (!headerRef) return;
-    
-    const handleMouseDown = (e: MouseEvent) => {
-      // Don't drag if clicking on a button
-      if ((e.target as HTMLElement).closest('button')) return;
-      
-      e.stopPropagation();
-      e.preventDefault();
-      
-      const n = note();
-      if (!n) return;
-      
-      dragState.isDragging = true;
-      dragState.startX = e.clientX;
-      dragState.startY = e.clientY;
-      dragState.initialX = n.x;
-      dragState.initialY = n.y;
-      setIsDraggingSignal(true);
-    };
-    
-    const handleMouseMove = (e: MouseEvent) => {
-      if (!dragState.isDragging) return;
-      e.preventDefault();
-      
-      const deltaX = e.clientX - dragState.startX;
-      const deltaY = e.clientY - dragState.startY;
-      
-      ctx.updateTextNotePosition(props.noteId, dragState.initialX + deltaX, dragState.initialY + deltaY);
-    };
-    
-    const handleMouseUp = () => {
-      if (dragState.isDragging) {
-        dragState.isDragging = false;
-        setIsDraggingSignal(false);
-      }
-    };
-    
-    headerRef.addEventListener('mousedown', handleMouseDown);
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
-    
-    onCleanup(() => {
-      headerRef?.removeEventListener('mousedown', handleMouseDown);
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
-    });
-  }
+
   
   function handleFontSizeClick(e: MouseEvent) {
     e.stopPropagation();
