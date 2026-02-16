@@ -39,7 +39,7 @@ openspatial/
 │   ├── components/
 │   │   ├── Canvas/             # Avatar, Canvas, ScreenShare, TextNote
 │   │   └── Controls/           # ControlBar, ActivityPanel
-│   └── hooks/                  # useLocalMedia, useResizable
+│   └── hooks/                  # useDraggable, useLocalMedia, useResizable
 │
 ├── server/                     # Node.js Backend
 │   ├── main.ts                 # Unified server entry (dev + prod)

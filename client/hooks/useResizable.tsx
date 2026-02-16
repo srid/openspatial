@@ -47,6 +47,11 @@ export function useResizable(config: ResizeConfig): ResizeResult {
   };
   
   function setup(containerRef: HTMLElement) {
+    // Listen for test-resize events from e2e tests
+    containerRef.addEventListener('test-resize', ((e: CustomEvent) => {
+      config.onResize(e.detail.width, e.detail.height);
+    }) as EventListener);
+    
     const resizeHandle = containerRef.querySelector('.resize-handle-se') as HTMLElement;
     if (!resizeHandle) return;
     
