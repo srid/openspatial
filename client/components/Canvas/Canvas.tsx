@@ -184,6 +184,8 @@ export const Canvas: Component = () => {
     if (!containerRef) return;
     
     const handleWheel = (e: WheelEvent) => {
+      // Let text notes handle their own scrolling
+      if ((e.target as HTMLElement).closest?.('.text-note')) return;
       e.preventDefault();
       
       const delta = e.deltaY > 0 ? 0.9 : 1.1;

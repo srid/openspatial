@@ -249,3 +249,44 @@ scenario('text note font-family syncs to other users', 'note-fontfamily-sync', a
     return s.fontFamily;
   }, { timeout: 5000 }).toBe('mono');
 });
+
+scenario('scrolling inside text note does not zoom canvas', 'note-scroll', async ({ createUser }) => {
+  const alice = await createUser('Alice').join();
+  const page = (alice as any).page;
+
+  // Create a text note and fill it with enough content to overflow
+  await alice.createTextNote();
+  const manyLines = Array.from({ length: 50 }, (_, i) => `Line ${i + 1}`).join('\n');
+  await alice.editTextNote(manyLines);
+
+  // Wait for the scroller to be present and have overflow
+  const scroller = page.locator('.text-note .cm-scroller').first();
+  await expect(scroller).toBeVisible();
+
+  // Verify content overflows (scrollHeight > clientHeight)
+  await expect.poll(async () => {
+    return page.evaluate(() => {
+      const el = document.querySelector('.text-note .cm-scroller');
+      return el ? el.scrollHeight > el.clientHeight : false;
+    });
+  }, { timeout: 5000 }).toBe(true);
+
+  // Get initial scrollTop
+  const initialScrollTop = await page.evaluate(() => {
+    const el = document.querySelector('.text-note .cm-scroller');
+    return el ? el.scrollTop : -1;
+  });
+
+  // Hover over the scroller, then use real mouse wheel
+  await scroller.hover();
+  await page.mouse.wheel(0, 200);
+
+  // scrollTop should have changed (content scrolled, not canvas zoomed)
+  await expect.poll(async () => {
+    const scrollTop = await page.evaluate(() => {
+      const el = document.querySelector('.text-note .cm-scroller');
+      return el ? el.scrollTop : -1;
+    });
+    return scrollTop > initialScrollTop;
+  }, { timeout: 5000 }).toBe(true);
+});
