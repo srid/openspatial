@@ -292,6 +292,10 @@ export class UserImpl implements User {
     const note = this.page.locator('.text-note').first();
     const closeBtn = note.locator('.text-note-close');
     await closeBtn.click();
+    // Confirm the inline deletion prompt
+    const confirmBtn = note.locator('.text-note-confirm-delete');
+    await confirmBtn.waitFor({ state: 'visible' });
+    await confirmBtn.click();
   }
 
   async dragTextNote(delta: { dx: number; dy: number }): Promise<void> {

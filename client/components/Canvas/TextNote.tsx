@@ -42,6 +42,7 @@ export const TextNote: Component<TextNoteProps> = (props) => {
   const [isDraggingSignal, setIsDraggingSignal] = createSignal(false);
   const [showFontSizeMenu, setShowFontSizeMenu] = createSignal(false);
   const [showFontFamilyMenu, setShowFontFamilyMenu] = createSignal(false);
+  const [confirmingDelete, setConfirmingDelete] = createSignal(false);
   
   // Resizable hook for consistent resize behavior
   const resizable = useResizable({
@@ -117,7 +118,15 @@ export const TextNote: Component<TextNoteProps> = (props) => {
   }
   
   function handleClose() {
+    setConfirmingDelete(true);
+  }
+
+  function confirmDelete() {
     ctx.removeTextNote(props.noteId);
+  }
+
+  function cancelDelete() {
+    setConfirmingDelete(false);
   }
   
   function handleFontSizeClick(e: MouseEvent) {
@@ -236,13 +245,22 @@ export const TextNote: Component<TextNoteProps> = (props) => {
                 </Show>
               </div>
               
-              {/* Close Button */}
-              <button class="text-note-close flex items-center justify-center w-6 h-6 bg-transparent border-none rounded-sm text-text-muted cursor-pointer transition-all duration-(--transition-fast) hover:bg-danger/20 hover:text-danger" onClick={handleClose} title="Delete note">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <line x1="18" y1="6" x2="6" y2="18" />
-                  <line x1="6" y1="6" x2="18" y2="18" />
-                </svg>
-              </button>
+              {/* Close / Confirm Delete */}
+              <Show when={confirmingDelete()} fallback={
+                <button class="text-note-close flex items-center justify-center w-6 h-6 bg-transparent border-none rounded-sm text-text-muted cursor-pointer transition-all duration-(--transition-fast) hover:bg-danger/20 hover:text-danger" onClick={handleClose} title="Delete note">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="18" y1="6" x2="6" y2="18" />
+                    <line x1="6" y1="6" x2="18" y2="18" />
+                  </svg>
+                </button>
+              }>
+                <button class="text-note-cancel-delete flex items-center justify-center px-1.5 h-6 bg-transparent border border-border rounded-sm text-text-muted cursor-pointer text-xs transition-all duration-(--transition-fast) hover:bg-surface-hover hover:text-text-primary" onClick={cancelDelete} title="Cancel">
+                  Cancel
+                </button>
+                <button class="text-note-confirm-delete flex items-center justify-center px-1.5 h-6 bg-danger/20 border border-danger/40 rounded-sm text-danger cursor-pointer text-xs font-medium transition-all duration-(--transition-fast) hover:bg-danger/30" onClick={confirmDelete} title="Confirm delete">
+                  Delete
+                </button>
+              </Show>
             </div>
           </div>
           <div class="h-[calc(100%-40px)] p-2">
