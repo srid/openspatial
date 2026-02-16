@@ -7,6 +7,7 @@ import { Component, createMemo, Show, createSignal, onMount, onCleanup, createEf
 import { useSpace } from '@/context/SpaceContext';
 import { useResizable } from '@/hooks/useResizable';
 import { CollabEditor } from './CollabEditor';
+import { CloseButton } from './CloseButton';
 
 interface TextNoteProps {
   noteId: string;
@@ -42,6 +43,7 @@ export const TextNote: Component<TextNoteProps> = (props) => {
   const [isDraggingSignal, setIsDraggingSignal] = createSignal(false);
   const [showFontSizeMenu, setShowFontSizeMenu] = createSignal(false);
   const [showFontFamilyMenu, setShowFontFamilyMenu] = createSignal(false);
+
   
   // Resizable hook for consistent resize behavior
   const resizable = useResizable({
@@ -114,10 +116,6 @@ export const TextNote: Component<TextNoteProps> = (props) => {
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
     });
-  }
-  
-  function handleClose() {
-    ctx.removeTextNote(props.noteId);
   }
   
   function handleFontSizeClick(e: MouseEvent) {
@@ -236,13 +234,13 @@ export const TextNote: Component<TextNoteProps> = (props) => {
                 </Show>
               </div>
               
-              {/* Close Button */}
-              <button class="text-note-close flex items-center justify-center w-6 h-6 bg-transparent border-none rounded-sm text-text-muted cursor-pointer transition-all duration-(--transition-fast) hover:bg-danger/20 hover:text-danger" onClick={handleClose} title="Delete note">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <line x1="18" y1="6" x2="6" y2="18" />
-                  <line x1="6" y1="6" x2="18" y2="18" />
-                </svg>
-              </button>
+              <CloseButton
+                closeClass="text-note-close"
+                confirmClass="text-note-confirm-delete"
+                cancelClass="text-note-cancel-delete"
+                title="Delete note"
+                onConfirm={() => ctx.removeTextNote(props.noteId)}
+              />
             </div>
           </div>
           <div class="h-[calc(100%-40px)] p-2">

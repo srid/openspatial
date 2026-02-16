@@ -80,6 +80,31 @@ scenario('deleting text note removes it', 'note-delete', async ({ createUser }) 
   }, { timeout: 5000 }).toBe(0);
 });
 
+scenario('delete confirmation can be cancelled', 'note-delete-cancel', async ({ createUser }) => {
+  const alice = await createUser('Alice').join();
+
+  await alice.createTextNote();
+  await alice.editTextNote('Keep me!');
+
+  // Click × to start deletion
+  const page = (alice as any).page;
+  const note = page.locator('.text-note').first();
+  await note.locator('.text-note-close').click();
+
+  // Confirm buttons should appear
+  await expect(note.locator('.text-note-confirm-delete')).toBeVisible();
+  await expect(note.locator('.text-note-cancel-delete')).toBeVisible();
+
+  // Cancel
+  await note.locator('.text-note-cancel-delete').click();
+
+  // × button should reappear and note still exists
+  await expect(note.locator('.text-note-close')).toBeVisible();
+  const notes = await alice.textNotes();
+  expect(notes.length).toBe(1);
+  expect(notes[0].content).toBe('Keep me!');
+});
+
 // Note: 'leaving removes text notes' test removed - notes are now persistent
 
 scenario('multiple users can create text notes', 'note-multiple', async ({ createUser }) => {
