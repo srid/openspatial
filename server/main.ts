@@ -74,7 +74,7 @@ const protocol = config.https ? 'https' : 'http';
     initDb(config);
     await runMigrations();
     await ensureDemoSpace(config);
-    initNotifier(config);
+    await initNotifier(config);
 
     if (isDev) {
       // Dev mode: Vite handles client assets & HMR, Hono handles API routes

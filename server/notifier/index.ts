@@ -3,10 +3,14 @@
  *
  * Live message tracking: maps spaceId -> { messageId, startedAt } for
  * updating the Slack message when the space becomes inactive.
+ *
+ * Live messages are persisted to SQLite so that on server restart,
+ * orphaned LIVE messages are updated to ENDED before new connections arrive.
  */
 import type { NotificationBackend, NotifierConfig, SpaceNotification } from './types.js';
 import { SlackBackend } from './slack.js';
 import type { ServerConfig } from '../config.js';
+import { saveLiveMessage, deleteLiveMessage, getAllLiveMessages } from '../db.js';
 
 let notifierConfig: NotifierConfig | null = null;
 
@@ -27,8 +31,9 @@ const liveMessages = new Map<string, LiveMessage>();
 
 /**
  * Initialize the notifier system from server config.
+ * Also recovers any orphaned live messages from a previous server instance.
  */
-export function initNotifier(config: ServerConfig): void {
+export async function initNotifier(config: ServerConfig): Promise<void> {
   const backends: NotificationBackend[] = [];
   
   // Initialize Slack backend if configured
@@ -55,11 +60,50 @@ export function initNotifier(config: ServerConfig): void {
   
   const spacesInfo = config.slack.spaces ? `spaces: [${config.slack.spaces.join(', ')}]` : 'all spaces';
   console.log(`[Notifier] Initialized with ${backends.length} backend(s), ${spacesInfo}`);
+
+  // Recover orphaned live messages from previous server instance
+  await recoverLiveMessages(backends);
+}
+
+/**
+ * Close out any live messages left over from a previous server process.
+ * Each orphaned LIVE message is updated to ENDED and removed from the DB.
+ */
+async function recoverLiveMessages(backends: NotificationBackend[]): Promise<void> {
+  const orphaned = await getAllLiveMessages();
+  if (orphaned.length === 0) return;
+
+  console.log(`[Notifier] Recovering ${orphaned.length} orphaned live message(s) from previous instance`);
+
+  for (const row of orphaned) {
+    const backend = backends.find((b) => b.name === row.backend);
+    if (!backend) {
+      console.warn(`[Notifier] No backend '${row.backend}' available to close orphaned message for space ${row.space_id}`);
+      await deleteLiveMessage(row.space_id);
+      continue;
+    }
+
+    const durationMs = Date.now() - row.started_at;
+    try {
+      await backend.notifySpaceInactive({
+        messageId: row.message_id,
+        spaceId: row.space_id,
+        username: row.username,
+        joinUrl: row.join_url,
+        durationMs,
+      });
+      console.log(`[Notifier] Closed orphaned LIVE message for space ${row.space_id}`);
+    } catch (error) {
+      console.error(`[Notifier] Error closing orphaned message for ${row.space_id}:`, error);
+    }
+
+    await deleteLiveMessage(row.space_id);
+  }
 }
 
 /**
  * Notify that a space became active (first user joined).
- * Stores the returned message ID for later updates.
+ * Stores the returned message ID for later updates (in-memory + DB).
  */
 export async function notifySpaceActive(spaceId: string, username: string): Promise<void> {
   if (!notifierConfig || notifierConfig.backends.length === 0) {
@@ -84,14 +128,25 @@ export async function notifySpaceActive(spaceId: string, username: string): Prom
       
       // Only track on successful send
       if (messageId) {
+        const startedAt = Date.now();
         console.log(`[Notifier] Live message posted for ${spaceId}`);
         
         liveMessages.set(spaceId, {
           messageId,
           username,
           joinUrl: notification.joinUrl,
-          startedAt: Date.now(),
+          startedAt,
           backend,
+        });
+
+        // Persist to DB for crash recovery
+        await saveLiveMessage({
+          space_id: spaceId,
+          message_id: messageId,
+          username,
+          join_url: notification.joinUrl,
+          started_at: startedAt,
+          backend: backend.name,
         });
       }
     } catch (error) {
@@ -124,6 +179,9 @@ export async function notifySpaceInactive(spaceId: string): Promise<void> {
   } catch (error) {
     console.error(`[Notifier] Error updating live message for ${spaceId}:`, error);
   }
+
+  // Remove from DB
+  await deleteLiveMessage(spaceId);
 }
 
 /**

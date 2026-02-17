@@ -34,10 +34,21 @@ export interface SpaceEventsTable {
 }
 
 
+// Persisted live notification messages (survives server restarts)
+export interface LiveMessagesTable {
+  space_id: string;
+  message_id: string;
+  username: string;
+  join_url: string;
+  started_at: number;
+  backend: string;
+}
+
 export interface Database {
   spaces: SpacesTable;
   text_elements: TextElementsTable;
   space_events: SpaceEventsTable;
+  live_messages: LiveMessagesTable;
 }
 
 export type Space = Selectable<SpacesTable>;
