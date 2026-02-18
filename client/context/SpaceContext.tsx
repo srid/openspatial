@@ -96,6 +96,7 @@ interface SpaceContextValue {
   removePeerStream: (peerId: string) => void;
   
   // WebRTC
+  fetchIceServers: () => Promise<void>;
   initWebRTC: () => void;
   
   // Text note mutations
@@ -128,6 +129,13 @@ export const SpaceProvider: ParentComponent = (props) => {
   // Local media streams (not in CRDT, but needed for rendering)
   const [screenShareStreams, setScreenShareStreams] = createSignal<Map<string, MediaStream>>(new Map());
   const [peerStreams, setPeerStreams] = createSignal<Map<string, MediaStream>>(new Map());
+  
+  // ICE server config (fetched from server, includes TURN credentials when configured)
+  const FALLBACK_ICE_SERVERS: RTCIceServer[] = [
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:stun1.l.google.com:19302' },
+  ];
+  let iceServers: RTCIceServer[] = FALLBACK_ICE_SERVERS;
   
   // Derived values
   const participantCount = createMemo(() => peers().size);
@@ -750,13 +758,24 @@ export const SpaceProvider: ParentComponent = (props) => {
     });
   }
   
+  /**
+   * Fetch ICE servers (including TURN credentials) from the server API.
+   * Must be called before initWebRTC() to ensure TURN relay is available.
+   */
+  async function fetchIceServers(): Promise<void> {
+    try {
+      const response = await fetch('/api/ice-servers');
+      if (response.ok) {
+        iceServers = await response.json();
+        console.log('[WebRTC] ICE servers loaded:', iceServers.length, 'servers');
+      }
+    } catch (error) {
+      console.warn('[WebRTC] Failed to fetch ICE servers, using STUN-only fallback:', error);
+    }
+  }
+  
   function createPeerConnection(peerId: string): RTCPeerConnection {
-    const pc = new RTCPeerConnection({
-      iceServers: [
-        { urls: 'stun:stun.l.google.com:19302' },
-        { urls: 'stun:stun1.l.google.com:19302' },
-      ],
-    });
+    const pc = new RTCPeerConnection({ iceServers });
     peerConnections.set(peerId, pc);
     
     pc.onicecandidate = (event) => {
@@ -898,6 +917,7 @@ export const SpaceProvider: ParentComponent = (props) => {
     addLocalStreamToPeers,
     peerStreams,
     setPeerStream,
+    fetchIceServers,
     removePeerStream,
     initWebRTC,
   };

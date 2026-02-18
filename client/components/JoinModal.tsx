@@ -91,7 +91,7 @@ export const JoinModal: Component = () => {
         const peerId = connData.peerId;
         
         // Wait for space-state which contains our server-assigned position
-        ctx.onceSocket<SpaceStateEvent>('space-state', (stateData) => {
+        ctx.onceSocket<SpaceStateEvent>('space-state', async (stateData) => {
           // Get our server-assigned position from space-state
           const myPeerData = stateData.peers[peerId];
           const spawnX = myPeerData?.position?.x ?? 2000;
@@ -116,6 +116,9 @@ export const JoinModal: Component = () => {
               stream: mediaStream,
             },
           });
+          
+          // Fetch ICE servers (includes TURN credentials) before WebRTC setup
+          await ctx.fetchIceServers();
           
           // Initialize WebRTC for peer connections
           ctx.initWebRTC();
