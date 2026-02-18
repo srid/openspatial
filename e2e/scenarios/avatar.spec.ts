@@ -134,3 +134,48 @@ scenario('new joiner avatar does not overlap existing avatar', 'no-overlap', asy
   // Using 80 as a safe threshold to account for some tolerance
   expect(distance).toBeGreaterThan(80);
 });
+
+scenario('new joiner spawns close to existing users', 'spawn-proximity', async ({ createUser }) => {
+  // A starts the space
+  const alice = await createUser('Alice').join();
+  const aliceInitialPos = await alice.avatarOf('Alice').position();
+  
+  // B joins — should spawn close to A
+  const bob = await createUser('Bob').join();
+  await alice.waitForUser('Bob');
+  const bobPos1 = await alice.avatarOf('Bob').position();
+  
+  const dist1 = Math.sqrt(
+    (aliceInitialPos.x - bobPos1.x) ** 2 + (aliceInitialPos.y - bobPos1.y) ** 2
+  );
+  expect(dist1).toBeGreaterThan(80);   // not overlapping
+  expect(dist1).toBeLessThan(500);     // but close
+  
+  // B leaves
+  await bob.leave();
+  await expect.poll(async () =>
+    (await alice.visibleUsers()).length
+  , { timeout: SYNC_TIMEOUT }).toBe(0);
+  
+  // A moves avatar far away (~1000px from origin)
+  await alice.dragAvatar({ dx: 800, dy: 600 });
+  const aliceNewPos = await alice.avatarOf('Alice').position();
+  
+  // B rejoins — should spawn close to A's NEW position
+  const bob2 = await createUser('Bob').join();
+  await alice.waitForUser('Bob');
+  const bobPos2 = await alice.avatarOf('Bob').position();
+  
+  const dist2 = Math.sqrt(
+    (aliceNewPos.x - bobPos2.x) ** 2 + (aliceNewPos.y - bobPos2.y) ** 2
+  );
+  expect(dist2).toBeGreaterThan(80);   // not overlapping
+  expect(dist2).toBeLessThan(500);     // but close to A's new position
+  
+  // Exhaustive: Bob's new spawn should be closer to Alice's NEW position
+  // than to her original position — proves server reads live CRDT state
+  const distFromOriginal = Math.sqrt(
+    (aliceInitialPos.x - bobPos2.x) ** 2 + (aliceInitialPos.y - bobPos2.y) ** 2
+  );
+  expect(dist2).toBeLessThan(distFromOriginal);
+});

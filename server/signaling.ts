@@ -236,12 +236,16 @@ export function attachSignaling(io: Server, config: ServerConfig): void {
       }
     });
 
-    // Note: The following handlers have been removed as state sync is now managed by Yjs CRDT:
-    // - position-update
-    // - screen-share-position-update
-    // - screen-share-resize-update
-    // - media-state-update
-    // - status-update
+    // Position updates: not for state sync (CRDT handles that) but so
+    // findSpawnPosition uses live positions instead of stale join-time values.
+    socket.on('position-update', (data: { x: number; y: number }) => {
+      if (!currentSpace || !peerId) return;
+      const space = spaces.get(currentSpace);
+      const peer = space?.peers.get(peerId);
+      if (peer) {
+        peer.position = { x: data.x, y: data.y };
+      }
+    });
 
     socket.on('screen-share-started', ({ peerId: pid, shareId }: ScreenShareStartedEvent) => {
       if (!currentSpace) return;

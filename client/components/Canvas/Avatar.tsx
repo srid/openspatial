@@ -84,6 +84,9 @@ export const Avatar: Component<AvatarProps> = (props) => {
         if (avatarRef) {
           avatarRef.style.cursor = 'grab';
         }
+        // Notify server of final position so spawn placement uses live data
+        const p = peer();
+        if (p) ctx.emitSocket('position-update', { x: p.x, y: p.y });
       }
     };
     
@@ -117,7 +120,12 @@ export const Avatar: Component<AvatarProps> = (props) => {
     };
     
     const handleTouchEnd = () => {
-      setIsDragging(false);
+      if (isDragging()) {
+        setIsDragging(false);
+        // Notify server of final position so spawn placement uses live data
+        const p = peer();
+        if (p) ctx.emitSocket('position-update', { x: p.x, y: p.y });
+      }
     };
     
     avatarRef.addEventListener('touchstart', handleTouchStart, { passive: false });
