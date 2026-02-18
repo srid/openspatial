@@ -229,3 +229,45 @@ export async function getRecentActivity(spaceId: string): Promise<SpaceEvent[]> 
     .execute();
   return rows;
 }
+
+// === Live Message Operations (notification persistence) ===
+
+export interface LiveMessageRow {
+  space_id: string;
+  message_id: string;
+  username: string;
+  join_url: string;
+  started_at: number;
+  backend: string;
+}
+
+export async function saveLiveMessage(row: LiveMessageRow): Promise<void> {
+  await db
+    .insertInto('live_messages')
+    .values(row)
+    .onConflict((oc) =>
+      oc.column('space_id').doUpdateSet({
+        message_id: row.message_id,
+        username: row.username,
+        join_url: row.join_url,
+        started_at: row.started_at,
+        backend: row.backend,
+      })
+    )
+    .execute();
+}
+
+export async function deleteLiveMessage(spaceId: string): Promise<void> {
+  await db
+    .deleteFrom('live_messages')
+    .where('space_id', '=', spaceId)
+    .execute();
+}
+
+export async function getAllLiveMessages(): Promise<LiveMessageRow[]> {
+  return await db
+    .selectFrom('live_messages')
+    .selectAll()
+    .execute();
+}
+
