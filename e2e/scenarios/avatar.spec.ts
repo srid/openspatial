@@ -179,3 +179,22 @@ scenario('new joiner spawns close to existing users', 'spawn-proximity', async (
   );
   expect(dist2).toBeLessThan(distFromOriginal);
 });
+
+scenario('joiner view auto-centers on own avatar', 'spawn-autocenter', async ({ createUser }) => {
+  // A starts the space and moves to the top-right corner
+  const alice = await createUser('Alice').join();
+  await alice.dragAvatar({ dx: 800, dy: -600 });
+  const alicePos = await alice.avatarOf('Alice').position();
+  // Confirm Alice is far from center
+  expect(alicePos.x).toBeGreaterThan(2500);
+  
+  // B leaves, A moves. B joins — spawns near A in the corner
+  const bob = await createUser('Bob').join();
+  await bob.waitForUser('Alice');
+  
+  // Bob's self-avatar should be visible in his viewport
+  // (auto-centered on spawn position, not stuck at space center)
+  await expect.poll(async () =>
+    await bob.isSelfAvatarInView()
+  , { timeout: SYNC_TIMEOUT }).toBe(true);
+});

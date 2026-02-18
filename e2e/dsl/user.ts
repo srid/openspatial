@@ -548,4 +548,13 @@ export class UserImpl implements User {
   async soundsPlayed(): Promise<string[]> {
     return this.page.evaluate(() => (window as any).__openspatialSounds ?? []);
   }
+
+  async isSelfAvatarInView(): Promise<boolean> {
+    const avatar = this.page.locator('.avatar.self');
+    const box = await avatar.boundingBox();
+    if (!box) return false;
+    const viewport = this.page.viewportSize()!;
+    return box.x >= -box.width && box.y >= -box.height
+      && box.x <= viewport.width && box.y <= viewport.height;
+  }
 }

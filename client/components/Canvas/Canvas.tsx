@@ -2,7 +2,7 @@
  * Canvas Component
  * Interactive pan/zoom container for avatars, screen shares, and text notes.
  */
-import { Component, For, createSignal, onMount, onCleanup, createMemo } from 'solid-js';
+import { Component, For, createSignal, onMount, onCleanup, createMemo, createEffect } from 'solid-js';
 import { useSpace } from '@/context/SpaceContext';
 import { Avatar } from './Avatar';
 import { ScreenShare } from './ScreenShare';
@@ -45,8 +45,20 @@ export const Canvas: Component = () => {
   onMount(() => {
     if (!containerRef) return;
     
-    // Center on space center initially
+    // Center on local user's spawn position once it's known.
+    // Initially center on space center as fallback.
     centerOn(spaceWidth / 2, spaceHeight / 2);
+    
+    let hasCentered = false;
+    createEffect(() => {
+      const pid = localPeerId();
+      if (!pid || hasCentered) return;
+      const peer = ctx.peers().get(pid);
+      if (peer) {
+        hasCentered = true;
+        centerOn(peer.x, peer.y);
+      }
+    });
     
     setupPanning();
     setupZoom();
