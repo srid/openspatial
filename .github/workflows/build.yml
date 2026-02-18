@@ -2,9 +2,9 @@ name: Build
 
 on:
   push:
-    branches: [master, ice2]
+    branches: [master]
   pull_request:
-    branches: [master, ice2]
+    branches: [master]
 
 jobs:
   nix-build:
