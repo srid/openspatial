@@ -90,12 +90,15 @@ const protocol = config.https ? 'https' : 'http';
         appType: 'spa',
       });
 
-      // Vite middleware first (HMR, module transforms, SPA fallback),
-      // then Hono for API routes that Vite doesn't handle
+      // API routes go to Hono first; everything else goes through Vite (HMR, module transforms, SPA fallback)
       server.on('request', (req: IncomingMessage, res: ServerResponse) => {
-        vite.middlewares(req, res, () => {
+        if (req.url?.startsWith('/api/')) {
           honoListener(req, res);
-        });
+        } else {
+          vite.middlewares(req, res, () => {
+            honoListener(req, res);
+          });
+        }
       });
 
       console.log(`🔥 Vite HMR enabled (dev mode)`);
