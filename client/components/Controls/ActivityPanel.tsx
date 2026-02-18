@@ -1,10 +1,11 @@
 /**
  * ActivityPanel Component
  * Displays recent space activity (join/leave events).
+ * Reads from SpaceContext.activities() — the listener is registered at connection time
+ * so events emitted before the panel is opened are never missed.
  */
-import { Component, For, Show, createSignal, onMount, onCleanup, createEffect } from 'solid-js';
+import { Component, For, Show, createSignal, onCleanup, createEffect } from 'solid-js';
 import { useSpace } from '@/context/SpaceContext';
-import type { SpaceActivityItem } from '../../../shared/types/events';
 
 interface ActivityPanelProps {
   isOpen: boolean;
@@ -14,19 +15,10 @@ interface ActivityPanelProps {
 export const ActivityPanel: Component<ActivityPanelProps> = (props) => {
   const ctx = useSpace();
   
-  const [activities, setActivities] = createSignal<SpaceActivityItem[]>([]);
-  
   // Tick signal to force re-computation of relative timestamps
   const [tick, setTick] = createSignal(0);
   
   let refreshInterval: number | null = null;
-  
-  onMount(() => {
-    // Listen for activity updates
-    ctx.onSocket<{ events: SpaceActivityItem[] }>('space-activity', (data) => {
-      setActivities(data.events.slice(0, 10));
-    });
-  });
   
   // Refresh timestamps when panel is open by incrementing tick
   createEffect(() => {
@@ -145,10 +137,10 @@ export const ActivityPanel: Component<ActivityPanelProps> = (props) => {
         <span>Recent Activity</span>
       </div>
       <div class="p-2 max-h-[250px] overflow-y-auto">
-        <Show when={activities().length === 0}>
+        <Show when={ctx.activities().length === 0}>
           <span class="block p-4 text-center text-text-muted italic">No recent activity</span>
         </Show>
-        <For each={activities()}>
+        <For each={ctx.activities()}>
           {(event) => (
             <div class={`activity-item ${event.event_type} flex items-center gap-2 p-2 rounded-md transition-colors duration-(--transition-fast) hover:bg-surface`}>
               <span class={`shrink-0 w-[18px] text-center text-xs ${getIconColor(event.event_type)}`}>

@@ -2,7 +2,7 @@
  * Audio & Mute Scenarios
  */
 import { expect } from '@playwright/test';
-import { scenario } from '../dsl';
+import { scenario, SYNC_TIMEOUT } from '../dsl';
 
 scenario('mute state syncs', 'mute-sync', async ({ createUser }) => {
   const alice = await createUser('Alice').join();
@@ -16,13 +16,13 @@ scenario('mute state syncs', 'mute-sync', async ({ createUser }) => {
   await alice.mute();
   await expect.poll(async () =>
     await bob.avatarOf('Alice').isMuted()
-  , { timeout: 5000 }).toBe(true);
+  , { timeout: SYNC_TIMEOUT }).toBe(true);
 
   // Alice unmutes
   await alice.unmute();
   await expect.poll(async () =>
     await bob.avatarOf('Alice').isMuted()
-  , { timeout: 5000 }).toBe(false);
+  , { timeout: SYNC_TIMEOUT }).toBe(false);
 });
 
 scenario('mute toggle is bidirectional', 'mute-bidirectional', async ({ createUser }) => {
@@ -37,10 +37,10 @@ scenario('mute toggle is bidirectional', 'mute-bidirectional', async ({ createUs
 
   await expect.poll(async () =>
     await alice.avatarOf('Bob').isMuted()
-  , { timeout: 5000 }).toBe(true);
+  , { timeout: SYNC_TIMEOUT }).toBe(true);
   await expect.poll(async () =>
     await bob.avatarOf('Alice').isMuted()
-  , { timeout: 5000 }).toBe(true);
+  , { timeout: SYNC_TIMEOUT }).toBe(true);
 
   // Both users unmute
   await alice.unmute();
@@ -48,10 +48,10 @@ scenario('mute toggle is bidirectional', 'mute-bidirectional', async ({ createUs
 
   await expect.poll(async () =>
     await alice.avatarOf('Bob').isMuted()
-  , { timeout: 5000 }).toBe(false);
+  , { timeout: SYNC_TIMEOUT }).toBe(false);
   await expect.poll(async () =>
     await bob.avatarOf('Alice').isMuted()
-  , { timeout: 5000 }).toBe(false);
+  , { timeout: SYNC_TIMEOUT }).toBe(false);
 });
 
 scenario('late-joiner sees mute state', 'audio-late', async ({ createUser }) => {
@@ -65,5 +65,5 @@ scenario('late-joiner sees mute state', 'audio-late', async ({ createUser }) => 
   // Bob should see Alice as muted
   await expect.poll(async () =>
     await bob.avatarOf('Alice').isMuted()
-  , { timeout: 5000 }).toBe(true);
+  , { timeout: SYNC_TIMEOUT }).toBe(true);
 });

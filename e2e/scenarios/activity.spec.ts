@@ -4,7 +4,7 @@
  * Tests the space activity tracking and display functionality.
  */
 import { expect } from '@playwright/test';
-import { scenario } from '../dsl';
+import { scenario, SYNC_TIMEOUT } from '../dsl';
 
 scenario('activity panel shows join event', 'activity-test-1', async ({ createUser }) => {
   const alice = await createUser('Alice').join();
@@ -12,9 +12,13 @@ scenario('activity panel shows join event', 'activity-test-1', async ({ createUs
   // Open activity panel
   await alice.openActivityPanel();
   
-  // Should show Alice's join_first event
+  // Should show Alice's join_first event (data flows async from SpaceContext)
+  await expect.poll(async () => {
+    const items = await alice.activityItems();
+    return items.length;
+  }, { timeout: SYNC_TIMEOUT }).toBeGreaterThan(0);
+  
   const items = await alice.activityItems();
-  expect(items.length).toBeGreaterThan(0);
   expect(items[0].username).toBe('Alice');
   expect(items[0].eventType).toBe('join_first');
 });
@@ -23,11 +27,13 @@ scenario('activity panel shows join and leave events', 'activity-test-2', async 
   const alice = await createUser('Alice').join();
   const bob = await createUser('Bob').join();
   
-  // Bob should see Alice's join and his own join
+  // Bob should see both Alice's join and his own join
   await bob.openActivityPanel();
+  await expect.poll(async () => {
+    const items = await bob.activityItems();
+    return items.some(i => i.username === 'Alice') && items.some(i => i.username === 'Bob');
+  }, { timeout: SYNC_TIMEOUT }).toBe(true);
   const itemsBeforeLeave = await bob.activityItems();
-  expect(itemsBeforeLeave.some(i => i.username === 'Alice')).toBe(true);
-  expect(itemsBeforeLeave.some(i => i.username === 'Bob')).toBe(true);
   
   // Alice leaves
   await alice.leave();
@@ -36,7 +42,7 @@ scenario('activity panel shows join and leave events', 'activity-test-2', async 
   await expect.poll(async () => {
     const items = await bob.activityItems();
     return items.some(i => i.username === 'Alice' && (i.eventType === 'leave' || i.eventType === 'leave_last'));
-  }, { timeout: 5000 }).toBe(true);
+  }, { timeout: SYNC_TIMEOUT }).toBe(true);
 });
 
 scenario('activity badge appears for new activity', 'activity-test-3', async ({ createUser }) => {
@@ -52,7 +58,7 @@ scenario('activity badge appears for new activity', 'activity-test-3', async ({ 
   // Alice should see badge (activity happened while panel closed)
   await expect.poll(async () =>
     await alice.isActivityBadgeVisible()
-  , { timeout: 5000 }).toBe(true);
+  , { timeout: SYNC_TIMEOUT }).toBe(true);
   
   // Opening panel should hide badge and show Bob's join event
   await alice.openActivityPanel();
@@ -73,8 +79,11 @@ scenario('activity timestamps are not stale', 'activity-test-4', async ({ create
   
   // Open panel and check timestamp is not stale
   await alice.openActivityPanel();
+  await expect.poll(async () => {
+    const items = await alice.activityItems();
+    return items.length;
+  }, { timeout: SYNC_TIMEOUT }).toBeGreaterThan(0);
   const items = await alice.activityItems();
-  expect(items.length).toBeGreaterThan(0);
   
   // Timestamp should NOT be "just now" if we waited 2+ seconds
   // (or it should be "just now" if less than 60 seconds - that's fine)
@@ -89,6 +98,10 @@ scenario('activity timestamps refresh over time', 'activity-test-5', async ({ cr
   
   // Open panel immediately - should show "just now"
   await alice.openActivityPanel();
+  await expect.poll(async () => {
+    const items = await alice.activityItems();
+    return items.length;
+  }, { timeout: SYNC_TIMEOUT }).toBeGreaterThan(0);
   const initialItems = await alice.activityItems();
   expect(initialItems.length).toBeGreaterThan(0);
   expect(initialItems[0].timeAgo).toBe('just now');

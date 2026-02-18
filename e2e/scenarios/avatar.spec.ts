@@ -2,7 +2,7 @@
  * Avatar & User Visibility Scenarios
  */
 import { expect } from '@playwright/test';
-import { scenario, expectPosition } from '../dsl';
+import { scenario, expectPosition, SYNC_TIMEOUT } from '../dsl';
 
 scenario('both users see each other', 'see-each-other', async ({ createUser }) => {
   const alice = await createUser('Alice').join();
@@ -53,7 +53,7 @@ scenario('leaving removes avatar', 'leave-test', async ({ createUser }) => {
   await alice.leave();
   await expect.poll(async () =>
     await bob.visibleUsers()
-  , { timeout: 5000 }).toEqual([]);
+  , { timeout: SYNC_TIMEOUT }).toEqual([]);
 });
 
 scenario('participant count updates', 'count-test', async ({ createUser }) => {
@@ -63,7 +63,7 @@ scenario('participant count updates', 'count-test', async ({ createUser }) => {
   const bob = await createUser('Bob').join();
   await expect.poll(async () =>
     await alice.participantCount()
-  , { timeout: 5000 }).toBe(2);
+  , { timeout: SYNC_TIMEOUT }).toBe(2);
   expect(await bob.participantCount()).toBe(2);
 });
 
@@ -97,7 +97,7 @@ scenario('refreshing user does not leave ghost avatar', 'refresh-no-ghost', asyn
   // Wait for cleanup to propagate
   await expect.poll(async () =>
     (await bob.visibleUsers()).length
-  , { timeout: 5000 }).toBe(0);
+  , { timeout: SYNC_TIMEOUT }).toBe(0);
   
   // Alice rejoins with the same name
   const aliceAgain = await createUser('Alice').join();

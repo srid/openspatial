@@ -2,7 +2,7 @@
  * Sound Effect Scenarios
  */
 import { expect } from '@playwright/test';
-import { scenario } from '../dsl';
+import { scenario, SYNC_TIMEOUT } from '../dsl';
 
 scenario('join sound plays when peer joins', 'sound-join', async ({ createUser }) => {
   const alice = await createUser('Alice').join();
@@ -13,7 +13,7 @@ scenario('join sound plays when peer joins', 'sound-join', async ({ createUser }
   await expect.poll(async () => {
     const sounds = await alice.soundsPlayed();
     return sounds.includes('join');
-  }, { timeout: 5000 }).toBe(true);
+  }, { timeout: SYNC_TIMEOUT }).toBe(true);
 });
 
 scenario('leave sound plays when peer leaves', 'sound-leave', async ({ createUser }) => {
@@ -27,5 +27,5 @@ scenario('leave sound plays when peer leaves', 'sound-leave', async ({ createUse
   await expect.poll(async () => {
     const sounds = await alice.soundsPlayed();
     return sounds.includes('leave');
-  }, { timeout: 5000 }).toBe(true);
+  }, { timeout: SYNC_TIMEOUT }).toBe(true);
 });

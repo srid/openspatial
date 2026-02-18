@@ -5,7 +5,7 @@
  * Note: Text notes are now ownerless and persistent (shared by everyone).
  */
 import { expect } from '@playwright/test';
-import { scenario } from '../dsl';
+import { scenario, SYNC_TIMEOUT } from '../dsl';
 
 scenario('creating text note appears on canvas', 'note-create', async ({ createUser }) => {
   const alice = await createUser('Alice').join();
@@ -57,7 +57,7 @@ scenario('anyone can edit shared text notes', 'note-shared-edit', async ({ creat
   // Verify Alice sees Bob's edit
   await expect.poll(async () => {
     return await alice.textNoteOf('any').content();
-  }, { timeout: 5000 }).toBe('Bob edited this');
+  }, { timeout: SYNC_TIMEOUT }).toBe('Bob edited this');
 });
 
 scenario('deleting text note removes it', 'note-delete', async ({ createUser }) => {
@@ -77,7 +77,7 @@ scenario('deleting text note removes it', 'note-delete', async ({ createUser }) 
   // Wait for deletion to propagate via CRDT
   await expect.poll(async () => {
     return (await bob.textNotes()).length;
-  }, { timeout: 5000 }).toBe(0);
+  }, { timeout: SYNC_TIMEOUT }).toBe(0);
 });
 
 scenario('delete confirmation can be cancelled', 'note-delete-cancel', async ({ createUser }) => {
@@ -122,10 +122,10 @@ scenario('multiple users can create text notes', 'note-multiple', async ({ creat
   // Each should see both notes
   await expect.poll(async () => {
     return (await alice.textNotes()).length;
-  }, { timeout: 5000 }).toBe(2);
+  }, { timeout: SYNC_TIMEOUT }).toBe(2);
   await expect.poll(async () => {
     return (await bob.textNotes()).length;
-  }, { timeout: 5000 }).toBe(2);
+  }, { timeout: SYNC_TIMEOUT }).toBe(2);
 });
 
 scenario('late-joiner sees text notes', 'note-late-join', async ({ createUser }) => {
@@ -166,7 +166,7 @@ scenario('text note position syncs to other users', 'note-drag-sync', async ({ c
     const afterDrag = await bob.textNoteOf('any').rect();
     return afterDrag.position.x !== beforeDrag.position.x || 
            afterDrag.position.y !== beforeDrag.position.y;
-  }, { timeout: 5000 }).toBe(true);
+  }, { timeout: SYNC_TIMEOUT }).toBe(true);
 });
 
 scenario('text note size syncs to other users', 'note-resize-sync', async ({ createUser }) => {
@@ -190,7 +190,7 @@ scenario('text note size syncs to other users', 'note-resize-sync', async ({ cre
   await expect.poll(async () => {
     const r = await bob.textNoteOf('any').rect();
     return r.size.width > beforeResize.size.width + 50 && r.size.height > beforeResize.size.height + 25;
-  }, { timeout: 5000 }).toBe(true);
+  }, { timeout: SYNC_TIMEOUT }).toBe(true);
   
   // Verify it stays stable (catches shrinking bug)
   const afterResize = await bob.textNoteOf('any').rect();
@@ -224,7 +224,7 @@ scenario('text note font-size syncs to other users', 'note-fontsize-sync', async
   await expect.poll(async () => {
     const s = await bob.textNoteOf('any').style();
     return s.fontSize;
-  }, { timeout: 5000 }).toBe('large');
+  }, { timeout: SYNC_TIMEOUT }).toBe('large');
 });
 
 scenario('text note font-family syncs to other users', 'note-fontfamily-sync', async ({ createUser }) => {
@@ -247,7 +247,7 @@ scenario('text note font-family syncs to other users', 'note-fontfamily-sync', a
   await expect.poll(async () => {
     const s = await bob.textNoteOf('any').style();
     return s.fontFamily;
-  }, { timeout: 5000 }).toBe('mono');
+  }, { timeout: SYNC_TIMEOUT }).toBe('mono');
 });
 
 scenario('scrolling inside text note does not zoom canvas', 'note-scroll', async ({ createUser }) => {
@@ -269,7 +269,7 @@ scenario('scrolling inside text note does not zoom canvas', 'note-scroll', async
       const el = document.querySelector('.text-note .cm-scroller');
       return el ? el.scrollHeight > el.clientHeight : false;
     });
-  }, { timeout: 5000 }).toBe(true);
+  }, { timeout: SYNC_TIMEOUT }).toBe(true);
 
   // Get initial scrollTop
   const initialScrollTop = await page.evaluate(() => {
@@ -288,5 +288,5 @@ scenario('scrolling inside text note does not zoom canvas', 'note-scroll', async
       return el ? el.scrollTop : -1;
     });
     return scrollTop > initialScrollTop;
-  }, { timeout: 5000 }).toBe(true);
+  }, { timeout: SYNC_TIMEOUT }).toBe(true);
 });

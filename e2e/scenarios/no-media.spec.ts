@@ -4,7 +4,7 @@
  * Tests for joining a space without granting camera/microphone permissions.
  */
 import { expect } from '@playwright/test';
-import { scenario } from '../dsl';
+import { scenario, SYNC_TIMEOUT } from '../dsl';
 
 scenario('user joins without media', 'no-media-join', async ({ createUser }) => {
   const alice = await createUser('Alice').withoutWebcam().join();
@@ -15,7 +15,7 @@ scenario('user joins without media', 'no-media-join', async ({ createUser }) => 
   // Alice's webcam should appear off (showing initial letter, not video)
   await expect.poll(async () =>
     await bob.avatarOf('Alice').isWebcamOn()
-  , { timeout: 5000 }).toBe(false);
+  , { timeout: SYNC_TIMEOUT }).toBe(false);
   
   // Alice can see Bob
   expect(await alice.visibleUsers()).toEqual(['Bob']);
@@ -33,7 +33,7 @@ scenario('no-media user can interact with space', 'no-media-interact', async ({ 
   await expect.poll(async () => {
     const content = await alice.textNoteOf('any').content();
     return content;
-  }, { timeout: 5000 }).toContain('Hello from no-cam Alice');
+  }, { timeout: SYNC_TIMEOUT }).toContain('Hello from no-cam Alice');
 });
 
 scenario('no-media user can re-enable camera', 'no-media-reenable', async ({ createUser }) => {
@@ -44,7 +44,7 @@ scenario('no-media user can re-enable camera', 'no-media-reenable', async ({ cre
   // Alice's webcam starts off
   await expect.poll(async () =>
     await bob.avatarOf('Alice').isWebcamOn()
-  , { timeout: 5000 }).toBe(false);
+  , { timeout: SYNC_TIMEOUT }).toBe(false);
   
   // Alice restores getUserMedia (simulates granting permission) and clicks camera button
   await alice.enableWebcam('red');

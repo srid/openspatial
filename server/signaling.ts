@@ -60,6 +60,67 @@ function cleanupCRDTOnDisconnect(spaceId: string, peerId: string): void {
   }
 }
 
+const SPACE_CENTER = 2000;
+const MIN_SPAWN_DISTANCE = 150;
+const SPAWN_RING_RADIUS = 200;
+
+/**
+ * Find a spawn position for a new user.
+ * - First user spawns at center (2000, 2000).
+ * - Subsequent users spawn near the largest group of existing peers,
+ *   with guaranteed minimum separation of 150px from all existing peers.
+ */
+function findSpawnPosition(space: Space): { x: number; y: number } {
+  const existingPositions = Array.from(space.peers.values()).map(p => p.position);
+  
+  if (existingPositions.length === 0) {
+    return { x: SPACE_CENTER, y: SPACE_CENTER };
+  }
+  
+  // Find the centroid of the largest cluster.
+  // Simple approach: use the centroid of all existing peers (they're typically close together).
+  const centroid = {
+    x: existingPositions.reduce((sum, p) => sum + p.x, 0) / existingPositions.length,
+    y: existingPositions.reduce((sum, p) => sum + p.y, 0) / existingPositions.length,
+  };
+  
+  // Try positions in expanding rings around the centroid
+  const peerCount = existingPositions.length;
+  for (let ring = 1; ring <= 10; ring++) {
+    const radius = SPAWN_RING_RADIUS * ring;
+    // Place candidates evenly around the ring, offset by peer count to vary placement
+    const candidates = 8 * ring;
+    for (let i = 0; i < candidates; i++) {
+      const angle = (2 * Math.PI * i) / candidates + (peerCount * 0.7);
+      const candidate = {
+        x: Math.round(centroid.x + radius * Math.cos(angle)),
+        y: Math.round(centroid.y + radius * Math.sin(angle)),
+      };
+      
+      // Clamp to space bounds (0–4000)
+      candidate.x = Math.max(100, Math.min(3900, candidate.x));
+      candidate.y = Math.max(100, Math.min(3900, candidate.y));
+      
+      // Check minimum distance from all existing peers
+      const tooClose = existingPositions.some(p => {
+        const dx = p.x - candidate.x;
+        const dy = p.y - candidate.y;
+        return Math.sqrt(dx * dx + dy * dy) < MIN_SPAWN_DISTANCE;
+      });
+      
+      if (!tooClose) {
+        return candidate;
+      }
+    }
+  }
+  
+  // Fallback: deterministic offset from center (should never reach here with < 800 users)
+  return {
+    x: SPACE_CENTER + (peerCount % 20) * MIN_SPAWN_DISTANCE,
+    y: SPACE_CENTER + Math.floor(peerCount / 20) * MIN_SPAWN_DISTANCE,
+  };
+}
+
 /**
  * Attach Socket.io signaling handlers to a Socket.io server instance.
  * Shared between Vite plugin (dev) and standalone server (prod).
@@ -121,10 +182,7 @@ export function attachSignaling(io: Server, config: ServerConfig): void {
 
       const space = getSpace(spaceId);
       const wasEmpty = space.peers.size === 0;
-      const position = {
-        x: 1800 + Math.random() * 400,
-        y: 1800 + Math.random() * 400,
-      };
+      const position = findSpawnPosition(space);
 
       const peerData: PeerData = {
         username,

@@ -70,31 +70,32 @@ export class UserImpl implements User {
   }
 
   async setStatus(text: string): Promise<void> {
-    // Click on the status trigger (+ button) or existing status badge on our avatar
+    // Click on the status trigger (+ button) or existing status badge on our avatar.
+    // Uses force:true because the popover is inside the avatar div, which shifts
+    // with CRDT position updates — Playwright detects this as element instability.
     const avatar = this.page.locator('.avatar.self');
     const statusTrigger = avatar.locator('.avatar-status-trigger');
     const statusBadge = avatar.locator('.avatar-status');
     
     // Click whichever is visible (trigger if no status, badge if has status)
     if (await statusTrigger.isVisible()) {
-      await statusTrigger.click();
+      await statusTrigger.click({ force: true });
     } else {
-      await statusBadge.click();
+      await statusBadge.click({ force: true });
     }
     
     // Fill in the popover input and save
     await this.page.fill('.status-popover-input', text);
-    await this.page.click('.status-popover-save');
+    await this.page.click('.status-popover-save', { force: true });
   }
 
   async clearStatus(): Promise<void> {
-    // Click on the existing status badge to open the popover
     const avatar = this.page.locator('.avatar.self');
     const statusBadge = avatar.locator('.avatar-status');
     
     if (await statusBadge.isVisible()) {
-      await statusBadge.click();
-      await this.page.click('.status-popover-clear');
+      await statusBadge.click({ force: true });
+      await this.page.click('.status-popover-clear', { force: true });
     }
   }
 

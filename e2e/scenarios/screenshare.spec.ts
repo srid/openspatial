@@ -4,7 +4,7 @@
  * All tests verify video content is actually visible (not blank).
  */
 import { expect, test } from '@playwright/test';
-import { scenario, expectRect } from '../dsl';
+import { scenario, expectRect, MEDIA_TIMEOUT, SYNC_TIMEOUT } from '../dsl';
 
 scenario('leaving removes screen shares', 'ss-leave', async ({ createUser }) => {
   const alice = await createUser('Alice').join();
@@ -29,7 +29,7 @@ scenario('leaving removes screen shares', 'ss-leave', async ({ createUser }) => 
   // Bob should see no users and no screen shares
   await expect.poll(async () =>
     (await bob.screenShares()).length
-  , { timeout: 5000 }).toBe(0);
+  , { timeout: SYNC_TIMEOUT }).toBe(0);
   expect(await bob.visibleUsers()).toEqual([]);
 });
 
@@ -56,7 +56,7 @@ scenario('screen share resize syncs', 'ss-resize', async ({ createUser }) => {
   await expect.poll(async () => {
     const r = await bob.screenShareOf('Alice').rect();
     return r.size.width === expectedRect.size.width && r.size.height === expectedRect.size.height;
-  }, { timeout: 5000 }).toBe(true);
+  }, { timeout: SYNC_TIMEOUT }).toBe(true);
   
   // Verify video content is still visible after resize
   await expect.poll(async () =>
@@ -85,7 +85,7 @@ scenario('stopping screen share removes it', 'ss-stop', async ({ createUser }) =
 
   await expect.poll(async () =>
     (await bob.screenShares()).length
-  , { timeout: 5000 }).toBe(0);
+  , { timeout: SYNC_TIMEOUT }).toBe(0);
 });
 
 scenario('multiple users can screen share', 'ss-multiple', async ({ createUser }) => {
@@ -101,10 +101,10 @@ scenario('multiple users can screen share', 'ss-multiple', async ({ createUser }
   // Each user should see both screen shares
   await expect.poll(async () =>
     (await alice.screenShares()).length
-  , { timeout: 5000 }).toBe(2);
+  , { timeout: SYNC_TIMEOUT }).toBe(2);
   await expect.poll(async () =>
     (await bob.screenShares()).length
-  , { timeout: 5000 }).toBe(2);
+  , { timeout: SYNC_TIMEOUT }).toBe(2);
 
   // Verify ownership
   const aliceShares = await alice.screenShares();
@@ -154,7 +154,7 @@ scenario('late-joiner sees screen share', 'ss-late', async ({ createUser }) => {
   // Verify late-joiner Bob sees actual video content (not blank)
   await expect.poll(async () =>
     await bob.screenShareOf('Alice').hasVideoContent()
-  , { timeout: 10000 }).toBe(true);
+  , { timeout: MEDIA_TIMEOUT }).toBe(true);
 });
 
 scenario('anyone can drag screen share', 'ss-drag-anyone', async ({ createUser }) => {
@@ -180,13 +180,13 @@ scenario('anyone can drag screen share', 'ss-drag-anyone', async ({ createUser }
   await expect.poll(async () => {
     const p = await bob.screenShareOf('Alice').position();
     return p.x > beforeDrag.x + 20 && p.y > beforeDrag.y + 10;
-  }, { timeout: 5000 }).toBe(true);
+  }, { timeout: SYNC_TIMEOUT }).toBe(true);
 
   // Verify Alice sees the new position too
   await expect.poll(async () => {
     const p = await alice.screenShareOf('Alice').position();
     return p.x > beforeDrag.x + 20 && p.y > beforeDrag.y + 10;
-  }, { timeout: 5000 }).toBe(true);
+  }, { timeout: SYNC_TIMEOUT }).toBe(true);
   
   // Verify video content is still visible after drag
   await expect.poll(async () =>
@@ -217,13 +217,13 @@ scenario('anyone can resize screen share', 'ss-resize-anyone', async ({ createUs
   await expect.poll(async () => {
     const s = await bob.screenShareOf('Alice').size();
     return Math.abs(s.width - 640) < 10 && Math.abs(s.height - 480) < 10;
-  }, { timeout: 5000 }).toBe(true);
+  }, { timeout: SYNC_TIMEOUT }).toBe(true);
 
   // Verify Alice sees the new size too
   await expect.poll(async () => {
     const s = await alice.screenShareOf('Alice').size();
     return Math.abs(s.width - 640) < 10;
-  }, { timeout: 5000 }).toBe(true);
+  }, { timeout: SYNC_TIMEOUT }).toBe(true);
   
   // Verify video content is still visible after resize
   await expect.poll(async () =>
