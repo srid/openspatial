@@ -11,6 +11,20 @@ import { mockWebcam } from './mocks';
 export * from './types';
 export { mockScreenShare, mockWebcam } from './mocks';
 
+/**
+ * Probabilistic timeouts for E2E poll assertions.
+ *
+ * These are NOT guaranteed upper bounds — CRDT propagation and WebRTC
+ * renegotiation have no deterministic maximum. In practice, observed
+ * CI latencies are 1–3s for CRDT sync and 5–12s for WebRTC late-joiner
+ * setup. These constants provide ~3× safety margins.
+ *
+ * If tests become flaky again, increase these values rather than
+ * adding waitForTimeout calls (which are always wrong).
+ */
+export const SYNC_TIMEOUT = 10_000;   // CRDT propagation (drag, status, etc.)
+export const MEDIA_TIMEOUT = 15_000;  // WebRTC renegotiation + video frame rendering
+
 const CONTROL_BAR_TIMEOUT = 10000;
 
 /**

@@ -4,7 +4,7 @@
  * All tests use mocked webcams with animated canvas to verify actual video content.
  */
 import { expect } from '@playwright/test';
-import { scenario } from '../dsl';
+import { scenario, SYNC_TIMEOUT } from '../dsl';
 
 scenario('webcam toggle syncs', 'webcam-toggle', async ({ createUser }) => {
   const alice = await createUser('Alice').withMockedWebcam('red').join();
@@ -23,7 +23,7 @@ scenario('webcam toggle syncs', 'webcam-toggle', async ({ createUser }) => {
   await alice.toggleWebcam();
   await expect.poll(async () =>
     await bob.avatarOf('Alice').isWebcamOn()
-  , { timeout: 5000 }).toBe(false);
+  , { timeout: SYNC_TIMEOUT }).toBe(false);
 
   // Alice turns on webcam again
   await alice.toggleWebcam();
@@ -45,7 +45,7 @@ scenario('late-joiner sees webcam state', 'webcam-late', async ({ createUser }) 
   // Bob should see Alice's webcam as OFF
   await expect.poll(async () =>
     await bob.avatarOf('Alice').isWebcamOn()
-  , { timeout: 5000 }).toBe(false);
+  , { timeout: SYNC_TIMEOUT }).toBe(false);
 });
 
 scenario('webcam video content is visible to peers', 'webcam-content', async ({ createUser }) => {

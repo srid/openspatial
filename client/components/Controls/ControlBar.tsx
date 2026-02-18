@@ -1,8 +1,4 @@
-/**
- * ControlBar Component
- * Bottom control bar with mic, camera, screen share, notes, activity, and leave buttons.
- */
-import { Component, Show, createSignal, createMemo, onMount, onCleanup } from 'solid-js';
+import { Component, Show, createSignal, createMemo, on, createEffect, onMount, onCleanup } from 'solid-js';
 import { useSpace } from '@/context/SpaceContext';
 import { ActivityPanel } from './ActivityPanel';
 import { v4 as uuidv4 } from 'uuid';
@@ -17,14 +13,15 @@ export const ControlBar: Component = () => {
   
   const localUser = createMemo(() => ctx.session()?.localUser);
   
-  // Listen for activity updates to show badge
+  // Show badge when activities change while panel is closed.
+  // `defer: true` skips the initial run so the badge doesn't flash on mount.
+  createEffect(on(() => ctx.activities(), () => {
+    if (!activityOpen()) {
+      setHasUnread(true);
+    }
+  }, { defer: true }));
+  
   onMount(() => {
-    ctx.onSocket('space-activity', () => {
-      if (!activityOpen()) {
-        setHasUnread(true);
-      }
-    });
-    
     // Close activity panel when clicking elsewhere
     const handleClickOutside = (e: MouseEvent) => {
       const target = e.target as HTMLElement;

@@ -118,6 +118,9 @@ export interface User {
 
   // Sound effects
   soundsPlayed(): Promise<string[]>;
+
+  // View
+  isSelfAvatarInView(): Promise<boolean>;
 }
 
 export interface AvatarView {

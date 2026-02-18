@@ -84,6 +84,9 @@ export const Avatar: Component<AvatarProps> = (props) => {
         if (avatarRef) {
           avatarRef.style.cursor = 'grab';
         }
+        // Notify server of final position so spawn placement uses live data
+        const p = peer();
+        if (p) ctx.emitSocket('position-update', { x: p.x, y: p.y });
       }
     };
     
@@ -95,6 +98,7 @@ export const Avatar: Component<AvatarProps> = (props) => {
     const handleTouchStart = (e: TouchEvent) => {
       if (e.touches.length !== 1) return;
       e.stopPropagation();
+      e.preventDefault(); // Prevent browser scroll — requires { passive: false }
       setIsDragging(true);
       startDragX = e.touches[0].clientX;
       startDragY = e.touches[0].clientY;
@@ -116,10 +120,15 @@ export const Avatar: Component<AvatarProps> = (props) => {
     };
     
     const handleTouchEnd = () => {
-      setIsDragging(false);
+      if (isDragging()) {
+        setIsDragging(false);
+        // Notify server of final position so spawn placement uses live data
+        const p = peer();
+        if (p) ctx.emitSocket('position-update', { x: p.x, y: p.y });
+      }
     };
     
-    avatarRef.addEventListener('touchstart', handleTouchStart, { passive: true });
+    avatarRef.addEventListener('touchstart', handleTouchStart, { passive: false });
     document.addEventListener('touchmove', handleTouchMove, { passive: false });
     document.addEventListener('touchend', handleTouchEnd);
     
@@ -138,7 +147,7 @@ export const Avatar: Component<AvatarProps> = (props) => {
       {(p) => (
         <div
           ref={setAvatarRef}
-          class={`avatar absolute w-[var(--avatar-size)] h-[var(--avatar-size)] cursor-grab transition-transform duration-(--transition-fast) z-10 overflow-visible ${props.isLocal ? 'self' : ''}`}
+          class={`avatar absolute w-[var(--avatar-size)] h-[var(--avatar-size)] cursor-grab transition-transform duration-(--transition-fast) overflow-visible ${props.isLocal ? 'self z-20' : 'z-10'}`}
           classList={{
             'z-15': false, // speaking state would go here
           }}

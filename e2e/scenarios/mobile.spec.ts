@@ -7,7 +7,7 @@
  * Run with: npx playwright test --project=mobile
  */
 import { test, expect } from '@playwright/test';
-import { scenario } from '../dsl';
+import { scenario, SYNC_TIMEOUT } from '../dsl';
 
 test.describe('mobile touch', () => {
 
@@ -24,7 +24,7 @@ test.describe('mobile touch', () => {
     await expect.poll(async () => {
       const p = await alice.avatarOf('Alice').position();
       return p.x > initialPos.x + 20 && p.y > initialPos.y + 10;
-    }, { timeout: 5000 }).toBe(true);
+    }, { timeout: SYNC_TIMEOUT }).toBe(true);
   });
 
   scenario('mobile touch drag syncs to other users', 'mobile-sync-test', async ({ createUser }) => {
@@ -131,6 +131,6 @@ test.describe('mobile UI', () => {
     // Verify transform changed (canvas panned)
     await expect.poll(async () => {
       return await space.evaluate((el) => el.style.transform);
-    }, { timeout: 5000 }).not.toBe(initialTransform);
+    }, { timeout: SYNC_TIMEOUT }).not.toBe(initialTransform);
   });
 });

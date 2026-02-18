@@ -4,7 +4,7 @@
  * Tests for 3+ users to verify WebRTC mesh handling at scale.
  */
 import { expect } from '@playwright/test';
-import { scenario, expectPosition } from '../dsl';
+import { scenario, expectPosition, SYNC_TIMEOUT } from '../dsl';
 
 scenario('three users see each other', 'mesh-three', async ({ createUser }) => {
   const alice = await createUser('Alice').join();
@@ -46,10 +46,10 @@ scenario('third user leaving updates mesh', 'mesh-leave', async ({ createUser })
 
   await expect.poll(async () =>
     await alice.participantCount()
-  , { timeout: 5000 }).toBe(2);
+  , { timeout: SYNC_TIMEOUT }).toBe(2);
   await expect.poll(async () =>
     await bob.participantCount()
-  , { timeout: 5000 }).toBe(2);
+  , { timeout: SYNC_TIMEOUT }).toBe(2);
   expect(await alice.visibleUsers()).toEqual(['Bob']);
   expect(await bob.visibleUsers()).toEqual(['Alice']);
 });

@@ -2,7 +2,7 @@
  * User Status Scenarios
  */
 import { expect } from '@playwright/test';
-import { scenario } from '../dsl';
+import { scenario, SYNC_TIMEOUT } from '../dsl';
 
 scenario('status updates sync', 'status-sync', async ({ createUser }) => {
   const alice = await createUser('Alice').join();
@@ -15,14 +15,14 @@ scenario('status updates sync', 'status-sync', async ({ createUser }) => {
   // Wait for CRDT sync to Bob
   await expect.poll(async () => {
     return await bob.avatarOf('Alice').status();
-  }, { timeout: 5000 }).toBe('BRB ~10 mins');
+  }, { timeout: SYNC_TIMEOUT }).toBe('BRB ~10 mins');
 
   await alice.clearStatus();
 
   // Wait for clear to propagate
   await expect.poll(async () => {
     return await bob.avatarOf('Alice').status();
-  }, { timeout: 5000 }).toBeNull();
+  }, { timeout: SYNC_TIMEOUT }).toBeNull();
 });
 
 scenario('late-joiner sees status', 'status-late', async ({ createUser }) => {
@@ -33,7 +33,7 @@ scenario('late-joiner sees status', 'status-late', async ({ createUser }) => {
   await bob.waitForUser('Alice');
   await expect.poll(async () => {
     return await bob.avatarOf('Alice').status();
-  }, { timeout: 5000 }).toBe('In a meeting');
+  }, { timeout: SYNC_TIMEOUT }).toBe('In a meeting');
 });
 
 scenario('late-joiner sees muted', 'muted-late', async ({ createUser }) => {

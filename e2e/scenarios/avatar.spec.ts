@@ -2,7 +2,7 @@
  * Avatar & User Visibility Scenarios
  */
 import { expect } from '@playwright/test';
-import { scenario, expectPosition } from '../dsl';
+import { scenario, expectPosition, SYNC_TIMEOUT } from '../dsl';
 
 scenario('both users see each other', 'see-each-other', async ({ createUser }) => {
   const alice = await createUser('Alice').join();
@@ -53,7 +53,7 @@ scenario('leaving removes avatar', 'leave-test', async ({ createUser }) => {
   await alice.leave();
   await expect.poll(async () =>
     await bob.visibleUsers()
-  , { timeout: 5000 }).toEqual([]);
+  , { timeout: SYNC_TIMEOUT }).toEqual([]);
 });
 
 scenario('participant count updates', 'count-test', async ({ createUser }) => {
@@ -63,7 +63,7 @@ scenario('participant count updates', 'count-test', async ({ createUser }) => {
   const bob = await createUser('Bob').join();
   await expect.poll(async () =>
     await alice.participantCount()
-  , { timeout: 5000 }).toBe(2);
+  , { timeout: SYNC_TIMEOUT }).toBe(2);
   expect(await bob.participantCount()).toBe(2);
 });
 
@@ -97,7 +97,7 @@ scenario('refreshing user does not leave ghost avatar', 'refresh-no-ghost', asyn
   // Wait for cleanup to propagate
   await expect.poll(async () =>
     (await bob.visibleUsers()).length
-  , { timeout: 5000 }).toBe(0);
+  , { timeout: SYNC_TIMEOUT }).toBe(0);
   
   // Alice rejoins with the same name
   const aliceAgain = await createUser('Alice').join();
@@ -133,4 +133,68 @@ scenario('new joiner avatar does not overlap existing avatar', 'no-overlap', asy
   // Minimum distance should be greater than avatar diameter (~100px)
   // Using 80 as a safe threshold to account for some tolerance
   expect(distance).toBeGreaterThan(80);
+});
+
+scenario('new joiner spawns close to existing users', 'spawn-proximity', async ({ createUser }) => {
+  // A starts the space
+  const alice = await createUser('Alice').join();
+  const aliceInitialPos = await alice.avatarOf('Alice').position();
+  
+  // B joins — should spawn close to A
+  const bob = await createUser('Bob').join();
+  await alice.waitForUser('Bob');
+  const bobPos1 = await alice.avatarOf('Bob').position();
+  
+  const dist1 = Math.sqrt(
+    (aliceInitialPos.x - bobPos1.x) ** 2 + (aliceInitialPos.y - bobPos1.y) ** 2
+  );
+  expect(dist1).toBeGreaterThan(80);   // not overlapping
+  expect(dist1).toBeLessThan(500);     // but close
+  
+  // B leaves
+  await bob.leave();
+  await expect.poll(async () =>
+    (await alice.visibleUsers()).length
+  , { timeout: SYNC_TIMEOUT }).toBe(0);
+  
+  // A moves avatar far away (~1000px from origin)
+  await alice.dragAvatar({ dx: 800, dy: 600 });
+  const aliceNewPos = await alice.avatarOf('Alice').position();
+  
+  // B rejoins — should spawn close to A's NEW position
+  const bob2 = await createUser('Bob').join();
+  await alice.waitForUser('Bob');
+  const bobPos2 = await alice.avatarOf('Bob').position();
+  
+  const dist2 = Math.sqrt(
+    (aliceNewPos.x - bobPos2.x) ** 2 + (aliceNewPos.y - bobPos2.y) ** 2
+  );
+  expect(dist2).toBeGreaterThan(80);   // not overlapping
+  expect(dist2).toBeLessThan(500);     // but close to A's new position
+  
+  // Exhaustive: Bob's new spawn should be closer to Alice's NEW position
+  // than to her original position — proves server reads live CRDT state
+  const distFromOriginal = Math.sqrt(
+    (aliceInitialPos.x - bobPos2.x) ** 2 + (aliceInitialPos.y - bobPos2.y) ** 2
+  );
+  expect(dist2).toBeLessThan(distFromOriginal);
+});
+
+scenario('joiner view auto-centers on own avatar', 'spawn-autocenter', async ({ createUser }) => {
+  // A starts the space and moves to the top-right corner
+  const alice = await createUser('Alice').join();
+  await alice.dragAvatar({ dx: 800, dy: -600 });
+  const alicePos = await alice.avatarOf('Alice').position();
+  // Confirm Alice is far from center
+  expect(alicePos.x).toBeGreaterThan(2500);
+  
+  // B leaves, A moves. B joins — spawns near A in the corner
+  const bob = await createUser('Bob').join();
+  await bob.waitForUser('Alice');
+  
+  // Bob's self-avatar should be visible in his viewport
+  // (auto-centered on spawn position, not stuck at space center)
+  await expect.poll(async () =>
+    await bob.isSelfAvatarInView()
+  , { timeout: SYNC_TIMEOUT }).toBe(true);
 });

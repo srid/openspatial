@@ -2,7 +2,7 @@
  * Connection & Reconnection Scenarios
  */
 import { expect } from '@playwright/test';
-import { scenario } from '../dsl';
+import { scenario, SYNC_TIMEOUT } from '../dsl';
 
 scenario('connection banner responds', 'conn-test', async ({ createUser }) => {
   const alice = await createUser('Alice').join();
@@ -144,7 +144,7 @@ scenario('all canvas elements persist after reconnection', 'reconnect-all-elemen
   // Verify Bob still sees Alice's screen share
   await expect.poll(async () =>
     (await bob.screenShares()).some(s => s.owner === 'Alice')
-  , { timeout: 5000 }).toBe(true);
+  , { timeout: SYNC_TIMEOUT }).toBe(true);
   
   // Verify Bob still sees the text note
   const bobNotes = await bob.textNotes();

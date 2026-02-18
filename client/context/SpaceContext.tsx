@@ -12,7 +12,7 @@ import { WebsocketProvider } from 'y-websocket';
 import type { Awareness } from 'y-protocols/awareness';
 import type { PeerState, ScreenShareState, TextNoteState } from '../../shared/yjs-schema';
 import { getTextNoteText, createTextNoteObservers } from '../../shared/yjs-schema';
-import type { ConnectedEvent, SpaceInfoEvent, PeerJoinedEvent, PeerLeftEvent } from '../../shared/types/events';
+import type { ConnectedEvent, SpaceInfoEvent, PeerJoinedEvent, PeerLeftEvent, SpaceActivityItem } from '../../shared/types/events';
 import { playJoinSound, playLeaveSound } from '../lib/sounds';
 
 export type View = 'landing' | 'join' | 'space' | 'not-found';
@@ -54,6 +54,7 @@ interface SpaceContextValue {
   screenShares: Accessor<Map<string, ScreenShareState>>;
   textNotes: Accessor<Map<string, TextNoteState>>;
   textNoteContents: Accessor<Map<string, string>>;
+  activities: Accessor<SpaceActivityItem[]>;
   
   // Derived state
   participantCount: Accessor<number>;
@@ -125,6 +126,7 @@ export const SpaceProvider: ParentComponent = (props) => {
   const [screenShares, setScreenShares] = createSignal<Map<string, ScreenShareState>>(new Map());
   const [textNotes, setTextNotes] = createSignal<Map<string, TextNoteState>>(new Map());
   const [textNoteContents, setTextNoteContents] = createSignal<Map<string, string>>(new Map());
+  const [activities, setActivities] = createSignal<SpaceActivityItem[]>([]);
   
   // Local media streams (not in CRDT, but needed for rendering)
   const [screenShareStreams, setScreenShareStreams] = createSignal<Map<string, MediaStream>>(new Map());
@@ -270,6 +272,12 @@ export const SpaceProvider: ParentComponent = (props) => {
             username: currentSession.localUser.username,
           });
         }
+      });
+      
+      // Register activity listener at connection time (before join-space)
+      // so we never miss events emitted at join time
+      onSocket<{ events: SpaceActivityItem[] }>('space-activity', (data) => {
+        setActivities(data.events.slice(0, 10));
       });
       
       // Forward events to handlers
@@ -887,6 +895,7 @@ export const SpaceProvider: ParentComponent = (props) => {
     screenShares,
     textNotes,
     textNoteContents,
+    activities,
     participantCount,
     spaceId,
     connectSignaling,
