@@ -27,6 +27,7 @@ async function joinSpace(page: Page, username: string, spaceId: string): Promise
 
 class UserBuilderImpl implements UserBuilder {
   private webcamColor: string | null = null;
+  private denyMedia = false;
   
   constructor(
     private name: string,
@@ -40,10 +41,25 @@ class UserBuilderImpl implements UserBuilder {
     return this;
   }
 
+  withoutWebcam(): UserBuilder {
+    this.denyMedia = true;
+    return this;
+  }
+
   async join(): Promise<User> {
     const context = await this.contextFactory();
     this.contexts.push(context);
     const page = await context.newPage();
+    
+    // When denyMedia is set, override getUserMedia to throw NotAllowedError
+    // (headless Chromium auto-grants permissions, so we must mock it)
+    if (this.denyMedia) {
+      await page.addInitScript(() => {
+        navigator.mediaDevices.getUserMedia = async () => {
+          throw new DOMException('Permission denied', 'NotAllowedError');
+        };
+      });
+    }
     
     // Navigate to space first to load the SPA (so navigator.mediaDevices exists)
     await page.goto(`/s/${this.spaceId}`);

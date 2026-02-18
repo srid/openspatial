@@ -68,7 +68,7 @@ export const JoinModal: Component = () => {
     localStorage.setItem(STORAGE_KEY_USERNAME, name);
     
     try {
-      // Get media stream
+      // Get media stream (optional — user can join without camera/mic)
       let mediaStream = stream();
       if (!mediaStream) {
         try {
@@ -78,13 +78,8 @@ export const JoinModal: Component = () => {
           });
           setStream(mediaStream);
         } catch (mediaErr) {
-          const err = mediaErr as DOMException;
-          if (err.name === 'NotAllowedError') {
-            setError('Camera/microphone access denied. Please grant permission and try again.');
-          } else {
-            setError(`Media error: ${err.name}`);
-          }
-          return;
+          console.warn('Media access denied, joining without camera/mic:', (mediaErr as DOMException).name);
+          mediaStream = null;
         }
       }
       
@@ -103,8 +98,9 @@ export const JoinModal: Component = () => {
           const spawnY = myPeerData?.position?.y ?? 2000;
           
           // Connect CRDT and add ourselves with server-assigned position
+          const noMedia = !mediaStream;
           ctx.connectCRDT(space);
-          ctx.addPeer(peerId, name, spawnX, spawnY);
+          ctx.addPeer(peerId, name, spawnX, spawnY, noMedia, noMedia);
           
           // Set session state with server-assigned position
           ctx.setSession({
@@ -114,8 +110,8 @@ export const JoinModal: Component = () => {
               username: name,
               x: spawnX,
               y: spawnY,
-              isMuted: false,
-              isVideoOff: false,
+              isMuted: noMedia,
+              isVideoOff: noMedia,
               status: '',
               stream: mediaStream,
             },

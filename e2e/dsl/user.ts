@@ -17,7 +17,7 @@ import {
   ActivityItem,
 } from './types';
 import { AvatarViewImpl, ScreenShareViewImpl, TextNoteViewImpl } from './views';
-import { mockScreenShare } from './mocks';
+import { mockScreenShare, mockWebcam } from './mocks';
 
 const SYNC_TIMEOUT = 10000;
 
@@ -225,6 +225,10 @@ export class UserImpl implements User {
     await this.page.evaluate(() => {
       window.dispatchEvent(new Event('online'));
     });
+  }
+
+  async enableWebcam(color: string = 'green'): Promise<void> {
+    await mockWebcam(this.page, color);
   }
 
   // ─────────────────────────────────────────────────────────────────

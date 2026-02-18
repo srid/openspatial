@@ -71,7 +71,7 @@ interface SpaceContextValue {
   emitSocket: (event: string, data: unknown) => void;
   
   // CRDT mutation helpers
-  addPeer: (peerId: string, username: string, x: number, y: number) => void;
+  addPeer: (peerId: string, username: string, x: number, y: number, isMuted?: boolean, isVideoOff?: boolean) => void;
   removePeer: (peerId: string) => void;
   updatePeerPosition: (peerId: string, x: number, y: number) => void;
   updatePeerMediaState: (peerId: string, isMuted: boolean, isVideoOff: boolean) => void;
@@ -88,6 +88,7 @@ interface SpaceContextValue {
   setScreenShareStream: (shareId: string, stream: MediaStream) => void;
   removeScreenShareStream: (shareId: string) => void;
   addScreenShareToPeers: (stream: MediaStream) => Promise<void>;
+  addLocalStreamToPeers: (stream: MediaStream) => Promise<void>;
   
   // Remote peer streams (for Avatar video)
   peerStreams: Accessor<Map<string, MediaStream>>;
@@ -442,8 +443,8 @@ export const SpaceProvider: ParentComponent = (props) => {
   }
   
   // CRDT Mutations
-  function addPeer(peerId: string, username: string, x: number, y: number) {
-    peersMap?.set(peerId, { username, x, y, isMuted: false, isVideoOff: false, status: '' });
+  function addPeer(peerId: string, username: string, x: number, y: number, isMuted = false, isVideoOff = false) {
+    peersMap?.set(peerId, { username, x, y, isMuted, isVideoOff, status: '' });
   }
   
   function removePeer(peerId: string) {
@@ -598,6 +599,39 @@ export const SpaceProvider: ParentComponent = (props) => {
       });
       
       // Trigger renegotiation by creating a new offer
+      try {
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+        emitSocket('signal', {
+          to: peerId,
+          from: session()?.localUser.peerId,
+          signal: { type: 'offer', sdp: offer },
+        });
+      } catch (e) {
+        console.error(`[WebRTC] Failed to renegotiate with ${peerId}:`, e);
+      }
+    }
+  }
+  
+  /**
+   * Add local webcam tracks to all existing peer connections.
+   * Used when a user enables their camera/mic after joining without media.
+   */
+  async function addLocalStreamToPeers(stream: MediaStream) {
+    console.log(`[WebRTC] Adding local stream to ${peerConnections.size} peer connections`);
+    
+    for (const [peerId, pc] of peerConnections.entries()) {
+      const senders = pc.getSenders();
+      const existingTrackIds = new Set(senders.map(s => s.track?.id).filter(Boolean));
+      
+      stream.getTracks().forEach(track => {
+        if (!existingTrackIds.has(track.id)) {
+          console.log(`[WebRTC] Adding local track to ${peerId}: ${track.kind}`);
+          pc.addTrack(track, stream);
+        }
+      });
+      
+      // Trigger renegotiation
       try {
         const offer = await pc.createOffer();
         await pc.setLocalDescription(offer);
@@ -861,6 +895,7 @@ export const SpaceProvider: ParentComponent = (props) => {
     setScreenShareStream,
     removeScreenShareStream,
     addScreenShareToPeers,
+    addLocalStreamToPeers,
     peerStreams,
     setPeerStream,
     removePeerStream,
