@@ -56,6 +56,8 @@ export interface UserBuilder {
   join(): Promise<User>;
   /** Mock the webcam with an animated canvas stream before joining */
   withMockedWebcam(color?: string): UserBuilder;
+  /** Join without granting camera/microphone permissions */
+  withoutWebcam(): UserBuilder;
 }
 
 export interface User {
@@ -80,6 +82,9 @@ export interface User {
   touchDragAvatar(delta: { dx: number; dy: number }): Promise<void>;
   goOffline(): Promise<void>;
   goOnline(): Promise<void>;
+
+  /** Restore getUserMedia (after withoutWebcam) so camera can be re-enabled */
+  enableWebcam(color?: string): Promise<void>;
   
   // Text Note Actions
   createTextNote(): Promise<TextNoteInfo>;
