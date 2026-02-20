@@ -103,7 +103,7 @@ export class UserImpl implements User {
     await mockScreenShare(this.page, opts?.color ?? 'blue');
     await this.page.click('#btn-screen');
     // Wait for the screen share element to appear on canvas
-    const selfScreen = this.page.locator('.screen-share:has-text("Your Screen")');
+    const selfScreen = this.page.locator('.screen-share[data-local="true"]');
     await expect(selfScreen).toBeVisible({ timeout: SYNC_TIMEOUT });
 
     // Return info about the created screen share
@@ -117,7 +117,7 @@ export class UserImpl implements User {
 
   async stopScreenShare(): Promise<void> {
     // Click the close button on our own screen share
-    const screenShare = this.page.locator('.screen-share:has-text("Your Screen")');
+    const screenShare = this.page.locator('.screen-share[data-local="true"]');
     const closeBtn = screenShare.locator('.screen-share-close');
     await closeBtn.click();
     // Confirm the inline deletion prompt
@@ -134,12 +134,12 @@ export class UserImpl implements User {
     if (typeof rectOrOwner === 'string') {
       // New signature: resizeScreenShare(owner, { width, height })
       const owner = rectOrOwner;
-      const labelText = owner === this.name ? 'Your Screen' : `${owner}'s Screen`;
+      const labelText = owner === this.name ? undefined : owner;
       screenShare = this.page.locator('.screen-share', { hasText: labelText });
       size = sizeArg!;
     } else {
       // Old signature: resizeScreenShare(Rect) - for local screen share
-      screenShare = this.page.locator('.screen-share:has-text("Your Screen")');
+      screenShare = this.page.locator('.screen-share[data-local="true"]');
       size = rectOrOwner.size;
     }
     
@@ -153,8 +153,10 @@ export class UserImpl implements User {
   }
 
   async dragScreenShare(owner: string, delta: { dx: number; dy: number }): Promise<void> {
-    const labelText = owner === this.name ? 'Your Screen' : `${owner}'s Screen`;
-    const screenShare = this.page.locator('.screen-share', { hasText: labelText });
+    const labelText = owner === this.name ? undefined : owner;
+    const screenShare = owner === this.name
+      ? this.page.locator('.screen-share[data-local="true"]')
+      : this.page.locator('.screen-share', { hasText: labelText });
     const header = screenShare.locator('.screen-share-header');
     
     const box = await header.boundingBox();
@@ -373,8 +375,10 @@ export class UserImpl implements User {
    * Wait for a screen share from a specific owner to be visible.
    */
   async waitForScreenShare(owner: string): Promise<void> {
-    const labelText = owner === this.name ? 'Your Screen' : `${owner}'s Screen`;
-    const screenShare = this.page.locator('.screen-share', { hasText: labelText });
+    const labelText = owner === this.name ? undefined : owner;
+    const screenShare = owner === this.name
+      ? this.page.locator('.screen-share[data-local="true"]')
+      : this.page.locator('.screen-share', { hasText: labelText });
     await expect(screenShare).toBeVisible({ timeout: SYNC_TIMEOUT });
   }
 
@@ -411,8 +415,11 @@ export class UserImpl implements User {
 
     for (let i = 0; i < count; i++) {
       const share = shares.nth(i);
-      const label = await share.locator('.screen-share-title span').textContent();
-      const owner = label?.replace("'s Screen", '').replace('Your Screen', this.name).trim() ?? '';
+      const isLocal = await share.getAttribute('data-local') === 'true';
+      // For local screen share, use this user's name. For remote, extract from title text.
+      const owner = isLocal
+        ? this.name
+        : (await share.locator('.screen-share-title span').last().textContent())?.replace(/'s Screen$/, '').replace(/Écran de /, '').trim() || 'unknown';
       const rect = await share.evaluate((el: HTMLElement) => ({
         position: {
           x: parseFloat(el.style.left) || 0,
@@ -429,8 +436,8 @@ export class UserImpl implements User {
   }
 
   screenShareOf(owner: string): ScreenShareView {
-    const displayOwner = owner === this.name ? 'Your Screen' : owner;
-    return new ScreenShareViewImpl(this.page, displayOwner);
+    const isLocal = owner === this.name;
+    return new ScreenShareViewImpl(this.page, owner, isLocal);
   }
 
   async textNotes(): Promise<TextNoteInfo[]> {

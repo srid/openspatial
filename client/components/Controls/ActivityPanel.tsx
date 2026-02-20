@@ -6,6 +6,7 @@
  */
 import { Component, For, Show, createSignal, onCleanup, createEffect } from 'solid-js';
 import { useSpace } from '@/context/SpaceContext';
+import { t } from '@/lib/i18n';
 
 interface ActivityPanelProps {
   isOpen: boolean;
@@ -47,16 +48,16 @@ export const ActivityPanel: Component<ActivityPanelProps> = (props) => {
     const diff = now - date.getTime();
     
     const seconds = Math.floor(diff / 1000);
-    if (seconds < 60) return 'just now';
+    if (seconds < 60) return t('justNow');
     
     const minutes = Math.floor(seconds / 60);
-    if (minutes < 60) return `${minutes}m ago`;
+    if (minutes < 60) return t('minutesAgo', { count: minutes });
     
     const hours = Math.floor(minutes / 60);
-    if (hours < 24) return `${hours}h ago`;
+    if (hours < 24) return t('hoursAgo', { count: hours });
     
     const days = Math.floor(hours / 24);
-    return `${days}d ago`;
+    return t('daysAgo', { count: days });
   }
   
   function parseUTCDate(dateStr: string): Date {
@@ -95,13 +96,13 @@ export const ActivityPanel: Component<ActivityPanelProps> = (props) => {
   function getEventAction(eventType: string): string {
     switch (eventType) {
       case 'join_first':
-        return 'opened the space';
+        return t('openedTheSpace');
       case 'join':
-        return 'joined';
+        return t('joined');
       case 'leave':
-        return 'left';
+        return t('left');
       case 'leave_last':
-        return 'closed the space';
+        return t('closedTheSpace');
       default:
         return eventType;
     }
@@ -134,11 +135,11 @@ export const ActivityPanel: Component<ActivityPanelProps> = (props) => {
           <circle cx="12" cy="12" r="10" />
           <polyline points="12 6 12 12 16 14" />
         </svg>
-        <span>Recent Activity</span>
+        <span>{t('recentActivity')}</span>
       </div>
       <div class="p-2 max-h-[250px] overflow-y-auto">
         <Show when={ctx.activities().length === 0}>
-          <span class="block p-4 text-center text-text-muted italic">No recent activity</span>
+          <span class="block p-4 text-center text-text-muted italic">{t('noRecentActivity')}</span>
         </Show>
         <For each={ctx.activities()}>
           {(event) => (

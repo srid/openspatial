@@ -16,7 +16,7 @@ test('landing page shows space entry form with Enter Space button', async ({ bro
   
   // Should see landing page with space input and Enter Space button
   await expect(page.locator('#landing-space-input')).toBeVisible();
-  const enterButton = page.locator('button.btn-primary:has-text("Enter Space")');
+  const enterButton = page.locator('[data-testid="enter-space-btn"]');
   await expect(enterButton).toBeVisible();
   
   await context.close();
@@ -32,7 +32,7 @@ test('submitting empty form navigates to /s/demo', async ({ browser }) => {
   await page.goto('/');
   
   // Just click Enter Space without typing anything
-  await page.click('button:has-text("Enter Space")');
+  await page.click('[data-testid="enter-space-btn"]');
   
   // Should be at /s/demo with join modal visible
   await expect(page).toHaveURL(/\/s\/demo/);
@@ -52,7 +52,7 @@ test('entering custom space name navigates to that space', async ({ browser }) =
   
   // Enter a custom space name
   await page.fill('#landing-space-input', 'my-custom-space');
-  await page.click('button:has-text("Enter Space")');
+  await page.click('[data-testid="enter-space-btn"]');
   
   // Should be at the custom space URL
   await expect(page).toHaveURL(/\/s\/my-custom-space/);
@@ -88,7 +88,7 @@ test('landing page has GitHub link', async ({ browser }) => {
   await page.goto('/');
   
   // GitHub link should be visible and link to repo
-  const githubLink = page.locator('a:has-text("GitHub")');
+  const githubLink = page.locator('[data-testid="github-link"]');
   await expect(githubLink).toBeVisible();
   await expect(githubLink).toHaveAttribute('href', 'https://github.com/srid/openspatial');
   await expect(githubLink).toHaveAttribute('target', '_blank');
@@ -114,7 +114,7 @@ test('arbitrary space URL loads styled SPA (not plain 404)', async ({ browser })
   await expect(page.locator('#space-name-label')).toContainText('random-space-abc-123');
   
   // The "Back to home" link should be visible
-  const backLink = page.locator('a:has-text("Back to home")');
+  const backLink = page.locator('[data-testid="back-to-home"]');
   await expect(backLink).toBeVisible();
   
   await context.close();

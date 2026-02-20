@@ -3,6 +3,7 @@ import { useSpace } from '@/context/SpaceContext';
 import { ActivityPanel } from './ActivityPanel';
 import { usePictureInPicture } from '@/hooks/usePictureInPicture';
 import { v4 as uuidv4 } from 'uuid';
+import { t } from '@/lib/i18n';
 
 export const ControlBar: Component = () => {
   const ctx = useSpace();
@@ -69,9 +70,9 @@ export const ControlBar: Component = () => {
       const err = e as DOMException;
       console.warn('Failed to acquire media stream:', err.name);
       if (err.name === 'NotAllowedError') {
-        setMediaError('Camera/mic blocked. Click the 🔒 icon in your browser\'s address bar to allow access, then try again.');
+        setMediaError(t('mediaBlockedError'));
       } else {
-        setMediaError(`Media error: ${err.name}`);
+        setMediaError(t('mediaError', { errorName: err.name }));
       }
       // Auto-dismiss after 6 seconds
       setTimeout(() => setMediaError(null), 6000);
@@ -192,7 +193,7 @@ export const ControlBar: Component = () => {
     ctx.setSession(null);
     ctx.setView('join');
     
-    document.title = 'OpenSpatial - Virtual Office';
+    document.title = 'OpenSpatial';
   }
 
   // Shared base classes for control buttons
@@ -214,7 +215,7 @@ export const ControlBar: Component = () => {
           id="btn-mic"
           class={btnBase}
           classList={{ 'bg-danger/20 border-danger text-danger': isMuted(), 'muted': isMuted() }}
-          title="Toggle Microphone"
+          title={t('toggleMicrophone')}
           onClick={handleToggleMic}
         >
           <Show when={!isMuted()}>
@@ -240,7 +241,7 @@ export const ControlBar: Component = () => {
           id="btn-camera"
           class={btnBase}
           classList={{ 'bg-danger/20 border-danger text-danger': isVideoOff() }}
-          title="Toggle Camera"
+          title={t('toggleCamera')}
           onClick={handleToggleCamera}
         >
           <Show when={!isVideoOff()}>
@@ -260,7 +261,7 @@ export const ControlBar: Component = () => {
         <button
           id="btn-screen"
           class={btnBase}
-          title="Share Screen"
+          title={t('shareScreen')}
           onClick={handleStartScreenShare}
         >
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -273,7 +274,7 @@ export const ControlBar: Component = () => {
         <button
           id="btn-note"
           class={btnBase}
-          title="Add Note"
+          title={t('addNote')}
           onClick={handleCreateNote}
         >
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -302,7 +303,7 @@ export const ControlBar: Component = () => {
             id="btn-activity" 
             class={btnBase}
             classList={{ 'bg-accent border-accent shadow-[0_0_20px_var(--color-accent-glow)]': activityOpen() }}
-            title="Recent Activity"
+            title={t('recentActivity')}
             onClick={handleToggleActivity}
           >
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -321,7 +322,7 @@ export const ControlBar: Component = () => {
         <button
           id="btn-leave"
           class={`${btnBase} bg-danger/20 border-danger text-danger hover:bg-danger/30`}
-          title="Leave Space"
+          title={t('leaveSpace')}
           onClick={handleLeave}
         >
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
