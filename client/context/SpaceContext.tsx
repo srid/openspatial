@@ -10,7 +10,7 @@ import type { Socket } from 'socket.io-client';
 import * as Y from 'yjs';
 import { WebsocketProvider } from 'y-websocket';
 import type { Awareness } from 'y-protocols/awareness';
-import type { PeerState, ScreenShareState, TextNoteState } from '../../shared/yjs-schema';
+import type { PeerState, ScreenShareState, TextNoteState, MediaPlayerState } from '../../shared/yjs-schema';
 import { getTextNoteText, createTextNoteObservers } from '../../shared/yjs-schema';
 import type { ConnectedEvent, SpaceInfoEvent, PeerJoinedEvent, PeerLeftEvent, SpaceActivityItem } from '../../shared/types/events';
 import { playJoinSound, playLeaveSound } from '../lib/sounds';
@@ -54,6 +54,7 @@ interface SpaceContextValue {
   screenShares: Accessor<Map<string, ScreenShareState>>;
   textNotes: Accessor<Map<string, TextNoteState>>;
   textNoteContents: Accessor<Map<string, string>>;
+  mediaPlayers: Accessor<Map<string, MediaPlayerState>>;
   activities: Accessor<SpaceActivityItem[]>;
   
   // Derived state
@@ -106,6 +107,13 @@ interface SpaceContextValue {
   updateTextNotePosition: (noteId: string, x: number, y: number) => void;
   updateTextNoteSize: (noteId: string, width: number, height: number) => void;
   updateTextNoteStyle: (noteId: string, fontSize: 'small' | 'medium' | 'large', fontFamily: 'sans' | 'serif' | 'mono', color: string) => void;
+  
+  // Media Player mutations
+  spawnMediaPlayer: (playerId: string, url: string, x: number, y: number) => void;
+  removeMediaPlayer: (playerId: string) => void;
+  updateMediaPlayerPosition: (playerId: string, x: number, y: number) => void;
+  updateMediaPlayerSize: (playerId: string, width: number, height: number) => void;
+  updateMediaPlayerState: (playerId: string, isPlaying: boolean, timestamp: number) => void;
 }
 
 const SpaceContext = createContext<SpaceContextValue>();
@@ -126,6 +134,7 @@ export const SpaceProvider: ParentComponent = (props) => {
   const [screenShares, setScreenShares] = createSignal<Map<string, ScreenShareState>>(new Map());
   const [textNotes, setTextNotes] = createSignal<Map<string, TextNoteState>>(new Map());
   const [textNoteContents, setTextNoteContents] = createSignal<Map<string, string>>(new Map());
+  const [mediaPlayers, setMediaPlayers] = createSignal<Map<string, MediaPlayerState>>(new Map());
   const [activities, setActivities] = createSignal<SpaceActivityItem[]>([]);
   
   // Local media streams (not in CRDT, but needed for rendering)
@@ -335,6 +344,7 @@ export const SpaceProvider: ParentComponent = (props) => {
   let peersMap: Y.Map<PeerState> | null = null;
   let screenSharesMap: Y.Map<ScreenShareState> | null = null;
   let textNotesMap: Y.Map<TextNoteState> | null = null;
+  let mediaPlayersMap: Y.Map<MediaPlayerState> | null = null;
   
   function connectCRDT(spaceId: string) {
     if (ydoc) {
@@ -360,6 +370,7 @@ export const SpaceProvider: ParentComponent = (props) => {
     peersMap = ydoc.getMap<PeerState>('peers');
     screenSharesMap = ydoc.getMap<ScreenShareState>('screenShares');
     textNotesMap = ydoc.getMap<TextNoteState>('textNotes');
+    mediaPlayersMap = ydoc.getMap<MediaPlayerState>('mediaPlayers');
     
     // Bridge Yjs observers to SolidJS signals
     peersMap.observe(() => {
@@ -404,6 +415,14 @@ export const SpaceProvider: ParentComponent = (props) => {
       });
     });
     
+    mediaPlayersMap.observe(() => {
+      const clonedMap = new Map<string, MediaPlayerState>();
+      mediaPlayersMap!.forEach((value, key) => {
+        clonedMap.set(key, { ...value });
+      });
+      setMediaPlayers(clonedMap);
+    });
+    
     yprovider.on('status', ({ status }: { status: string }) => {
       console.log(`[CRDT] Status: ${status}`);
     });
@@ -418,10 +437,15 @@ export const SpaceProvider: ParentComponent = (props) => {
         textNotesMap!.forEach((value, key) => {
           clonedTextNotes.set(key, { ...value });
         });
+        const clonedMediaPlayers = new Map<string, MediaPlayerState>();
+        mediaPlayersMap!.forEach((value, key) => {
+          clonedMediaPlayers.set(key, { ...value });
+        });
         batch(() => {
           setPeers(new Map(peersMap!.entries()));
           setScreenShares(new Map(screenSharesMap!.entries()));
           setTextNotes(clonedTextNotes);
+          setMediaPlayers(clonedMediaPlayers);
         });
         
         // Set up Y.Text observers for existing notes after initial sync
@@ -452,6 +476,7 @@ export const SpaceProvider: ParentComponent = (props) => {
     peersMap = null;
     screenSharesMap = null;
     textNotesMap = null;
+    mediaPlayersMap = null;
     
     setYdocSignal(null);
     setAwarenessSignal(null);
@@ -570,6 +595,45 @@ export const SpaceProvider: ParentComponent = (props) => {
     const note = textNotesMap?.get(noteId);
     if (note) {
       textNotesMap?.set(noteId, { ...note, fontSize, fontFamily, color });
+    }
+  }
+  
+  // Media Player mutations
+  function spawnMediaPlayer(playerId: string, url: string, x: number, y: number) {
+    mediaPlayersMap?.set(playerId, {
+      url,
+      x,
+      y,
+      width: 640,
+      height: 360,
+      isPlaying: false,
+      timestamp: 0,
+      lastUpdatedAt: Date.now()
+    });
+  }
+  
+  function removeMediaPlayer(playerId: string) {
+    mediaPlayersMap?.delete(playerId);
+  }
+  
+  function updateMediaPlayerPosition(playerId: string, x: number, y: number) {
+    const player = mediaPlayersMap?.get(playerId);
+    if (player) {
+      mediaPlayersMap?.set(playerId, { ...player, x, y });
+    }
+  }
+  
+  function updateMediaPlayerSize(playerId: string, width: number, height: number) {
+    const player = mediaPlayersMap?.get(playerId);
+    if (player) {
+      mediaPlayersMap?.set(playerId, { ...player, width, height });
+    }
+  }
+
+  function updateMediaPlayerState(playerId: string, isPlaying: boolean, timestamp: number) {
+    const player = mediaPlayersMap?.get(playerId);
+    if (player) {
+      mediaPlayersMap?.set(playerId, { ...player, isPlaying, timestamp, lastUpdatedAt: Date.now() });
     }
   }
   
@@ -918,6 +982,7 @@ export const SpaceProvider: ParentComponent = (props) => {
     screenShares,
     textNotes,
     textNoteContents,
+    mediaPlayers,
     activities,
     participantCount,
     spaceId,
@@ -942,6 +1007,11 @@ export const SpaceProvider: ParentComponent = (props) => {
     updateTextNotePosition,
     updateTextNoteSize,
     updateTextNoteStyle,
+    spawnMediaPlayer,
+    removeMediaPlayer,
+    updateMediaPlayerPosition,
+    updateMediaPlayerSize,
+    updateMediaPlayerState,
     screenShareStreams,
     setScreenShareStream,
     removeScreenShareStream,

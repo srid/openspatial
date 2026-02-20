@@ -7,16 +7,19 @@ import { Page, expect } from '@playwright/test';
 import {
   User,
   Position,
+  Size,
   ConnectionStatus,
   ScreenShareInfo,
   TextNoteInfo,
+  MediaPlayerInfo,
   Rect,
   AvatarView,
   ScreenShareView,
   TextNoteView,
+  MediaPlayerView,
   ActivityItem,
 } from './types';
-import { AvatarViewImpl, ScreenShareViewImpl, TextNoteViewImpl } from './views';
+import { AvatarViewImpl, ScreenShareViewImpl, TextNoteViewImpl, MediaPlayerViewImpl } from './views';
 import { mockScreenShare, mockWebcam } from './mocks';
 
 const SYNC_TIMEOUT = 10000;
@@ -359,6 +362,64 @@ export class UserImpl implements User {
     }, size);
   }
 
+  // ─────────────────────────────────────────────────────────────────
+  // Media Player Actions
+  // ─────────────────────────────────────────────────────────────────
+
+  async spawnMediaPlayer(url: string): Promise<MediaPlayerInfo> {
+    this.page.once('dialog', async dialog => {
+      await dialog.accept(url);
+    });
+    
+    await this.page.click('#btn-media');
+    
+    // Wait for the media player element
+    const player = this.page.locator('.media-player').first();
+    await expect(player).toBeVisible({ timeout: SYNC_TIMEOUT });
+    
+    const id = await player.getAttribute('data-player-id') ?? '';
+    const rect = await this.mediaPlayerOf(id).rect();
+    return {
+      id,
+      url,
+      rect,
+    };
+  }
+
+  async deleteMediaPlayer(id: string): Promise<void> {
+    const player = this.page.locator(`.media-player[data-player-id="${id}"]`);
+    const closeBtn = player.locator('.media-player-close');
+    await closeBtn.click();
+    const confirmBtn = player.locator('.media-player-confirm-delete');
+    await confirmBtn.waitFor({ state: 'visible' });
+    await confirmBtn.click();
+  }
+
+  async dragMediaPlayer(id: string, delta: { dx: number; dy: number }): Promise<void> {
+    const player = this.page.locator(`.media-player[data-player-id="${id}"]`);
+    const header = player.locator('.media-player-header');
+    
+    const box = await header.boundingBox();
+    if (box) {
+      await this.page.mouse.move(box.x + 5, box.y + 5);
+      await this.page.mouse.down();
+      await this.page.mouse.move(box.x + 5 + delta.dx, box.y + 5 + delta.dy, { steps: 5 });
+      await this.page.mouse.up();
+    }
+  }
+
+  async resizeMediaPlayer(id: string, size: { width: number; height: number }): Promise<void> {
+    const player = this.page.locator(`.media-player[data-player-id="${id}"]`);
+    
+    // Dispatch test-resize event to trigger CRDT update via component
+    await player.evaluate((el: HTMLElement, s: { width: number; height: number }) => {
+      el.dispatchEvent(new CustomEvent('test-resize', { 
+        detail: s,
+        bubbles: true 
+      }));
+    }, size);
+  }
+
   //
   // ─────────────────────────────────────────────────────────────────
 
@@ -386,6 +447,11 @@ export class UserImpl implements User {
     // Notes are ownerless now - just wait for any text note (use first() to avoid strict mode)
     const note = this.page.locator('.text-note').first();
     await expect(note).toBeVisible({ timeout: SYNC_TIMEOUT });
+  }
+
+  async waitForMediaPlayer(): Promise<void> {
+    const player = this.page.locator('.media-player').first();
+    await expect(player).toBeVisible({ timeout: SYNC_TIMEOUT });
   }
 
   /**
@@ -481,6 +547,38 @@ export class UserImpl implements User {
   textNoteOf(_owner: string): TextNoteView {
     // Notes are ownerless now - return first note
     return new TextNoteViewImpl(this.page);
+  }
+
+  async mediaPlayers(): Promise<MediaPlayerInfo[]> {
+    const players = this.page.locator('.media-player');
+    const count = await players.count();
+    const result: MediaPlayerInfo[] = [];
+
+    for (let i = 0; i < count; i++) {
+      const player = players.nth(i);
+      const id = await player.getAttribute('data-player-id') ?? '';
+      
+      const iframeSrc = await player.locator('iframe').getAttribute('src') ?? '';
+      const match = iframeSrc.match(/youtube\.com\/embed\/([^?]+)/);
+      const url = match ? `https://youtube.com/watch?v=${match[1]}` : '';
+
+      const rect = await player.evaluate((el: HTMLElement) => ({
+        position: {
+          x: parseFloat(el.style.left) || 0,
+          y: parseFloat(el.style.top) || 0,
+        },
+        size: {
+          width: parseFloat(el.style.width) || 0,
+          height: parseFloat(el.style.height) || 0,
+        },
+      }));
+      result.push({ id, url, rect });
+    }
+    return result;
+  }
+
+  mediaPlayerOf(id: string): MediaPlayerView {
+    return new MediaPlayerViewImpl(this.page, id);
   }
 
   avatarOf(targetName: string): AvatarView {

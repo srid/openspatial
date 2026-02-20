@@ -7,6 +7,7 @@ import { useSpace } from '@/context/SpaceContext';
 import { Avatar } from './Avatar';
 import { ScreenShare } from './ScreenShare';
 import { TextNote } from './TextNote';
+import { MediaPlayer } from './MediaPlayer';
 import { Minimap } from '../Minimap';
 
 export const Canvas: Component = () => {
@@ -20,6 +21,9 @@ export const Canvas: Component = () => {
     equals: (a, b) => a.length === b.length && a.every((id, i) => id === b[i])
   });
   const textNoteIds = createMemo(() => [...ctx.textNotes().keys()], undefined, {
+    equals: (a, b) => a.length === b.length && a.every((id, i) => id === b[i])
+  });
+  const mediaPlayerIds = createMemo(() => [...ctx.mediaPlayers().keys()], undefined, {
     equals: (a, b) => a.length === b.length && a.every((id, i) => id === b[i])
   });
   
@@ -241,6 +245,13 @@ export const Canvas: Component = () => {
         <For each={textNoteIds()}>
           {(noteId) => (
             <TextNote noteId={noteId} />
+          )}
+        </For>
+        
+        {/* Media Players */}
+        <For each={mediaPlayerIds()}>
+          {(playerId) => (
+            <MediaPlayer playerId={playerId} />
           )}
         </For>
       </div>

@@ -4,7 +4,7 @@
  * These provide typed access to avatar and screen share state.
  */
 import { Page, expect } from '@playwright/test';
-import { Position, Size, Rect, AvatarState, AvatarView, ScreenShareView, TextNoteView } from './types';
+import { Position, Size, Rect, AvatarState, AvatarView, ScreenShareView, TextNoteView, MediaPlayerView } from './types';
 
 const SYNC_TIMEOUT = 5000;
 
@@ -267,5 +267,67 @@ export class TextNoteViewImpl implements TextNoteView {
       
       return { fontSize, fontFamily };
     });
+  }
+}
+
+export class MediaPlayerViewImpl implements MediaPlayerView {
+  constructor(
+    private page: Page,
+    private id: string
+  ) {}
+
+  private get locator() {
+    return this.page.locator(`.media-player[data-player-id="${this.id}"]`);
+  }
+
+  async url(): Promise<string> {
+    const iframeSrc = await this.locator.locator('iframe').getAttribute('src') ?? '';
+    const match = iframeSrc.match(/youtube\.com\/embed\/([^?]+)/);
+    return match ? `https://youtube.com/watch?v=${match[1]}` : '';
+  }
+
+  async rect(): Promise<Rect> {
+    return await this.locator.evaluate((el: HTMLElement) => ({
+      position: {
+        x: parseFloat(el.style.left) || 0,
+        y: parseFloat(el.style.top) || 0,
+      },
+      size: {
+        width: parseFloat(el.style.width) || 0,
+        height: parseFloat(el.style.height) || 0,
+      },
+    }));
+  }
+
+  async isPlaying(): Promise<boolean> {
+    const frame = this.locator.frameLocator('iframe');
+    const playButton = frame.locator('.ytp-play-button');
+    const title = await playButton.getAttribute('title');
+    return title?.includes('Pause') ?? false; // If button says "Pause (k)", it is playing.
+  }
+
+  async play(): Promise<void> {
+    const frame = this.locator.frameLocator('iframe');
+    const playButton = frame.locator('.ytp-play-button');
+    const title = await playButton.getAttribute('title');
+    if (title?.includes('Play')) {
+      await playButton.click();
+    }
+  }
+
+  async pause(): Promise<void> {
+    const frame = this.locator.frameLocator('iframe');
+    const playButton = frame.locator('.ytp-play-button');
+    const title = await playButton.getAttribute('title');
+    if (title?.includes('Pause')) {
+      await playButton.click();
+    }
+  }
+
+  async volume(): Promise<number> {
+    const frame = this.locator.frameLocator('iframe');
+    const panel = frame.locator('.ytp-volume-panel');
+    const val = await panel.getAttribute('aria-valuenow');
+    return val ? parseInt(val, 10) : 100;
   }
 }
