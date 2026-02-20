@@ -1,10 +1,12 @@
 import { Component, Show, createSignal, createMemo, on, createEffect, onMount, onCleanup } from 'solid-js';
 import { useSpace } from '@/context/SpaceContext';
 import { ActivityPanel } from './ActivityPanel';
+import { usePictureInPicture } from '@/hooks/usePictureInPicture';
 import { v4 as uuidv4 } from 'uuid';
 
 export const ControlBar: Component = () => {
   const ctx = useSpace();
+  const { openPip } = usePictureInPicture();
   
   const [isMuted, setIsMuted] = createSignal(ctx.session()?.localUser.isMuted ?? false);
   const [isVideoOff, setIsVideoOff] = createSignal(ctx.session()?.localUser.isVideoOff ?? false);
@@ -277,6 +279,18 @@ export const ControlBar: Component = () => {
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M12 20h9" />
             <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
+          </svg>
+        </button>
+        
+        <button
+          id="btn-pip"
+          class={btnBase}
+          title="Picture-in-Picture"
+          onClick={openPip}
+        >
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="2" y="3" width="20" height="14" rx="2" ry="2" />
+            <rect x="12" y="9" width="8" height="6" rx="1" ry="1" fill="currentColor" opacity="0.3" />
           </svg>
         </button>
         
