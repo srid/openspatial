@@ -132,6 +132,8 @@ export interface AvatarView {
   status(): Promise<string | null>;
   /** Verify the webcam video element has actual content (not blank/black) */
   hasVideoContent(): Promise<boolean>;
+  /** Get the avatar's unique hue (from data-avatar-hue attribute) */
+  avatarColor(): Promise<string>;
 }
 
 export interface ScreenShareView {

@@ -111,6 +111,11 @@ export class AvatarViewImpl implements AvatarView {
       return nonBlackPixels > totalSampled * 0.05;
     });
   }
+
+  async avatarColor(): Promise<string> {
+    const hue = await this.locator.getAttribute('data-avatar-hue');
+    return hue ?? '';
+  }
 }
 
 export class ScreenShareViewImpl implements ScreenShareView {

@@ -5,6 +5,7 @@
 import { Component, createMemo, Show, createSignal, onMount, onCleanup, createEffect } from 'solid-js';
 import { useSpace } from '@/context/SpaceContext';
 import { t } from '@/lib/i18n';
+import { avatarGradient, avatarHue } from '@/lib/avatarColor';
 
 interface AvatarProps {
   peerId: string;
@@ -158,6 +159,7 @@ export const Avatar: Component<AvatarProps> = (props) => {
             top: `${p().y}px`,
           }}
           data-peer-id={props.peerId}
+          data-avatar-hue={avatarHue(p().username)}
         >
           {/* Video container */}
           <div class={`avatar-video-container relative w-full h-full rounded-full overflow-hidden bg-bg-tertiary shadow-lg transition-all duration-(--transition-fast) ${props.isLocal ? 'border-3 border-accent' : 'border-3 border-border'}`}>
@@ -169,7 +171,7 @@ export const Avatar: Component<AvatarProps> = (props) => {
               muted={props.isLocal}
             />
             <Show when={p().isVideoOff}>
-              <div class="flex items-center justify-center w-full h-full bg-[linear-gradient(135deg,#6366f1_0%,#8b5cf6_50%,#a855f7_100%)] text-2xl font-bold text-white">
+              <div class="flex items-center justify-center w-full h-full text-2xl font-bold text-white" style={{ background: avatarGradient(p().username) }}>
                 <span>{p().username.charAt(0).toUpperCase()}</span>
               </div>
             </Show>
