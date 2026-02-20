@@ -22,6 +22,8 @@ const en = {
   featureSharedCanvasDesc: 'Drag your avatar around an infinite surface and drop notes — everyone sees and interacts with the same space in real time.',
   featureCollaborationTitle: 'Real-Time Collaboration',
   featureCollaborationDesc: 'Rich Markdown notes with syntax-highlighted code blocks, co-edited by everyone in the space with live cursors.',
+  featureSpatialMediaPlayerTitle: 'Spatial Media Player',
+  featureSpatialMediaPlayerDesc: 'Spawn YouTube videos that sync perfectly across all users. Video audio attenuates realistically based on your avatar\'s distance.',
 
   // ── JoinModal ────────────────────────────────────────────
   yourName: 'Your Name',

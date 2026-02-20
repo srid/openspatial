@@ -23,6 +23,8 @@ const fr: Record<TranslationKey, string> = {
   featureSharedCanvasDesc: 'Déplacez votre avatar sur une surface infinie et déposez des notes — tout le monde voit et interagit en temps réel.',
   featureCollaborationTitle: 'Collaboration en temps réel',
   featureCollaborationDesc: 'Notes Markdown enrichies avec blocs de code colorés, co-éditées par tous les participants avec des curseurs en direct.',
+  featureSpatialMediaPlayerTitle: 'Lecteur multimédia spatialisé',
+  featureSpatialMediaPlayerDesc: 'Diffusez des vidéos YouTube synchronisées entre tous les utilisateurs. Le son de la vidéo s\'atténue de façon réaliste selon la distance de votre avatar.',
 
   // ── JoinModal ────────────────────────────────────────────
   yourName: 'Votre nom',
