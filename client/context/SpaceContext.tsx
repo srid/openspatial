@@ -595,6 +595,8 @@ export const SpaceProvider: ParentComponent = (props) => {
   // - ICE servers, offer/answer exchange, track handling
   // For now this sets up the signal handler infrastructure
   const peerConnections = new Map<string, RTCPeerConnection>();
+  // Buffer ICE candidates that arrive before the remote description is set
+  const pendingIceCandidates = new Map<string, RTCIceCandidateInit[]>();
   // Track known webcam stream IDs per peer (first video stream from each peer)
   const peerWebcamStreamIds = new Map<string, string>();
   // Track pending screen share IDs per peer (set by screen-share-started event)
@@ -662,6 +664,16 @@ export const SpaceProvider: ParentComponent = (props) => {
     }
   }
   
+  async function flushIceCandidates(peerId: string, pc: RTCPeerConnection) {
+    const buffered = pendingIceCandidates.get(peerId);
+    if (buffered) {
+      for (const candidate of buffered) {
+        await pc.addIceCandidate(new RTCIceCandidate(candidate));
+      }
+      pendingIceCandidates.delete(peerId);
+    }
+  }
+
   function initWebRTC() {
     // Handle incoming signals
     onSocket<{ from: string; signal: { type: string; sdp?: RTCSessionDescriptionInit; candidate?: RTCIceCandidateInit } }>('signal', async (data) => {
@@ -687,6 +699,7 @@ export const SpaceProvider: ParentComponent = (props) => {
         }
         
         await pc.setRemoteDescription(new RTCSessionDescription(signal.sdp));
+        await flushIceCandidates(from, pc);
         const answer = await pc.createAnswer();
         await pc.setLocalDescription(answer);
         emitSocket('signal', {
@@ -696,8 +709,17 @@ export const SpaceProvider: ParentComponent = (props) => {
         });
       } else if (signal.type === 'answer' && signal.sdp) {
         await pc.setRemoteDescription(new RTCSessionDescription(signal.sdp));
+        await flushIceCandidates(from, pc);
       } else if (signal.type === 'candidate' && signal.candidate) {
-        await pc.addIceCandidate(new RTCIceCandidate(signal.candidate));
+        if (pc.remoteDescription) {
+          await pc.addIceCandidate(new RTCIceCandidate(signal.candidate));
+        } else {
+          // Buffer until remote description is set
+          if (!pendingIceCandidates.has(from)) {
+            pendingIceCandidates.set(from, []);
+          }
+          pendingIceCandidates.get(from)!.push(signal.candidate);
+        }
       }
     });
     
@@ -754,6 +776,7 @@ export const SpaceProvider: ParentComponent = (props) => {
       removePeerStream(data.peerId);
       peerWebcamStreamIds.delete(data.peerId);
       pendingScreenShareIds.delete(data.peerId);
+      pendingIceCandidates.delete(data.peerId);
     });
     
     // Track incoming screen share announcements to know which streams are screen shares
