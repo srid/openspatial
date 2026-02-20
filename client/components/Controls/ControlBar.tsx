@@ -173,7 +173,7 @@ export const ControlBar: Component = () => {
   }
   
   function handleSpawnMedia() {
-    const url = prompt('Enter YouTube URL:');
+    const url = prompt(t('enterYoutubeUrl'));
     if (!url) return;
     
     const user = localUser();
@@ -182,7 +182,7 @@ export const ControlBar: Component = () => {
     // Quick validation
     const match = url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([^&?]+)/);
     if (!match) {
-      alert('Invalid YouTube URL');
+      alert(t('invalidYoutubeUrl'));
       return;
     }
     
@@ -309,7 +309,7 @@ export const ControlBar: Component = () => {
         <button
           id="btn-media"
           class={btnBase}
-          title="Add YouTube Video"
+          title={t('addMedia')}
           onClick={handleSpawnMedia}
         >
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">

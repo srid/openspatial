@@ -51,6 +51,9 @@ const en = {
   toggleCamera: 'Toggle Camera',
   shareScreen: 'Share Screen',
   addNote: 'Add Note',
+  addMedia: 'Add YouTube Video',
+  enterYoutubeUrl: 'Enter YouTube URL:',
+  invalidYoutubeUrl: 'Invalid YouTube URL',
   recentActivity: 'Recent Activity',
   leaveSpace: 'Leave Space',
   mediaBlockedError: "Camera/mic blocked. Click the 🔒 icon in your browser's address bar to allow access, then try again.",
@@ -78,6 +81,10 @@ const en = {
   userScreen: "{{username}}'s Screen",
   copySnapshot: 'Copy Snapshot',
   stopSharing: 'Stop sharing',
+
+  // ── MediaPlayer ─────────────────────────────────────────
+  loadingYoutube: 'Loading YouTube...',
+  removeMediaPlayer: 'Remove Media Player',
 
   // ── CloseButton ─────────────────────────────────────────
   cancel: 'Cancel',

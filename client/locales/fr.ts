@@ -52,6 +52,9 @@ const fr: Record<TranslationKey, string> = {
   toggleCamera: 'Activer/Désactiver la caméra',
   shareScreen: 'Partager l\'écran',
   addNote: 'Ajouter une note',
+  addMedia: 'Ajouter une vidéo YouTube',
+  enterYoutubeUrl: 'Entrez l\'URL YouTube :',
+  invalidYoutubeUrl: 'URL YouTube invalide',
   recentActivity: 'Activité récente',
   leaveSpace: 'Quitter l\'espace',
   mediaBlockedError: 'Caméra/micro bloqué(s). Cliquez sur l\'icône 🔒 dans la barre d\'adresse pour autoriser l\'accès, puis réessayez.',
@@ -79,6 +82,10 @@ const fr: Record<TranslationKey, string> = {
   userScreen: 'Écran de {{username}}',
   copySnapshot: 'Copier la capture',
   stopSharing: 'Arrêter le partage',
+
+  // ── MediaPlayer ─────────────────────────────────────────
+  loadingYoutube: 'Chargement de YouTube...',
+  removeMediaPlayer: 'Supprimer le lecteur multimédia',
 
   // ── CloseButton ─────────────────────────────────────────
   cancel: 'Annuler',
