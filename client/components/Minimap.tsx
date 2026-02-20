@@ -1,5 +1,6 @@
 import { createSignal, onMount, onCleanup, For } from 'solid-js';
 import { useSpace } from '../context/SpaceContext';
+import { t } from '@/lib/i18n';
 
 const SPACE_WIDTH = 4000;
 const SPACE_HEIGHT = 4000;
@@ -158,17 +159,17 @@ export const Minimap = () => {
         <button 
           class={zoomBtnBase} 
           onClick={() => dispatchZoom(1.25)}
-          title="Zoom in"
+          title={t('zoomIn')}
         >+</button>
         <button 
           class={`${zoomBtnBase} minimap-btn-reset text-base`} 
           onClick={() => dispatchZoom(undefined, true)}
-          title="Reset view"
+          title={t('resetView')}
         >⌂</button>
         <button 
           class={zoomBtnBase} 
           onClick={() => dispatchZoom(0.8)}
-          title="Zoom out"
+          title={t('zoomOut')}
         >−</button>
       </div>
       

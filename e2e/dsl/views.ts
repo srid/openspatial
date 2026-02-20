@@ -116,11 +116,15 @@ export class AvatarViewImpl implements AvatarView {
 export class ScreenShareViewImpl implements ScreenShareView {
   constructor(
     private page: Page,
-    private owner: string
+    private owner: string,
+    private isLocal: boolean = false
   ) {}
 
   private get locator() {
-    return this.page.locator(`.screen-share:has-text("${this.owner}")`);
+    if (this.isLocal) {
+      return this.page.locator('.screen-share[data-local="true"]');
+    }
+    return this.page.locator(`.screen-share`, { hasText: this.owner });
   }
 
   async rect(): Promise<Rect> {

@@ -235,10 +235,10 @@ test('demo recording', async ({ browser }) => {
   // --- Alice starts screen share too (multi-screen-share demo) ---
   await mockAnimatedScreenShare(alicePage);
   await alicePage.click('#btn-screen');
-  await expect(alicePage.locator('.screen-share:has-text("Your Screen")')).toBeVisible({ timeout: 5000 });
+  await expect(alicePage.locator('.screen-share[data-local="true"]')).toBeVisible({ timeout: 5000 });
 
   // Drag Alice's screen share below Bob's, on the right
-  const ssAlice = alicePage.locator('.screen-share:has-text("Your Screen")');
+  const ssAlice = alicePage.locator('.screen-share[data-local="true"]');
   const ssAliceHeader = ssAlice.locator('.screen-share-header');
   const ssAliceBox = await ssAliceHeader.boundingBox();
   if (ssAliceBox) {

@@ -4,6 +4,7 @@
  * Reused by TextNote and ScreenShare.
  */
 import { Component, Show, createSignal } from 'solid-js';
+import { t } from '@/lib/i18n';
 
 interface CloseButtonProps {
   /** CSS class for the initial × button (used by E2E selectors) */
@@ -28,7 +29,7 @@ export const CloseButton: Component<CloseButtonProps> = (props) => {
         <button
           class={`${props.closeClass} flex items-center justify-center w-6 h-6 bg-transparent border-none rounded-sm text-text-muted cursor-pointer transition-all duration-(--transition-fast) hover:bg-danger/20 hover:text-danger`}
           onClick={() => setConfirming(true)}
-          title={props.title ?? 'Delete'}
+          title={props.title ?? t('delete')}
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <line x1="18" y1="6" x2="6" y2="18" />
@@ -40,16 +41,16 @@ export const CloseButton: Component<CloseButtonProps> = (props) => {
       <button
         class={`${props.cancelClass} flex items-center justify-center px-1.5 h-6 bg-transparent border border-border rounded-sm text-text-muted cursor-pointer text-xs transition-all duration-(--transition-fast) hover:bg-surface-hover hover:text-text-primary`}
         onClick={() => setConfirming(false)}
-        title="Cancel"
+        title={t('cancel')}
       >
-        Cancel
+        {t('cancel')}
       </button>
       <button
         class={`${props.confirmClass} flex items-center justify-center px-1.5 h-6 bg-danger/20 border border-danger/40 rounded-sm text-danger cursor-pointer text-xs font-medium transition-all duration-(--transition-fast) hover:bg-danger/30`}
         onClick={() => props.onConfirm()}
-        title="Confirm delete"
+        title={t('confirmDelete')}
       >
-        Delete
+        {t('delete')}
       </button>
     </Show>
   );
