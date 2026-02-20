@@ -55,7 +55,7 @@ export function t(key: TranslationKey, params?: Record<string, string | number>)
 
   if (params) {
     for (const [k, v] of Object.entries(params)) {
-      text = text.replaceAll(`{{${k}}}`, String(v));
+      text = text.replace(new RegExp(`\\{\\{${k}\\}\\}`, 'g'), String(v));
     }
   }
 
