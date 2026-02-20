@@ -4,6 +4,7 @@
  */
 import { Component, createMemo, Show, createSignal, onMount, onCleanup, createEffect } from 'solid-js';
 import { useSpace } from '@/context/SpaceContext';
+import { t } from '@/lib/i18n';
 
 interface AvatarProps {
   peerId: string;
@@ -232,7 +233,7 @@ export const Avatar: Component<AvatarProps> = (props) => {
                 type="text"
                 value={statusInput()}
                 onInput={(e) => setStatusInput(e.currentTarget.value)}
-                placeholder="Set status..."
+                placeholder={t('setStatus')}
                 autofocus
                 class="status-popover-input w-40 py-2 px-3 bg-surface border border-border rounded-md text-text-primary text-sm font-[inherit] transition-all duration-(--transition-fast) placeholder:text-text-muted focus:outline-none focus:border-accent focus:shadow-[0_0_0_2px_var(--color-accent-glow)]"
               />

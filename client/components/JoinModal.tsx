@@ -5,6 +5,7 @@
 import { Component, createSignal, onMount, Show } from 'solid-js';
 import { useSpace, getSpaceIdFromUrl } from '@/context/SpaceContext';
 import type { ConnectedEvent, SpaceInfoEvent, SpaceStateEvent } from '../../shared/types/events';
+import { t } from '@/lib/i18n';
 
 const STORAGE_KEY_USERNAME = 'openspatial-username';
 
@@ -147,7 +148,7 @@ export const JoinModal: Component = () => {
             <img src="/logo.svg" alt="OpenSpatial" class="w-12 h-12 animate-float" />
             <h1 class="text-[2rem] font-bold bg-[linear-gradient(135deg,#6366f1_0%,#8b5cf6_50%,#a855f7_100%)] bg-clip-text text-transparent">OpenSpatial</h1>
           </div>
-          <p class="text-text-secondary text-sm">A virtual space where distance disappears</p>
+          <p class="text-text-secondary text-sm">{t('tagline')}</p>
         </div>
         
         {/* Space Info */}
@@ -164,14 +165,14 @@ export const JoinModal: Component = () => {
               <svg class="animate-spin-slow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M21 12a9 9 0 1 1-6.219-8.56" />
               </svg>
-              <span>Checking space...</span>
+              <span>{t('checkingSpace')}</span>
             </Show>
             <Show when={!loading()}>
               <Show when={participants().length === 0}>
-                <span>No one here yet — be the first!</span>
+                <span>{t('noOneHere')}</span>
               </Show>
               <Show when={participants().length > 0}>
-                <span>{participants().length === 1 ? 'Here now:' : `${participants().length} people here:`}</span>
+                <span>{participants().length === 1 ? t('hereNow') : t('peopleHere', { count: participants().length })}</span>
                 <div class="flex flex-wrap gap-1 mt-1">
                   {participants().map((name) => (
                     <span class="py-1 px-2 bg-accent rounded-sm text-xs font-medium text-white">{name}</span>
@@ -199,11 +200,11 @@ export const JoinModal: Component = () => {
           <form id="join-form" onSubmit={handleSubmit}>
             <input type="hidden" id="space-id" value={spaceId()} />
             <div class="mb-5">
-              <label for="username" class="block text-sm font-medium text-text-secondary mb-2">Your Name</label>
+              <label for="username" class="block text-sm font-medium text-text-secondary mb-2">{t('yourName')}</label>
               <input
                 type="text"
                 id="username"
-                placeholder="Enter your name"
+                placeholder={t('enterYourName')}
                 required
                 autocomplete="off"
                 value={username()}
@@ -212,17 +213,17 @@ export const JoinModal: Component = () => {
               />
             </div>
             <button type="submit" class="inline-flex items-center justify-center gap-2 py-3 px-6 font-[inherit] text-base font-semibold border-none rounded-lg cursor-pointer transition-all duration-(--transition-fast) w-full p-4 bg-[linear-gradient(135deg,#6366f1_0%,#8b5cf6_50%,#a855f7_100%)] text-white shadow-[var(--shadow-md),0_0_20px_var(--color-accent-glow)] hover:-translate-y-0.5 hover:shadow-[var(--shadow-lg),0_0_30px_var(--color-accent-glow)] active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0">
-              <span>Join Space</span>
+              <span>{t('joinSpace')}</span>
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M5 12h14M12 5l7 7-7 7" />
               </svg>
             </button>
           </form>
-          <a href="/" class="flex items-center justify-center gap-2 mt-4 text-text-muted text-sm no-underline transition-colors duration-(--transition-fast) hover:text-text-primary">
+          <a href="/" data-testid="back-to-home" class="flex items-center justify-center gap-2 mt-4 text-text-muted text-sm no-underline transition-colors duration-(--transition-fast) hover:text-text-primary">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M19 12H5M12 19l-7-7 7-7" />
             </svg>
-            <span>Back to home</span>
+            <span>{t('backToHome')}</span>
           </a>
         </Show>
       </div>

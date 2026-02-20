@@ -5,6 +5,7 @@
  */
 import { Component, Show, createEffect, createSignal } from 'solid-js';
 import { useSpace } from '@/context/SpaceContext';
+import { t } from '@/lib/i18n';
 
 export const ConnectionStatus: Component = () => {
   const ctx = useSpace();
@@ -52,14 +53,14 @@ export const ConnectionStatus: Component = () => {
           <path d="M8.53 16.11a6 6 0 0 1 6.95 0" />
           <line x1="12" y1="20" x2="12.01" y2="20" />
         </svg>
-        <span>Connection lost. Waiting to reconnect...</span>
+        <span>{t('connectionLost')}</span>
       </Show>
       
       <Show when={ctx.connectionState() === 'reconnecting'}>
         <svg class="shrink-0 animate-spin-slow" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M21 12a9 9 0 1 1-6.219-8.56" />
         </svg>
-        <span>Reconnecting...</span>
+        <span>{t('reconnecting')}</span>
       </Show>
       
       <Show when={ctx.connectionState() === 'connected'}>
@@ -69,7 +70,7 @@ export const ConnectionStatus: Component = () => {
           <path d="M8.53 16.11a6 6 0 0 1 6.95 0" />
           <line x1="12" y1="20" x2="12.01" y2="20" />
         </svg>
-        <span class="max-w-0 overflow-hidden whitespace-nowrap transition-all duration-(--transition-base) ml-0 group-hover:max-w-[100px] group-hover:ml-2">Connected</span>
+        <span class="max-w-0 overflow-hidden whitespace-nowrap transition-all duration-(--transition-base) ml-0 group-hover:max-w-[100px] group-hover:ml-2">{t('connected')}</span>
       </Show>
     </div>
   );

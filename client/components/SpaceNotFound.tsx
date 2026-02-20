@@ -4,6 +4,7 @@
  */
 import { Component } from 'solid-js';
 import { getSpaceIdFromUrl } from '@/context/SpaceContext';
+import { t } from '@/lib/i18n';
 
 export const SpaceNotFound: Component = () => {
   const spaceId = getSpaceIdFromUrl() || 'unknown';
@@ -35,12 +36,12 @@ export const SpaceNotFound: Component = () => {
             </svg>
           </div>
 
-          <h2 class="text-xl font-bold text-[#1e1b4b] mb-2">Space not found</h2>
+          <h2 class="text-xl font-bold text-[#1e1b4b] mb-2">{t('spaceNotFound')}</h2>
           <p class="text-base text-[#6b7280] mb-4">
-            The space <span class="font-semibold text-[#1e1b4b]">"{spaceId}"</span> doesn't exist.
+            {t('spaceDoesNotExist', { spaceId })}
           </p>
           <p class="text-sm text-[#9ca3af]">
-            Contact your administrator to create this space.
+            {t('contactAdmin')}
           </p>
         </div>
 
@@ -52,7 +53,7 @@ export const SpaceNotFound: Component = () => {
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M19 12H5M12 19l-7-7 7-7" />
           </svg>
-          <span>Go Home</span>
+          <span>{t('goHome')}</span>
         </a>
       </div>
     </div>

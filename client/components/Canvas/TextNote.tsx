@@ -9,6 +9,7 @@ import { useDraggable } from '@/hooks/useDraggable';
 import { useResizable } from '@/hooks/useResizable';
 import { CollabEditor } from './CollabEditor';
 import { CloseButton } from './CloseButton';
+import { t } from '@/lib/i18n';
 
 interface TextNoteProps {
   noteId: string;
@@ -125,12 +126,12 @@ export const TextNote: Component<TextNoteProps> = (props) => {
                 <path d="M12 20h9"></path>
                 <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
               </svg>
-              Note
+              {t('note')}
             </span>
             <div class="flex items-center gap-1">
               {/* Font Size Button */}
               <div class="relative">
-                <button class="text-note-font-size relative flex items-center justify-center w-6 h-6 bg-surface border border-border rounded-sm text-text-secondary cursor-pointer text-xs font-semibold transition-all duration-(--transition-fast) hover:bg-surface-hover hover:text-text-primary font-serif" onClick={handleFontSizeClick} title="Font size">
+                <button class="text-note-font-size relative flex items-center justify-center w-6 h-6 bg-surface border border-border rounded-sm text-text-secondary cursor-pointer text-xs font-semibold transition-all duration-(--transition-fast) hover:bg-surface-hover hover:text-text-primary font-serif" onClick={handleFontSizeClick} title={t('fontSize')}>
                   A
                 </button>
                 <Show when={showFontSizeMenu()}>
@@ -152,7 +153,7 @@ export const TextNote: Component<TextNoteProps> = (props) => {
               
               {/* Font Family Button */}
               <div class="relative">
-                <button class="text-note-font-family relative flex items-center justify-center w-6 h-6 bg-surface border border-border rounded-sm text-text-secondary cursor-pointer text-xs font-semibold transition-all duration-(--transition-fast) hover:bg-surface-hover hover:text-text-primary" onClick={handleFontFamilyClick} title="Font family">
+                <button class="text-note-font-family relative flex items-center justify-center w-6 h-6 bg-surface border border-border rounded-sm text-text-secondary cursor-pointer text-xs font-semibold transition-all duration-(--transition-fast) hover:bg-surface-hover hover:text-text-primary" onClick={handleFontFamilyClick} title={t('fontFamily')}>
                   Aa
                 </button>
                 <Show when={showFontFamilyMenu()}>
@@ -180,7 +181,7 @@ export const TextNote: Component<TextNoteProps> = (props) => {
                 closeClass="text-note-close"
                 confirmClass="text-note-confirm-delete"
                 cancelClass="text-note-cancel-delete"
-                title="Delete note"
+                title={t('deleteNote')}
                 onConfirm={() => ctx.removeTextNote(props.noteId)}
               />
             </div>
