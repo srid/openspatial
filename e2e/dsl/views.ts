@@ -77,23 +77,23 @@ export class AvatarViewImpl implements AvatarView {
     const video = this.locator.locator('.avatar-video-container video');
     const visible = await video.isVisible();
     if (!visible) return false;
-    
+
     return await video.evaluate((el: HTMLVideoElement) => {
       if (el.videoWidth === 0 || el.videoHeight === 0) return false;
       if (el.readyState < 2) return false;
       if (el.paused || el.ended) return false;
-      
+
       // Sample pixels from the video
       const canvas = document.createElement('canvas');
       canvas.width = Math.min(el.videoWidth, 100);
       canvas.height = Math.min(el.videoHeight, 100);
       const ctx = canvas.getContext('2d');
       if (!ctx) return false;
-      
+
       ctx.drawImage(el, 0, 0, canvas.width, canvas.height);
       const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
       const pixels = imageData.data;
-      
+
       // Check if any pixels have non-black/non-transparent content
       let nonBlackPixels = 0;
       for (let i = 0; i < pixels.length; i += 40) {
@@ -101,14 +101,27 @@ export class AvatarViewImpl implements AvatarView {
         const g = pixels[i + 1];
         const b = pixels[i + 2];
         const a = pixels[i + 3];
-        
+
         if (a > 0 && (r > 10 || g > 10 || b > 10)) {
           nonBlackPixels++;
         }
       }
-      
+
       const totalSampled = Math.floor(pixels.length / 40);
       return nonBlackPixels > totalSampled * 0.05;
+    });
+  }
+
+  /**
+   * Get the CSS background style of the avatar fallback div (webcam-off state).
+   * Returns the computed background or empty string if avatar is not visible.
+   */
+  async backgroundStyle(): Promise<string> {
+    const avatar = this.locator.locator('.avatar-video-container > div');
+    if (!await avatar.isVisible()) return '';
+    return await avatar.evaluate((el: HTMLElement) => {
+      const computed = window.getComputedStyle(el);
+      return computed.background;
     });
   }
 }

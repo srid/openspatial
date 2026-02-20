@@ -1,6 +1,7 @@
 import { createSignal, onMount, onCleanup, For } from 'solid-js';
 import { useSpace } from '../context/SpaceContext';
 import { t } from '@/lib/i18n';
+import { getUserColors } from '@/lib/colors';
 
 const SPACE_WIDTH = 4000;
 const SPACE_HEIGHT = 4000;
@@ -234,15 +235,20 @@ export const Minimap = () => {
           
           {/* Avatar dots (render last, on top) */}
           <For each={peers()}>
-            {(peer) => (
-              <div 
-                class="minimap-dot-avatar absolute w-1.5 h-1.5 bg-[#3b82f6] rounded-full shadow-[0_0_4px_rgba(59,130,246,0.6)] -translate-x-1/2 -translate-y-1/2"
-                style={{
-                  left: `${(peer.x + 60) * SCALE}px`,
-                  top: `${(peer.y + 60) * SCALE}px`,
-                }}
-              />
-            )}
+            {(peer) => {
+              const colors = getUserColors(peer.username);
+              return (
+                <div
+                  class="minimap-dot-avatar absolute w-1.5 h-1.5 rounded-full -translate-x-1/2 -translate-y-1/2"
+                  style={{
+                    left: `${(peer.x + 60) * SCALE}px`,
+                    top: `${(peer.y + 60) * SCALE}px`,
+                    'background-color': colors.from,
+                    'box-shadow': `0 0 4px ${colors.from}99`,
+                  }}
+                />
+              );
+            }}
           </For>
         </div>
       </div>

@@ -132,6 +132,8 @@ export interface AvatarView {
   status(): Promise<string | null>;
   /** Verify the webcam video element has actual content (not blank/black) */
   hasVideoContent(): Promise<boolean>;
+  /** Get the CSS background style of the avatar (for webcam-off state color) */
+  backgroundStyle(): Promise<string>;
 }
 
 export interface ScreenShareView {
