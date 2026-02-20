@@ -20,6 +20,9 @@ export const JoinModal: Component = () => {
 
   const [stream, setStream] = createSignal<MediaStream | null>(null);
   
+  // Check for ?autoJoin URL parameter
+  const shouldAutoJoin = new URLSearchParams(window.location.search).has('autoJoin');
+  
   onMount(() => {
     const urlSpaceId = getSpaceIdFromUrl();
     if (urlSpaceId) {
@@ -47,7 +50,13 @@ export const JoinModal: Component = () => {
         }
         setParticipants(data.participants || []);
         setLoading(false);
-        // DON'T disconnect here - keep connection for joining
+        
+        // Auto-join if ?autoJoin is set and we have a saved username
+        const savedName = localStorage.getItem(STORAGE_KEY_USERNAME);
+        if (shouldAutoJoin && savedName) {
+          // Trigger join programmatically (username signal is already set from onMount)
+          handleSubmit(new Event('submit'));
+        }
       });
       
       ctx.emitSocket('get-space-info', { spaceId: space });
