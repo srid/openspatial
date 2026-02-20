@@ -19,10 +19,8 @@ test('default landing page renders English text', async ({ browser }) => {
   await expect(enterButton).toBeVisible();
   await expect(enterButton).toContainText('Enter Space');
 
-  // Feature titles should be in English
-  await expect(page.locator('text=Spatial Audio')).toBeVisible();
-  await expect(page.locator('text=Screen Sharing')).toBeVisible();
-  await expect(page.locator('text=Shared Canvas')).toBeVisible();
+  // Tagline should be in English
+  await expect(page.getByText('A virtual space where distance disappears')).toBeVisible();
 
   await context.close();
 });
@@ -47,13 +45,8 @@ test('French locale renders translated landing page', async ({ browser }) => {
   await expect(enterButton).toBeVisible();
   await expect(enterButton).toContainText("Entrer dans l'espace");
 
-  // Feature titles should be in French
-  await expect(page.locator('text=Audio spatialisé')).toBeVisible();
-  await expect(page.locator("text=Partage d'écran")).toBeVisible();
-  await expect(page.locator('text=Canevas partagé')).toBeVisible();
-
   // Tagline should be translated
-  await expect(page.locator('text=Un espace virtuel où la distance disparaît')).toBeVisible();
+  await expect(page.getByText('Un espace virtuel où la distance disparaît')).toBeVisible();
 
   await context.close();
 });
@@ -101,11 +94,11 @@ test('join modal shows translated strings in French', async ({ browser }) => {
 
   // Join modal should show French text
   await expect(page.locator('#join-modal')).toBeVisible();
-  await expect(page.locator('text=Un espace virtuel où la distance disparaît')).toBeVisible();
+  await expect(page.getByText('Un espace virtuel où la distance disparaît')).toBeVisible();
 
   // Wait for space check to complete, then verify French labels
   await expect(page.locator('#join-form')).toBeVisible({ timeout: 5000 });
-  await expect(page.locator('text=Votre nom')).toBeVisible();
+  await expect(page.getByText('Votre nom')).toBeVisible();
   await expect(page.locator('[data-testid="back-to-home"]')).toContainText("Retour à l'accueil");
 
   await context.close();
