@@ -10,6 +10,7 @@
  */
 import { createEffect, onCleanup } from 'solid-js';
 import { useSpace } from '@/context/SpaceContext';
+import { avatarGradient } from '@/lib/avatarColor';
 
 // Design tokens (match base.css)
 const COLORS = {
@@ -76,7 +77,7 @@ function createAvatarEl(
       fontSize: '18px',
       fontWeight: '700',
       color: COLORS.textPrimary,
-      background: COLORS.gradientPrimary,
+      background: avatarGradient(username),
     });
     initials.textContent = username.charAt(0).toUpperCase();
     circle.appendChild(initials);
