@@ -2,10 +2,11 @@
  * Avatar Component
  * Represents a peer in the space with video, username, and status.
  */
-import { Component, createMemo, Show, createSignal, onMount, onCleanup, createEffect } from 'solid-js';
+import { Component, createMemo, Show, createSignal, createEffect } from 'solid-js';
 import { useSpace } from '@/context/SpaceContext';
 import { t } from '@/lib/i18n';
 import { avatarGradient, avatarHue } from '@/lib/avatarColor';
+import { useDraggable } from '@/hooks/useDraggable';
 
 interface AvatarProps {
   peerId: string;
@@ -18,7 +19,6 @@ export const Avatar: Component<AvatarProps> = (props) => {
   let avatarRef: HTMLDivElement | undefined;
   let videoRef: HTMLVideoElement | undefined;
   
-  const [isDragging, setIsDragging] = createSignal(false);
   const [showStatusPopover, setShowStatusPopover] = createSignal(false);
   const [statusInput, setStatusInput] = createSignal('');
   let statusInputRef: HTMLInputElement | undefined;
@@ -41,108 +41,19 @@ export const Avatar: Component<AvatarProps> = (props) => {
     }
   });
   
+  // Drag behavior for local avatar
+  const draggable = useDraggable({
+    position: () => ({ x: peer()?.x ?? 0, y: peer()?.y ?? 0 }),
+    onMove: (x, y) => ctx.updatePeerPosition(props.peerId, x, y),
+    onDragEnd: (pos) => ctx.emitSocket('position-update', pos),
+    skipButtonCheck: true,
+  });
+  
   // Callback ref to setup drag when element is ready
   const setAvatarRef = (el: HTMLDivElement) => {
     avatarRef = el;
-    if (props.isLocal && avatarRef) {
-      setupDrag();
-    }
+    if (props.isLocal) draggable.setup(el);
   };
-  
-  function setupDrag() {
-    if (!avatarRef || !props.isLocal) return;
-    
-    let startDragX = 0;
-    let startDragY = 0;
-    let initialX = 0;
-    let initialY = 0;
-    
-    const handleMouseDown = (e: MouseEvent) => {
-      e.stopPropagation();
-      setIsDragging(true);
-      startDragX = e.clientX;
-      startDragY = e.clientY;
-      initialX = peer()?.x ?? 0;
-      initialY = peer()?.y ?? 0;
-      avatarRef!.style.cursor = 'grabbing';
-    };
-    
-    const handleMouseMove = (e: MouseEvent) => {
-      if (!isDragging()) return;
-      e.preventDefault(); // Prevent scrolling while dragging
-      
-      const deltaX = e.clientX - startDragX;
-      const deltaY = e.clientY - startDragY;
-      
-      const newX = initialX + deltaX;
-      const newY = initialY + deltaY;
-      
-      ctx.updatePeerPosition(props.peerId, newX, newY);
-    };
-    
-    const handleMouseUp = () => {
-      if (isDragging()) {
-        setIsDragging(false);
-        if (avatarRef) {
-          avatarRef.style.cursor = 'grab';
-        }
-        // Notify server of final position so spawn placement uses live data
-        const p = peer();
-        if (p) ctx.emitSocket('position-update', { x: p.x, y: p.y });
-      }
-    };
-    
-    avatarRef.addEventListener('mousedown', handleMouseDown);
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
-    
-    // Touch events
-    const handleTouchStart = (e: TouchEvent) => {
-      if (e.touches.length !== 1) return;
-      e.stopPropagation();
-      e.preventDefault(); // Prevent browser scroll — requires { passive: false }
-      setIsDragging(true);
-      startDragX = e.touches[0].clientX;
-      startDragY = e.touches[0].clientY;
-      initialX = peer()?.x ?? 0;
-      initialY = peer()?.y ?? 0;
-    };
-    
-    const handleTouchMove = (e: TouchEvent) => {
-      if (!isDragging() || e.touches.length !== 1) return;
-      e.preventDefault(); // Prevent scrolling while dragging
-      
-      const deltaX = e.touches[0].clientX - startDragX;
-      const deltaY = e.touches[0].clientY - startDragY;
-      
-      const newX = initialX + deltaX;
-      const newY = initialY + deltaY;
-      
-      ctx.updatePeerPosition(props.peerId, newX, newY);
-    };
-    
-    const handleTouchEnd = () => {
-      if (isDragging()) {
-        setIsDragging(false);
-        // Notify server of final position so spawn placement uses live data
-        const p = peer();
-        if (p) ctx.emitSocket('position-update', { x: p.x, y: p.y });
-      }
-    };
-    
-    avatarRef.addEventListener('touchstart', handleTouchStart, { passive: false });
-    document.addEventListener('touchmove', handleTouchMove, { passive: false });
-    document.addEventListener('touchend', handleTouchEnd);
-    
-    onCleanup(() => {
-      avatarRef?.removeEventListener('mousedown', handleMouseDown);
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
-      avatarRef?.removeEventListener('touchstart', handleTouchStart);
-      document.removeEventListener('touchmove', handleTouchMove);
-      document.removeEventListener('touchend', handleTouchEnd);
-    });
-  }
   
   return (
     <Show when={peer()}>
