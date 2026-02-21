@@ -4,7 +4,7 @@
  * These provide typed access to avatar and screen share state.
  */
 import { Page, expect } from '@playwright/test';
-import { Position, Size, Rect, AvatarState, AvatarView, ScreenShareView, TextNoteView } from './types';
+import { Position, Size, Rect, AvatarState, AvatarView, ScreenShareView, TextNoteView, MediaPlayerView } from './types';
 
 const SYNC_TIMEOUT = 5000;
 
@@ -267,5 +267,81 @@ export class TextNoteViewImpl implements TextNoteView {
       
       return { fontSize, fontFamily };
     });
+  }
+}
+
+export class MediaPlayerViewImpl implements MediaPlayerView {
+  constructor(
+    private page: Page,
+    private id: string
+  ) {}
+
+  private get locator() {
+    return this.page.locator(`.media-player[data-player-id="${this.id}"]`);
+  }
+
+  async url(): Promise<string> {
+    const iframeSrc = await this.locator.locator('iframe').getAttribute('src') ?? '';
+    const match = iframeSrc.match(/youtube\.com\/embed\/([^?]+)/);
+    return match ? `https://youtube.com/watch?v=${match[1]}` : '';
+  }
+
+  async rect(): Promise<Rect> {
+    return await this.locator.evaluate((el: HTMLElement) => ({
+      position: {
+        x: parseFloat(el.style.left) || 0,
+        y: parseFloat(el.style.top) || 0,
+      },
+      size: {
+        width: parseFloat(el.style.width) || 0,
+        height: parseFloat(el.style.height) || 0,
+      },
+    }));
+  }
+
+  async isPlaying(): Promise<boolean> {
+    const frame = this.locator.frameLocator('iframe');
+    const playButton = frame.locator('.ytp-play-button');
+    const title = await playButton.getAttribute('title');
+    return title?.includes('Pause') ?? false; // If button says "Pause (k)", it is playing.
+  }
+
+  async play(): Promise<void> {
+    const frame = this.locator.frameLocator('iframe');
+    const playButton = frame.locator('.ytp-play-button');
+    const title = await playButton.getAttribute('title');
+    if (title?.includes('Play')) {
+      await playButton.click();
+    }
+  }
+
+  async pause(): Promise<void> {
+    const frame = this.locator.frameLocator('iframe');
+    const playButton = frame.locator('.ytp-play-button');
+    const title = await playButton.getAttribute('title');
+    if (title?.includes('Pause')) {
+      await playButton.click();
+    }
+  }
+
+  async volume(): Promise<number> {
+    // Instead of querying YouTube iframe DOM (which blocks access / hides elements),
+    // we query the SolidJS reactive state or DOM properties that our app manages.
+    // The easiest way is to read the CRDT state or proxy it.
+    // However, the volume is purely local to the receiver's SpatialAudio logic.
+    // To read it, we evaluate a script that digs into the iframe window if possible,
+    // OR we observe the actual `ytPlayer` object in the page.
+    return await this.page.evaluate((playerId) => {
+      // The MediaPlayer component doesn't expose ytPlayer globally by default.
+      // But we can find the iframe and if we are on the same origin (we aren't for YT).
+      // So let's add a sneaky data-volume attribute to the container in the app code
+      // OR we just intercept the iframe's message events?
+      // Actually, since this is a test, the most robust way without modifying app code
+      // is to read the data attribute that we will add to the player div.
+      const el = document.querySelector(`.media-player[data-player-id="${playerId}"]`);
+      if (!el) return 100;
+      const volAttr = el.getAttribute('data-volume');
+      return volAttr ? parseInt(volAttr, 10) : 100;
+    }, this.id);
   }
 }

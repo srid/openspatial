@@ -23,6 +23,8 @@ const fr: Record<TranslationKey, string> = {
   featureSharedCanvasDesc: 'Déplacez votre avatar sur une surface infinie et déposez des notes — tout le monde voit et interagit en temps réel.',
   featureCollaborationTitle: 'Collaboration en temps réel',
   featureCollaborationDesc: 'Notes Markdown enrichies avec blocs de code colorés, co-éditées par tous les participants avec des curseurs en direct.',
+  featureSpatialMediaPlayerTitle: 'Lecteur multimédia spatialisé',
+  featureSpatialMediaPlayerDesc: 'Diffusez des vidéos YouTube synchronisées entre tous les utilisateurs. Le son de la vidéo s\'atténue de façon réaliste selon la distance de votre avatar.',
 
   // ── JoinModal ────────────────────────────────────────────
   yourName: 'Votre nom',
@@ -50,6 +52,9 @@ const fr: Record<TranslationKey, string> = {
   toggleCamera: 'Activer/Désactiver la caméra',
   shareScreen: 'Partager l\'écran',
   addNote: 'Ajouter une note',
+  addMedia: 'Ajouter une vidéo YouTube',
+  enterYoutubeUrl: 'Entrez l\'URL YouTube :',
+  invalidYoutubeUrl: 'URL YouTube invalide',
   recentActivity: 'Activité récente',
   leaveSpace: 'Quitter l\'espace',
   mediaBlockedError: 'Caméra/micro bloqué(s). Cliquez sur l\'icône 🔒 dans la barre d\'adresse pour autoriser l\'accès, puis réessayez.',
@@ -77,6 +82,10 @@ const fr: Record<TranslationKey, string> = {
   userScreen: 'Écran de {{username}}',
   copySnapshot: 'Copier la capture',
   stopSharing: 'Arrêter le partage',
+
+  // ── MediaPlayer ─────────────────────────────────────────
+  loadingYoutube: 'Chargement de YouTube...',
+  removeMediaPlayer: 'Supprimer le lecteur multimédia',
 
   // ── CloseButton ─────────────────────────────────────────
   cancel: 'Annuler',

@@ -40,6 +40,12 @@ export interface TextNoteInfo {
   rect: Rect;
 }
 
+export interface MediaPlayerInfo {
+  id: string;
+  url: string;
+  rect: Rect;
+}
+
 export interface ActivityItem {
   username: string;
   eventType: 'join_first' | 'join' | 'leave' | 'leave_last';
@@ -95,17 +101,26 @@ export interface User {
   setTextNoteFontSize(size: 'small' | 'medium' | 'large'): Promise<void>;
   setTextNoteFontFamily(family: 'sans' | 'serif' | 'mono'): Promise<void>;
 
+  // Media Player Actions
+  spawnMediaPlayer(url: string): Promise<MediaPlayerInfo>;
+  deleteMediaPlayer(id: string): Promise<void>;
+  dragMediaPlayer(id: string, delta: { dx: number; dy: number }): Promise<void>;
+  resizeMediaPlayer(id: string, size: Size): Promise<void>;
+
   // Queries
   waitForUser(name: string): Promise<void>;
   waitForScreenShare(owner: string): Promise<void>;
   waitForTextNote(owner?: string): Promise<void>;
+  waitForMediaPlayer(): Promise<void>;
   /** @deprecated Prefer declarative waiting (expect.poll / toBeVisible). Only for intentional pauses. */
   wait(ms: number): Promise<void>;
   visibleUsers(): Promise<string[]>;
   screenShares(): Promise<ScreenShareInfo[]>;
   textNotes(): Promise<TextNoteInfo[]>;
+  mediaPlayers(): Promise<MediaPlayerInfo[]>;
   screenShareOf(owner: string): ScreenShareView;
   textNoteOf(owner: string): TextNoteView;
+  mediaPlayerOf(id: string): MediaPlayerView;
   avatarOf(name: string): AvatarView;
   participantCount(): Promise<number>;
   connectionStatus(): Promise<ConnectionStatus>;
@@ -153,6 +168,15 @@ export interface TextNoteView {
   content(): Promise<string>;
   rect(): Promise<Rect>;
   style(): Promise<TextNoteStyle>;
+}
+
+export interface MediaPlayerView {
+  url(): Promise<string>;
+  rect(): Promise<Rect>;
+  isPlaying(): Promise<boolean>;
+  play(): Promise<void>;
+  pause(): Promise<void>;
+  volume(): Promise<number>;
 }
 
 // ─────────────────────────────────────────────────────────────────

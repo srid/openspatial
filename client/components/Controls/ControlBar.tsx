@@ -172,6 +172,29 @@ export const ControlBar: Component = () => {
     );
   }
   
+  function handleSpawnMedia() {
+    const url = prompt(t('enterYoutubeUrl'));
+    if (!url) return;
+    
+    const user = localUser();
+    if (!user) return;
+    
+    // Quick validation
+    const match = url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([^&?]+)/);
+    if (!match) {
+      alert(t('invalidYoutubeUrl'));
+      return;
+    }
+    
+    const playerId = uuidv4();
+    ctx.spawnMediaPlayer(
+      playerId,
+      url,
+      user.x + 150,
+      user.y - 100
+    );
+  }
+  
   function handleToggleActivity(e: MouseEvent) {
     e.stopPropagation();
     const newState = !activityOpen();
@@ -280,6 +303,18 @@ export const ControlBar: Component = () => {
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M12 20h9" />
             <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
+          </svg>
+        </button>
+        
+        <button
+          id="btn-media"
+          class={btnBase}
+          title={t('addMedia')}
+          onClick={handleSpawnMedia}
+        >
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="2" y="4" width="20" height="16" rx="2" ry="2" />
+            <polygon points="10 8 16 12 10 16 10 8" />
           </svg>
         </button>
         

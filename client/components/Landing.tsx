@@ -5,7 +5,7 @@
 import { Component, createSignal, Show, onMount, JSX } from 'solid-js';
 import { t } from '@/lib/i18n';
 
-const featureKeys: { titleKey: 'featureSpatialAudioTitle' | 'featureScreenSharingTitle' | 'featureSharedCanvasTitle' | 'featureCollaborationTitle'; descKey: 'featureSpatialAudioDesc' | 'featureScreenSharingDesc' | 'featureSharedCanvasDesc' | 'featureCollaborationDesc'; icon: JSX.Element }[] = [
+const featureKeys: { titleKey: 'featureSpatialAudioTitle' | 'featureScreenSharingTitle' | 'featureSharedCanvasTitle' | 'featureCollaborationTitle' | 'featureSpatialMediaPlayerTitle'; descKey: 'featureSpatialAudioDesc' | 'featureScreenSharingDesc' | 'featureSharedCanvasDesc' | 'featureCollaborationDesc' | 'featureSpatialMediaPlayerDesc'; icon: JSX.Element }[] = [
   {
     titleKey: 'featureSpatialAudioTitle',
     descKey: 'featureSpatialAudioDesc',
@@ -61,6 +61,16 @@ const featureKeys: { titleKey: 'featureSpatialAudioTitle' | 'featureScreenSharin
         <path d="M12 20h9" />
         <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
         <path d="M14 14l2.5-2.5" opacity="0.4" stroke-dasharray="2 2" />
+      </svg>
+    ),
+  },
+  {
+    titleKey: 'featureSpatialMediaPlayerTitle',
+    descKey: 'featureSpatialMediaPlayerDesc',
+    icon: (
+      <svg class="shrink-0" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <rect x="2" y="4" width="20" height="16" rx="2" />
+        <path d="M10 9l5 3-5 3v-6z" fill="currentColor" opacity="0.4" />
       </svg>
     ),
   },

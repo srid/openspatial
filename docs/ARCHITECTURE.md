@@ -72,6 +72,7 @@ openspatial/
 │  - Media state (isMuted, isVideoOff)                         │
 │  - Status messages                                           │
 │  - Screen share positions and sizes                          │
+│  - Media player positions and sizes                          │
 │  - Text note content, positions, styles                      │
 └─────────────────────────────────────────────────────────────┘
 ```
@@ -132,6 +133,7 @@ The central state manager (`client/context/SpaceContext.tsx`) handles:
 | **Status Update** | CRDT (Yjs) | Synced via y-websocket, persisted in `peers` map |
 | **Screen Share Tracks** | Socket.io + WebRTC | Socket.io for start/stop signaling, WebRTC for video |
 | **Screen Share State** (position/size) | CRDT (Yjs) | Synced via y-websocket, persisted in `screenShares` map |
+| **Media Player State** | CRDT (Yjs) | Synced via y-websocket, persisted in `mediaPlayers` map |
 | **Text Notes** | CRDT (Yjs) | Synced via y-websocket, persisted in `textNotes` map |
 | **Audio/Video Streams** | WebRTC (P2P) | Direct peer-to-peer mesh, spatial audio panning |
 | **Screen Share Video** | WebRTC (P2P) | Video frames sent directly between browsers |
@@ -143,5 +145,6 @@ All real-time state synchronization uses Yjs with y-websocket:
 - **`peers`** - Avatar positions, media state, status messages
 - **`screenShares`** - Screen share positions and sizes
 - **`textNotes`** - Text note content, position, size, and styling
+- **`mediaPlayers`** - Synchronized YouTube players, positions, dimensions, and playback state
 
 Server-side cleanup removes orphaned entries when peers disconnect.

@@ -44,6 +44,21 @@ export function getTextNotesMap(doc: Y.Doc): Y.Map<TextNoteState> {
   return doc.getMap('textNotes');
 }
 
+export interface MediaPlayerState {
+  url: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  isPlaying: boolean;
+  timestamp: number;
+  lastUpdatedAt: number; // Date.now() when timestamp was set
+}
+
+export function getMediaPlayersMap(doc: Y.Doc): Y.Map<MediaPlayerState> {
+  return doc.getMap('mediaPlayers');
+}
+
 /**
  * Get the Y.Text for a specific text note's content.
  * Each note has its own Y.Text keyed by 'note:<noteId>'.

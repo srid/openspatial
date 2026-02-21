@@ -11,6 +11,13 @@
 
 **Always use Tailwind CSS utility classes** in JSX. Do not write custom CSS in `base.css` unless it's genuinely impossible with utilities (e.g., complex pseudo-element patterns, CodeMirror/third-party overrides). Prefer inline Tailwind over custom classes.
 
+## Internationalization (i18n)
+
+**All user-facing strings MUST be translated.** Never hardcode text directly into components (e.g. `<button>Submit</button>`).
+1. Extract the string into a new camelCase key in both `client/locales/en.ts` and `client/locales/fr.ts`.
+2. Import `t` from `@/lib/i18n` in your component.
+3. Render using `{t('yourNewKey')}`.
+
 ## Git Workflow
 
 **NEVER commit changes.** The user will handle all git commits. Do not mutate the git repository state (no `git add`, `git commit`, etc).

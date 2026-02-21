@@ -22,6 +22,8 @@ const en = {
   featureSharedCanvasDesc: 'Drag your avatar around an infinite surface and drop notes — everyone sees and interacts with the same space in real time.',
   featureCollaborationTitle: 'Real-Time Collaboration',
   featureCollaborationDesc: 'Rich Markdown notes with syntax-highlighted code blocks, co-edited by everyone in the space with live cursors.',
+  featureSpatialMediaPlayerTitle: 'Spatial Media Player',
+  featureSpatialMediaPlayerDesc: 'Spawn YouTube videos that sync perfectly across all users. Video audio attenuates realistically based on your avatar\'s distance.',
 
   // ── JoinModal ────────────────────────────────────────────
   yourName: 'Your Name',
@@ -49,6 +51,9 @@ const en = {
   toggleCamera: 'Toggle Camera',
   shareScreen: 'Share Screen',
   addNote: 'Add Note',
+  addMedia: 'Add YouTube Video',
+  enterYoutubeUrl: 'Enter YouTube URL:',
+  invalidYoutubeUrl: 'Invalid YouTube URL',
   recentActivity: 'Recent Activity',
   leaveSpace: 'Leave Space',
   mediaBlockedError: "Camera/mic blocked. Click the 🔒 icon in your browser's address bar to allow access, then try again.",
@@ -76,6 +81,10 @@ const en = {
   userScreen: "{{username}}'s Screen",
   copySnapshot: 'Copy Snapshot',
   stopSharing: 'Stop sharing',
+
+  // ── MediaPlayer ─────────────────────────────────────────
+  loadingYoutube: 'Loading YouTube...',
+  removeMediaPlayer: 'Remove Media Player',
 
   // ── CloseButton ─────────────────────────────────────────
   cancel: 'Cancel',
