@@ -9,7 +9,7 @@ scenario('media player syncs across users', 'test-media-player', async ({ create
   await bob.waitForUser('Alice');
 
   // Alice spawns a media player
-  const testUrl = 'https://www.youtube.com/watch?v=dQw4w9WgXcQ';
+  const testUrl = 'https://www.youtube.com/watch?v=Arqj9TSipQw';
   const playerInfo = await alice.spawnMediaPlayer(testUrl);
   
   // Verify Bob sees the media player
@@ -21,7 +21,7 @@ scenario('media player syncs across users', 'test-media-player', async ({ create
   // Wait for iframe to initialize the src attribute
   await expect.poll(async () => {
     return await bob.mediaPlayerOf(playerInfo.id).url();
-  }, { timeout: SYNC_TIMEOUT }).toContain('dQw4w9WgXcQ');
+  }, { timeout: SYNC_TIMEOUT }).toContain('Arqj9TSipQw');
 
   // Verify dragging syncs
   await alice.dragMediaPlayer(playerInfo.id, { dx: 100, dy: 50 });
@@ -46,6 +46,19 @@ scenario('media player syncs across users', 'test-media-player', async ({ create
     const rect = await alice.mediaPlayerOf(playerInfo.id).rect();
     return rect.size.width === 800 && rect.size.height === 600;
   }, { timeout: SYNC_TIMEOUT }).toBe(true);
+
+  // Verify spatial audio attenuation
+  // Bob reads initial volume
+  let initialVolume = await bob.mediaPlayerOf(playerInfo.id).volume();
+  
+  // Alice moves the Media Player slightly away (e.g. 400px) from Bob to trigger attenuation
+  // Max volume distance is 300, so 400 will cause a drop in volume.
+  await alice.dragMediaPlayer(playerInfo.id, { dx: 400, dy: 0 });
+  
+  // Volume should eventually drop below initial volume due to distance
+  await expect.poll(async () => {
+    return await bob.mediaPlayerOf(playerInfo.id).volume();
+  }, { timeout: SYNC_TIMEOUT }).toBeLessThan(initialVolume);
 
   // Alice deletes the media player
   await alice.deleteMediaPlayer(playerInfo.id);

@@ -325,9 +325,23 @@ export class MediaPlayerViewImpl implements MediaPlayerView {
   }
 
   async volume(): Promise<number> {
-    const frame = this.locator.frameLocator('iframe');
-    const panel = frame.locator('.ytp-volume-panel');
-    const val = await panel.getAttribute('aria-valuenow');
-    return val ? parseInt(val, 10) : 100;
+    // Instead of querying YouTube iframe DOM (which blocks access / hides elements),
+    // we query the SolidJS reactive state or DOM properties that our app manages.
+    // The easiest way is to read the CRDT state or proxy it.
+    // However, the volume is purely local to the receiver's SpatialAudio logic.
+    // To read it, we evaluate a script that digs into the iframe window if possible,
+    // OR we observe the actual `ytPlayer` object in the page.
+    return await this.page.evaluate((playerId) => {
+      // The MediaPlayer component doesn't expose ytPlayer globally by default.
+      // But we can find the iframe and if we are on the same origin (we aren't for YT).
+      // So let's add a sneaky data-volume attribute to the container in the app code
+      // OR we just intercept the iframe's message events?
+      // Actually, since this is a test, the most robust way without modifying app code
+      // is to read the data attribute that we will add to the player div.
+      const el = document.querySelector(`.media-player[data-player-id="${playerId}"]`);
+      if (!el) return 100;
+      const volAttr = el.getAttribute('data-volume');
+      return volAttr ? parseInt(volAttr, 10) : 100;
+    }, this.id);
   }
 }

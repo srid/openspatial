@@ -77,6 +77,7 @@ export const MediaPlayer: Component<MediaPlayerProps> = (props) => {
   
   const [isReady, setIsReady] = createSignal(false);
   const [ignoreNextEvent, setIgnoreNextEvent] = createSignal(false);
+  const [currentVolume, setCurrentVolume] = createSignal(100);
   
   const playerState = createMemo(() => ctx.mediaPlayers().get(props.playerId));
   const videoId = createMemo(() => {
@@ -209,12 +210,15 @@ export const MediaPlayer: Component<MediaPlayerProps> = (props) => {
       const localUser = ctx.session()?.localUser;
       
       if (state && localUser) {
+        // Read live position from CRDT peers map
+        const localPeerState = ctx.peers().get(localUser.peerId) || localUser;
+        
         // Calculate center of player
         const playerCx = state.x + state.width / 2;
         const playerCy = state.y + state.height / 2;
         
-        const dx = playerCx - localUser.x;
-        const dy = playerCy - localUser.y;
+        const dx = playerCx - localPeerState.x;
+        const dy = playerCy - localPeerState.y;
         const distance = Math.sqrt(dx * dx + dy * dy);
         
         // Attenuate volume
@@ -234,6 +238,9 @@ export const MediaPlayer: Component<MediaPlayerProps> = (props) => {
           const currentVol = ytPlayer.getVolume();
           if (Math.abs(currentVol - volume) > 1) { // Only update if significantly changed
             ytPlayer.setVolume(volume);
+            setCurrentVolume(volume);
+          } else {
+            setCurrentVolume(currentVol);
           }
         } catch (e) {
             // Ignore
@@ -264,6 +271,7 @@ export const MediaPlayer: Component<MediaPlayerProps> = (props) => {
             height: `${s().height}px`,
           }}
           data-player-id={props.playerId}
+          data-volume={currentVolume()}
         >
           <div ref={headerRef} class="media-player-header flex items-center justify-between py-2 px-3 bg-bg-tertiary border-b border-border cursor-grab active:cursor-grabbing">
             <span class="media-player-title flex items-center gap-2 text-sm font-medium">

@@ -111,6 +111,7 @@ export interface User {
   waitForUser(name: string): Promise<void>;
   waitForScreenShare(owner: string): Promise<void>;
   waitForTextNote(owner?: string): Promise<void>;
+  waitForMediaPlayer(): Promise<void>;
   /** @deprecated Prefer declarative waiting (expect.poll / toBeVisible). Only for intentional pauses. */
   wait(ms: number): Promise<void>;
   visibleUsers(): Promise<string[]>;
