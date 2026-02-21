@@ -2,11 +2,12 @@
  * Avatar Component
  * Represents a peer in the space with video, username, and status.
  */
-import { Component, createMemo, Show, createSignal, createEffect } from 'solid-js';
+import { Component, createMemo, Show, createSignal, createEffect, onCleanup } from 'solid-js';
 import { useSpace } from '@/context/SpaceContext';
 import { t } from '@/lib/i18n';
 import { avatarGradient, avatarHue } from '@/lib/avatarColor';
 import { useDraggable } from '@/hooks/useDraggable';
+import { calculateSpatialVolume } from '@/lib/spatialAudio';
 
 interface AvatarProps {
   peerId: string;
@@ -22,6 +23,9 @@ export const Avatar: Component<AvatarProps> = (props) => {
   const [showStatusPopover, setShowStatusPopover] = createSignal(false);
   const [statusInput, setStatusInput] = createSignal('');
   let statusInputRef: HTMLInputElement | undefined;
+  
+  // Track computed volume for E2E tests (0-100)
+  const [currentVolume, setCurrentVolume] = createSignal(100);
   
   const peer = createMemo(() => ctx.peers().get(props.peerId));
   
@@ -39,6 +43,49 @@ export const Avatar: Component<AvatarProps> = (props) => {
     if (videoRef && s) {
       videoRef.srcObject = s;
     }
+  });
+
+  // Spatial Audio loop for remote peers
+  let audioLoopId: number;
+  createEffect(() => {
+    if (props.isLocal || !videoRef) return;
+    
+    const updateVolume = () => {
+      const p = peer();
+      const localUser = ctx.session()?.localUser;
+      
+      if (p && localUser) {
+        // Read live position from CRDT peers map for local user
+        const localPeerState = ctx.peers().get(localUser.peerId) || localUser;
+        
+        const dx = p.x - localPeerState.x;
+        const dy = p.y - localPeerState.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        
+        const volumeFactor = calculateSpatialVolume(distance);
+        
+        try {
+          if (Math.abs(videoRef.volume - volumeFactor) > 0.01) {
+            videoRef.volume = volumeFactor;
+            setCurrentVolume(Math.round(volumeFactor * 100));
+          }
+        } catch (e) {
+          // Ignore
+        }
+      }
+      
+      audioLoopId = requestAnimationFrame(updateVolume);
+    };
+    
+    updateVolume();
+    
+    // Cleanup is handled by solid-js createEffect cleanup convention or explicitly below
+  });
+  
+  
+  // Cleanup RAF
+  onCleanup(() => {
+    if (audioLoopId) cancelAnimationFrame(audioLoopId);
   });
   
   // Drag behavior for local avatar
@@ -71,6 +118,7 @@ export const Avatar: Component<AvatarProps> = (props) => {
           }}
           data-peer-id={props.peerId}
           data-avatar-hue={avatarHue(p().username)}
+          data-volume={currentVolume()}
         >
           {/* Video container */}
           <div class={`avatar-video-container relative w-full h-full rounded-full overflow-hidden bg-bg-tertiary shadow-lg transition-all duration-(--transition-fast) ${props.isLocal ? 'border-3 border-accent' : 'border-3 border-border'}`}>

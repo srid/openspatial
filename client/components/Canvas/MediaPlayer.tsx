@@ -9,6 +9,7 @@ import { useDraggable } from '@/hooks/useDraggable';
 import { useResizable } from '@/hooks/useResizable';
 import { CloseButton } from './CloseButton';
 import { t } from '@/lib/i18n';
+import { calculateSpatialVolume } from '@/lib/spatialAudio';
 
 // Extend window object for YouTube API
 declare global {
@@ -222,17 +223,8 @@ export const MediaPlayer: Component<MediaPlayerProps> = (props) => {
         const distance = Math.sqrt(dx * dx + dy * dy);
         
         // Attenuate volume
-        // Similar to useLocalMedia webRTC
-        const MAX_HEARING_DISTANCE = 1500;
-        const MAX_VOLUME_DISTANCE = 300;
-        
-        let volume = 100;
-        if (distance > MAX_HEARING_DISTANCE) {
-          volume = 0;
-        } else if (distance > MAX_VOLUME_DISTANCE) {
-          const factor = 1 - ((distance - MAX_VOLUME_DISTANCE) / (MAX_HEARING_DISTANCE - MAX_VOLUME_DISTANCE));
-          volume = Math.floor(factor * factor * 100);
-        }
+        // Get volume factor (0.0 to 1.0) and convert to YouTube API format (0 to 100)
+        let volume = Math.floor(calculateSpatialVolume(distance) * 100);
         
         try {
           const currentVol = ytPlayer.getVolume();
