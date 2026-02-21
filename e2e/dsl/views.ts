@@ -116,6 +116,11 @@ export class AvatarViewImpl implements AvatarView {
     const hue = await this.locator.getAttribute('data-avatar-hue');
     return hue ?? '';
   }
+
+  async audioVolume(): Promise<number> {
+    const volStr = await this.locator.getAttribute('data-volume');
+    return volStr ? parseInt(volStr, 10) : 100;
+  }
 }
 
 export class ScreenShareViewImpl implements ScreenShareView {

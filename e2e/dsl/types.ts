@@ -149,6 +149,8 @@ export interface AvatarView {
   hasVideoContent(): Promise<boolean>;
   /** Get the avatar's unique hue (from data-avatar-hue attribute) */
   avatarColor(): Promise<string>;
+  /** Get the avatar's computed spatial audio volume (0-100) */
+  audioVolume(): Promise<number>;
 }
 
 export interface ScreenShareView {
