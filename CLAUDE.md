@@ -6,6 +6,7 @@
 - **Aggressively remove unused code.** When removing a feature, delete all related code, types, constants, CSS, and tests. Dead code is a liability.
 - **Keep the codebase lean.** Don't leave behind scaffolding, commented-out code, or "just in case" abstractions.
 - **DRY (Don't Repeat Yourself), but respect the [Rule of Three](https://en.wikipedia.org/wiki/Rule_of_three_(computer_programming)).** Don't prematurely abstract. Once you do extract, keep it in reusable functions, components, or modules.
+- **Make invalid states unrepresentable.** Use sum types (discriminated unions) and product types to model state precisely. Prefer exhaustive `switch` over catchall `else`. No stringly-typed dispatch — use typed event maps. See `StreamEntry` in `SpaceContext.tsx` and `SocketEventMap` in `shared/types/events.ts` as examples.
 
 ## Styling
 
