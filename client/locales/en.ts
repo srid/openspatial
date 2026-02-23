@@ -93,6 +93,8 @@ const en = {
 
   // ── Avatar ──────────────────────────────────────────────
   setStatus: 'Set status...',
+  peerConnecting: 'Connecting…',
+  peerConnectionFailed: 'Connection failed',
 
   // ── Minimap ─────────────────────────────────────────────
   zoomIn: 'Zoom in',

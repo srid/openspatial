@@ -102,6 +102,14 @@ export const Avatar: Component<AvatarProps> = (props) => {
     if (props.isLocal) draggable.setup(el);
   };
   
+  // WebRTC connection state for remote peers
+  const connState = createMemo(() => {
+    if (props.isLocal) return 'connected' as RTCPeerConnectionState;
+    return ctx.peerConnectionStates().get(props.peerId) ?? 'new';
+  });
+  
+  const isConnected = createMemo(() => connState() === 'connected');
+  
   return (
     <Show when={peer()}>
       {(p) => (
@@ -132,6 +140,22 @@ export const Avatar: Component<AvatarProps> = (props) => {
             <Show when={p().isVideoOff}>
               <div class="flex items-center justify-center w-full h-full text-2xl font-bold text-white" style={{ background: avatarGradient(p().username) }}>
                 <span>{p().username.charAt(0).toUpperCase()}</span>
+              </div>
+            </Show>
+            
+            {/* WebRTC connection state overlay for remote peers */}
+            <Show when={!props.isLocal && !isConnected()}>
+              <div class="absolute inset-0 flex items-center justify-center bg-black/60 rounded-full">
+                <Show when={connState() === 'failed'}>
+                  <span class="text-[10px] font-semibold text-red-400 text-center px-2 leading-tight">
+                    {t('peerConnectionFailed')}
+                  </span>
+                </Show>
+                <Show when={connState() !== 'failed'}>
+                  <span class="text-[10px] font-semibold text-amber-300 text-center px-2 leading-tight animate-pulse">
+                    {t('peerConnecting')}
+                  </span>
+                </Show>
               </div>
             </Show>
           </div>

@@ -101,6 +101,7 @@ interface SpaceContextValue {
   fetchIceServers: () => Promise<void>;
   initWebRTC: () => void;
   connectToPeers: (peers: Record<string, unknown>, localPeerId: string, localStream: MediaStream | null) => Promise<void>;
+  peerConnectionStates: Accessor<Map<string, RTCPeerConnectionState>>;
   
   // Text note mutations
   addTextNote: (noteId: string, content: string, x: number, y: number, width: number, height: number) => void;
@@ -141,6 +142,9 @@ export const SpaceProvider: ParentComponent = (props) => {
   // Local media streams (not in CRDT, but needed for rendering)
   const [screenShareStreams, setScreenShareStreams] = createSignal<Map<string, MediaStream>>(new Map());
   const [peerStreams, setPeerStreams] = createSignal<Map<string, MediaStream>>(new Map());
+  
+  // Per-peer WebRTC connection state (for UI indicators)
+  const [peerConnectionStates, setPeerConnectionStates] = createSignal<Map<string, RTCPeerConnectionState>>(new Map());
   
   // ICE server config (fetched from server, includes TURN credentials when configured)
   const FALLBACK_ICE_SERVERS: RTCIceServer[] = [
@@ -265,6 +269,17 @@ export const SpaceProvider: ParentComponent = (props) => {
     socketHandlers.clear();
     socketOnceHandlers.clear();
     setConnectionState('disconnected');
+    
+    // Reset WebRTC state so initWebRTC() re-registers handlers on rejoin
+    webrtcInitialized = false;
+    for (const [, pc] of peerConnections.entries()) {
+      pc.close();
+    }
+    peerConnections.clear();
+    pendingIceCandidates.clear();
+    peerWebcamStreamIds.clear();
+    pendingScreenShareIds.clear();
+    setPeerConnectionStates(new Map());
   }
   
   function onSocket<T>(event: string, handler: (data: T) => void) {
@@ -714,13 +729,11 @@ export const SpaceProvider: ParentComponent = (props) => {
       }
       
       if (signal.type === 'offer' && signal.sdp) {
-        // Before setting remote description, add our local tracks so they are included in the answer
+        // Before setting remote description, add our local webcam tracks so they are included in the answer
         const localStream = session()?.localUser.stream;
-        const senders = pc.getSenders();
-        const existingTrackIds = new Set(senders.map(s => s.track?.id).filter(Boolean));
-        
-        // Add webcam tracks
         if (localStream) {
+          const senders = pc.getSenders();
+          const existingTrackIds = new Set(senders.map(s => s.track?.id).filter(Boolean));
           localStream.getTracks().forEach(track => {
             if (!existingTrackIds.has(track.id)) {
               console.log(`[WebRTC] Adding local track to answer for ${from}: ${track.kind}`);
@@ -728,22 +741,8 @@ export const SpaceProvider: ParentComponent = (props) => {
             }
           });
         }
-        
-        // Add local screen share tracks so the joiner receives our screen shares
-        const localPeerId = session()?.localUser.peerId;
-        for (const [shareId, stream] of screenShareStreams().entries()) {
-          const shareInfo = screenShares().get(shareId);
-          if (shareInfo?.peerId === localPeerId) {
-            stream.getTracks().forEach(track => {
-              if (!existingTrackIds.has(track.id)) {
-                console.log(`[WebRTC] Adding screen share track to answer for ${from}: ${track.kind}`);
-                pc.addTrack(track, stream);
-              }
-            });
-            // Notify the joiner which stream is a screen share
-            emitSocket('screen-share-started', { peerId: localPeerId, shareId, username: session()?.localUser.username });
-          }
-        }
+        // NOTE: Screen share tracks are NOT added here — they are sent via renegotiation
+        // in onconnectionstatechange('connected') to avoid ontrack/screen-share-started race.
         
         await pc.setRemoteDescription(new RTCSessionDescription(signal.sdp));
         await flushIceCandidates(from, pc);
@@ -787,6 +786,11 @@ export const SpaceProvider: ParentComponent = (props) => {
       peerWebcamStreamIds.delete(data.peerId);
       pendingScreenShareIds.delete(data.peerId);
       pendingIceCandidates.delete(data.peerId);
+      setPeerConnectionStates(prev => {
+        const next = new Map(prev);
+        next.delete(data.peerId);
+        return next;
+      });
     });
     
     // Track incoming screen share announcements to know which streams are screen shares
@@ -917,6 +921,42 @@ export const SpaceProvider: ParentComponent = (props) => {
     
     pc.onconnectionstatechange = () => {
       console.log(`[WebRTC] Connection with ${peerId}: ${pc.connectionState}`);
+      // Update reactive state for UI
+      setPeerConnectionStates(prev => {
+        const next = new Map(prev);
+        next.set(peerId, pc.connectionState);
+        return next;
+      });
+      if (pc.connectionState === 'connected') {
+        // Send any local screen shares to this peer via renegotiation.
+        // This is done here (not in the initial offer/answer) to avoid
+        // ontrack/screen-share-started race conditions.
+        const localPeerId = session()?.localUser.peerId;
+        let hasScreenShares = false;
+        for (const [shareId, stream] of screenShareStreams().entries()) {
+          const shareInfo = screenShares().get(shareId);
+          if (shareInfo?.peerId === localPeerId) {
+            const existingSenderTrackIds = new Set(pc.getSenders().map(s => s.track?.id).filter(Boolean));
+            stream.getTracks().forEach(track => {
+              if (!existingSenderTrackIds.has(track.id)) {
+                pc.addTrack(track, stream);
+                hasScreenShares = true;
+              }
+            });
+            emitSocket('screen-share-started', { peerId: localPeerId, shareId, username: session()?.localUser.username });
+          }
+        }
+        if (hasScreenShares) {
+          pc.createOffer().then(offer => {
+            pc.setLocalDescription(offer);
+            emitSocket('signal', {
+              to: peerId,
+              from: localPeerId,
+              signal: { type: 'offer', sdp: offer },
+            });
+          }).catch(e => console.error(`[WebRTC] Screen share renegotiation failed:`, e));
+        }
+      }
       if (pc.connectionState === 'failed') {
         pc.close();
         peerConnections.delete(peerId);
@@ -1014,6 +1054,7 @@ export const SpaceProvider: ParentComponent = (props) => {
     removePeerStream,
     initWebRTC,
     connectToPeers,
+    peerConnectionStates,
   };
   
   return (
