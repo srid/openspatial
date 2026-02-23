@@ -100,6 +100,7 @@ interface SpaceContextValue {
   // WebRTC
   fetchIceServers: () => Promise<void>;
   initWebRTC: () => void;
+  connectToPeers: (peers: Record<string, unknown>, localPeerId: string, localStream: MediaStream | null) => Promise<void>;
   
   // Text note mutations
   addTextNote: (noteId: string, content: string, x: number, y: number, width: number, height: number) => void;
@@ -231,48 +232,7 @@ export const SpaceProvider: ParentComponent = (props) => {
             // Listen for space-state to re-establish WebRTC with existing peers
             onceSocket<{ peers: Record<string, { username: string }> }>('space-state', async (stateData) => {
               console.log('[Signaling] Received space-state after reconnect, re-establishing WebRTC');
-              const localStream = currentSession.localUser.stream;
-              
-              // Close ALL stale connections (they used old peerId)
-              for (const [peerId, pc] of peerConnections.entries()) {
-                console.log(`[WebRTC] Closing stale connection to ${peerId}`);
-                pc.close();
-              }
-              peerConnections.clear();
-              
-              // For each peer in the space, establish a new WebRTC connection
-              for (const [peerId] of Object.entries(stateData.peers)) {
-                if (peerId === newPeerId) continue; // Skip ourselves
-                
-                console.log(`[WebRTC] Re-establishing connection to ${peerId} after reconnect`);
-                const pc = createPeerConnection(peerId);
-                
-                if (localStream) {
-                  localStream.getTracks().forEach(track => {
-                    pc.addTrack(track, localStream);
-                  });
-                }
-                
-                // Also add any local screen shares
-                for (const [shareId, stream] of screenShareStreams().entries()) {
-                  const shareInfo = screenShares().get(shareId);
-                  if (shareInfo && shareInfo.peerId === oldPeerId) {
-                    // Update screen share owner to new peerId
-                    stream.getTracks().forEach(track => {
-                      pc.addTrack(track, stream);
-                    });
-                    emitSocket('screen-share-started', { peerId: newPeerId, shareId });
-                  }
-                }
-                
-                const offer = await pc.createOffer();
-                await pc.setLocalDescription(offer);
-                emitSocket('signal', {
-                  to: peerId,
-                  from: newPeerId,
-                  signal: { type: 'offer', sdp: offer },
-                });
-              }
+              await connectToPeers(stateData.peers, newPeerId, currentSession.localUser.stream);
             });
           });
           
@@ -738,8 +698,13 @@ export const SpaceProvider: ParentComponent = (props) => {
     }
   }
 
+  let webrtcInitialized = false;
+  
   function initWebRTC() {
-    // Handle incoming signals
+    if (webrtcInitialized) return;
+    webrtcInitialized = true;
+    
+    // Handle incoming signals (offers from new joiners, answers to our offers, ICE candidates)
     onSocket<{ from: string; signal: { type: string; sdp?: RTCSessionDescriptionInit; candidate?: RTCIceCandidateInit } }>('signal', async (data) => {
       const { from, signal } = data;
       
@@ -751,15 +716,33 @@ export const SpaceProvider: ParentComponent = (props) => {
       if (signal.type === 'offer' && signal.sdp) {
         // Before setting remote description, add our local tracks so they are included in the answer
         const localStream = session()?.localUser.stream;
+        const senders = pc.getSenders();
+        const existingTrackIds = new Set(senders.map(s => s.track?.id).filter(Boolean));
+        
+        // Add webcam tracks
         if (localStream) {
-          const senders = pc.getSenders();
-          const existingTrackIds = new Set(senders.map(s => s.track?.id).filter(Boolean));
           localStream.getTracks().forEach(track => {
             if (!existingTrackIds.has(track.id)) {
               console.log(`[WebRTC] Adding local track to answer for ${from}: ${track.kind}`);
               pc.addTrack(track, localStream);
             }
           });
+        }
+        
+        // Add local screen share tracks so the joiner receives our screen shares
+        const localPeerId = session()?.localUser.peerId;
+        for (const [shareId, stream] of screenShareStreams().entries()) {
+          const shareInfo = screenShares().get(shareId);
+          if (shareInfo?.peerId === localPeerId) {
+            stream.getTracks().forEach(track => {
+              if (!existingTrackIds.has(track.id)) {
+                console.log(`[WebRTC] Adding screen share track to answer for ${from}: ${track.kind}`);
+                pc.addTrack(track, stream);
+              }
+            });
+            // Notify the joiner which stream is a screen share
+            emitSocket('screen-share-started', { peerId: localPeerId, shareId, username: session()?.localUser.username });
+          }
         }
         
         await pc.setRemoteDescription(new RTCSessionDescription(signal.sdp));
@@ -787,46 +770,9 @@ export const SpaceProvider: ParentComponent = (props) => {
       }
     });
     
-    // When a new peer joins, initiate connection
-    onSocket<{ peerId: string; username: string }>('peer-joined', async (data) => {
-      const { peerId } = data;
+    // peer-joined is UI-only: the joiner initiates WebRTC via connectToPeers()
+    onSocket<{ peerId: string; username: string }>('peer-joined', () => {
       playJoinSound();
-      const pc = createPeerConnection(peerId);
-      
-      // Add local webcam tracks
-      const localStream = session()?.localUser.stream;
-      if (localStream) {
-        localStream.getTracks().forEach(track => {
-          pc.addTrack(track, localStream);
-        });
-      }
-      
-      // Add any existing local screen share tracks
-      // This ensures late-joiners receive screen shares that were started before they joined
-      for (const [shareId, stream] of screenShareStreams().entries()) {
-        // Only add if this is our own screen share
-        const shareInfo = screenShares().get(shareId);
-        if (shareInfo && shareInfo.peerId === session()?.localUser.peerId) {
-          stream.getTracks().forEach(track => {
-            console.log(`[WebRTC] Adding existing screen share track to new peer ${peerId}: ${track.kind}`);
-            pc.addTrack(track, stream);
-          });
-          // Emit screen-share-started so the new peer can match the track to the shareId
-          emitSocket('screen-share-started', {
-            peerId: session()?.localUser.peerId,
-            shareId,
-          });
-        }
-      }
-      
-      // Create and send offer
-      const offer = await pc.createOffer();
-      await pc.setLocalDescription(offer);
-      emitSocket('signal', {
-        to: peerId,
-        from: session()?.localUser.peerId,
-        signal: { type: 'offer', sdp: offer },
-      });
     });
     
     // When a peer leaves, close connection
@@ -851,6 +797,51 @@ export const SpaceProvider: ParentComponent = (props) => {
       }
       pendingScreenShareIds.get(data.peerId)!.push(data.shareId);
     });
+  }
+  
+  /**
+   * Initiate WebRTC connections to all peers in the space.
+   * Called by the joiner after setup is complete — the joiner always initiates offers
+   * so there's no race between handler registration and incoming offers.
+   */
+  async function connectToPeers(
+    peers: Record<string, unknown>,
+    localPeerId: string,
+    localStream: MediaStream | null
+  ) {
+    // Close any stale connections
+    for (const [, pc] of peerConnections.entries()) {
+      pc.close();
+    }
+    peerConnections.clear();
+    
+    for (const peerId of Object.keys(peers)) {
+      if (peerId === localPeerId) continue;
+      
+      console.log(`[WebRTC] Initiating connection to ${peerId}`);
+      const pc = createPeerConnection(peerId);
+      
+      if (localStream) {
+        localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+      }
+      
+      // Add any local screen shares
+      for (const [shareId, stream] of screenShareStreams().entries()) {
+        const shareInfo = screenShares().get(shareId);
+        if (shareInfo?.peerId === localPeerId) {
+          stream.getTracks().forEach(track => pc.addTrack(track, stream));
+          emitSocket('screen-share-started', { peerId: localPeerId, shareId });
+        }
+      }
+      
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+      emitSocket('signal', {
+        to: peerId,
+        from: localPeerId,
+        signal: { type: 'offer', sdp: offer },
+      });
+    }
   }
   
   /**
@@ -926,7 +917,7 @@ export const SpaceProvider: ParentComponent = (props) => {
     
     pc.onconnectionstatechange = () => {
       console.log(`[WebRTC] Connection with ${peerId}: ${pc.connectionState}`);
-      if (pc.connectionState === 'failed' || pc.connectionState === 'disconnected') {
+      if (pc.connectionState === 'failed') {
         pc.close();
         peerConnections.delete(peerId);
         removePeerStream(peerId);
@@ -1022,6 +1013,7 @@ export const SpaceProvider: ParentComponent = (props) => {
     fetchIceServers,
     removePeerStream,
     initWebRTC,
+    connectToPeers,
   };
   
   return (
