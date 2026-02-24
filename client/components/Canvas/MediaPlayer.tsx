@@ -212,7 +212,8 @@ export const MediaPlayer: Component<MediaPlayerProps> = (props) => {
       
       if (state && localUser) {
         // Read live position from CRDT peers map
-        const localPeerState = ctx.peers().get(localUser.peerId) || localUser;
+        const localPeerState = ctx.peers().get(localUser.peerId);
+        if (!localPeerState) return;
         
         // Calculate center of player
         const playerCx = state.x + state.width / 2;

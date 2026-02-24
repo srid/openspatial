@@ -213,41 +213,21 @@ export function usePictureInPicture() {
       paddingBottom: '4px',
     });
 
-    const localUser = ctx.session()?.localUser;
-
     const micBtn = createControlButton('pip-mic', 'Toggle Microphone');
-    const isMuted = localUser?.isMuted ?? false;
+    const { isMuted } = ctx.localMediaState();
     micBtn.innerHTML = isMuted ? MIC_OFF : MIC_ON;
     setButtonDanger(micBtn, isMuted);
     micBtn.addEventListener('click', () => {
-      const user = ctx.session()?.localUser;
-      if (!user?.stream) return;
-      const audioTrack = user.stream.getAudioTracks()[0];
-      if (!audioTrack) return;
-      audioTrack.enabled = !audioTrack.enabled;
-      const nowMuted = !audioTrack.enabled;
-      ctx.updatePeerMediaState(user.peerId, nowMuted, user.isVideoOff);
-      ctx.setSession({ ...ctx.session()!, localUser: { ...user, isMuted: nowMuted } });
-      micBtn.innerHTML = nowMuted ? MIC_OFF : MIC_ON;
-      setButtonDanger(micBtn, nowMuted);
+      ctx.toggleMic();
     });
     controls.appendChild(micBtn);
 
     const camBtn = createControlButton('pip-cam', 'Toggle Camera');
-    const isVideoOff = localUser?.isVideoOff ?? false;
+    const { isVideoOff } = ctx.localMediaState();
     camBtn.innerHTML = isVideoOff ? CAM_OFF : CAM_ON;
     setButtonDanger(camBtn, isVideoOff);
     camBtn.addEventListener('click', () => {
-      const user = ctx.session()?.localUser;
-      if (!user?.stream) return;
-      const videoTrack = user.stream.getVideoTracks()[0];
-      if (!videoTrack) return;
-      videoTrack.enabled = !videoTrack.enabled;
-      const nowOff = !videoTrack.enabled;
-      ctx.updatePeerMediaState(user.peerId, user.isMuted, nowOff);
-      ctx.setSession({ ...ctx.session()!, localUser: { ...user, isVideoOff: nowOff } });
-      camBtn.innerHTML = nowOff ? CAM_OFF : CAM_ON;
-      setButtonDanger(camBtn, nowOff);
+      ctx.toggleCamera();
     });
     controls.appendChild(camBtn);
 
@@ -310,12 +290,33 @@ export function usePictureInPicture() {
     }
   }
 
-  // Reactively update the peer grid when peers/streams change
+  // Reactively update the peer grid and control buttons when state changes
   createEffect(() => {
     ctx.peers();
     ctx.peerStreams();
     ctx.session();
     refreshPeerGrid();
+  });
+  
+  // Reactively update PiP control button states from CRDT
+  // NOTE: Access localMediaState() BEFORE the pipWindow check — SolidJS only
+  // tracks signals that are actually read during the effect. If we return early
+  // first, the signal is never tracked and the effect never re-runs.
+  createEffect(() => {
+    const { isMuted, isVideoOff } = ctx.localMediaState();
+    if (!pipWindow) return;
+    
+    const micBtn = pipWindow.document.getElementById('pip-mic') as HTMLButtonElement | null;
+    if (micBtn) {
+      micBtn.innerHTML = isMuted ? MIC_OFF : MIC_ON;
+      setButtonDanger(micBtn, isMuted);
+    }
+    
+    const camBtn = pipWindow.document.getElementById('pip-cam') as HTMLButtonElement | null;
+    if (camBtn) {
+      camBtn.innerHTML = isVideoOff ? CAM_OFF : CAM_ON;
+      setButtonDanger(camBtn, isVideoOff);
+    }
   });
 
   onCleanup(() => {

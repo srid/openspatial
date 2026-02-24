@@ -55,8 +55,9 @@ export const Avatar: Component<AvatarProps> = (props) => {
       const localUser = ctx.session()?.localUser;
       
       if (p && localUser) {
-        // Read live position from CRDT peers map for local user
-        const localPeerState = ctx.peers().get(localUser.peerId) || localUser;
+        // Read live position from CRDT peers map
+        const localPeerState = ctx.peers().get(localUser.peerId);
+        if (!localPeerState) return;
         
         const dx = p.x - localPeerState.x;
         const dy = p.y - localPeerState.y;

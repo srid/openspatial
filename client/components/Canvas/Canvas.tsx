@@ -33,16 +33,14 @@ export const Canvas: Component = () => {
   const [isDragging, setIsDragging] = createSignal(false);
   const [startX, setStartX] = createSignal(0);
   const [startY, setStartY] = createSignal(0);
-  const [scale, setScale] = createSignal(1);
-  const [offsetX, setOffsetX] = createSignal(0);
-  const [offsetY, setOffsetY] = createSignal(0);
   
   const spaceWidth = 4000;
   const spaceHeight = 4000;
   
-  const transform = createMemo(() => 
-    `translate(${offsetX()}px, ${offsetY()}px) scale(${scale()})`
-  );
+  const transform = createMemo(() => {
+    const offset = ctx.canvasOffset();
+    return `translate(${offset.x}px, ${offset.y}px) scale(${ctx.canvasScale()})`;
+  });
   
   const localPeerId = createMemo(() => ctx.session()?.localUser.peerId);
   
@@ -66,53 +64,34 @@ export const Canvas: Component = () => {
     
     setupPanning();
     setupZoom();
-    
-    // Listen for minimap pan events
-    containerRef.addEventListener('minimap-pan', ((e: CustomEvent) => {
-      centerOn(e.detail.x, e.detail.y);
-    }) as EventListener);
-    
-    // Listen for zoom events from minimap controls
-    containerRef.addEventListener('minimap-zoom', ((e: CustomEvent) => {
-      const { delta, reset } = e.detail;
-      if (reset) {
-        setScale(1);
-        centerOn(spaceWidth / 2, spaceHeight / 2);
-      } else {
-        const newScale = Math.min(Math.max(scale() * delta, 0.25), 2);
-        // Zoom from center of viewport
-        const rect = containerRef!.getBoundingClientRect();
-        const centerX = rect.width / 2;
-        const centerY = rect.height / 2;
-        setOffsetX(centerX - (centerX - offsetX()) * (newScale / scale()));
-        setOffsetY(centerY - (centerY - offsetY()) * (newScale / scale()));
-        setScale(newScale);
-        clampOffset();
-      }
-    }) as EventListener);
   });
   
   function centerOn(x: number, y: number) {
     if (!containerRef) return;
     const rect = containerRef.getBoundingClientRect();
-    setOffsetX(rect.width / 2 - x * scale());
-    setOffsetY(rect.height / 2 - y * scale());
+    const scale = ctx.canvasScale();
+    const newX = rect.width / 2 - x * scale;
+    const newY = rect.height / 2 - y * scale;
+    ctx.setCanvasOffset({ x: newX, y: newY });
     clampOffset();
   }
   
   function clampOffset() {
     if (!containerRef) return;
     const rect = containerRef.getBoundingClientRect();
-    const scaledWidth = spaceWidth * scale();
-    const scaledHeight = spaceHeight * scale();
+    const scale = ctx.canvasScale();
+    const scaledWidth = spaceWidth * scale;
+    const scaledHeight = spaceHeight * scale;
     
     const maxOffsetX = 0;
     const minOffsetX = Math.min(0, rect.width - scaledWidth);
     const maxOffsetY = 0;
     const minOffsetY = Math.min(0, rect.height - scaledHeight);
     
-    setOffsetX((x) => Math.max(minOffsetX, Math.min(maxOffsetX, x)));
-    setOffsetY((y) => Math.max(minOffsetY, Math.min(maxOffsetY, y)));
+    ctx.setCanvasOffset((prev) => ({
+      x: Math.max(minOffsetX, Math.min(maxOffsetX, prev.x)),
+      y: Math.max(minOffsetY, Math.min(maxOffsetY, prev.y)),
+    }));
   }
   
   function setupPanning() {
@@ -134,8 +113,7 @@ export const Canvas: Component = () => {
       const deltaX = e.pageX - startX();
       const deltaY = e.pageY - startY();
       
-      setOffsetX((x) => x + deltaX);
-      setOffsetY((y) => y + deltaY);
+      ctx.setCanvasOffset((prev) => ({ x: prev.x + deltaX, y: prev.y + deltaY }));
       clampOffset();
       
       setStartX(e.pageX);
@@ -170,8 +148,7 @@ export const Canvas: Component = () => {
       const deltaX = e.touches[0].pageX - startX();
       const deltaY = e.touches[0].pageY - startY();
       
-      setOffsetX((x) => x + deltaX);
-      setOffsetY((y) => y + deltaY);
+      ctx.setCanvasOffset((prev) => ({ x: prev.x + deltaX, y: prev.y + deltaY }));
       clampOffset();
       
       setStartX(e.touches[0].pageX);
@@ -205,15 +182,19 @@ export const Canvas: Component = () => {
       e.preventDefault();
       
       const delta = e.deltaY > 0 ? 0.9 : 1.1;
-      const newScale = Math.min(Math.max(scale() * delta, 0.25), 2);
+      const currentScale = ctx.canvasScale();
+      const newScale = Math.min(Math.max(currentScale * delta, 0.25), 2);
       
       const rect = containerRef!.getBoundingClientRect();
       const mouseX = e.clientX - rect.left;
       const mouseY = e.clientY - rect.top;
       
-      setOffsetX(mouseX - (mouseX - offsetX()) * (newScale / scale()));
-      setOffsetY(mouseY - (mouseY - offsetY()) * (newScale / scale()));
-      setScale(newScale);
+      const offset = ctx.canvasOffset();
+      ctx.setCanvasOffset({
+        x: mouseX - (mouseX - offset.x) * (newScale / currentScale),
+        y: mouseY - (mouseY - offset.y) * (newScale / currentScale),
+      });
+      ctx.setCanvasScale(newScale);
       clampOffset();
     };
     

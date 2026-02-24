@@ -1,4 +1,4 @@
-import { createSignal, onMount, onCleanup, For } from 'solid-js';
+import { createMemo, For, createSignal, onMount, onCleanup } from 'solid-js';
 import { useSpace } from '../context/SpaceContext';
 import { t } from '@/lib/i18n';
 
@@ -10,9 +10,7 @@ const SCALE = MINIMAP_SIZE / Math.max(SPACE_WIDTH, SPACE_HEIGHT);
 export const Minimap = () => {
   const ctx = useSpace();
   let contentRef: HTMLDivElement | undefined;
-  let animationId: number;
   
-  const [viewport, setViewport] = createSignal({ left: 0, top: 0, width: 20, height: 20 });
   const [isDragging, setIsDragging] = createSignal(false);
   
   // Get peers, screen shares, and text notes for dots
@@ -20,45 +18,21 @@ export const Minimap = () => {
   const screenShares = () => Array.from(ctx.screenShares().values());
   const textNotes = () => Array.from(ctx.textNotes().values());
   
-  // Dispatch zoom event to Canvas
-  function dispatchZoom(delta?: number, reset?: boolean) {
-    const canvas = document.getElementById('canvas-container');
-    if (canvas) {
-      canvas.dispatchEvent(new CustomEvent('minimap-zoom', { 
-        detail: { delta, reset } 
-      }));
-    }
-  }
-  
-  // Parse transform from #space element
-  function parseTransform(): { x: number; y: number; scale: number } {
-    const space = document.getElementById('space');
-    if (!space) return { x: 0, y: 0, scale: 1 };
+  // Reactively derive viewport from context signals (no DOM polling!)
+  const viewport = createMemo(() => {
+    const offset = ctx.canvasOffset();
+    const scale = ctx.canvasScale();
     
-    const transform = space.style.transform || '';
-    const translateMatch = transform.match(/translate\(([^,]+)px,\s*([^)]+)px\)/);
-    const scaleMatch = transform.match(/scale\(([^)]+)\)/);
-    
-    return {
-      x: translateMatch ? parseFloat(translateMatch[1]) : 0,
-      y: translateMatch ? parseFloat(translateMatch[2]) : 0,
-      scale: scaleMatch ? parseFloat(scaleMatch[1]) : 1,
-    };
-  }
-  
-  // Update viewport rectangle by polling DOM
-  function updateViewport() {
-    const container = document.getElementById('canvas-container');
-    if (!container) return;
-    
-    const containerRect = container.getBoundingClientRect();
-    const { x: offsetX, y: offsetY, scale } = parseTransform();
+    // We need the container dimensions — approximated from the window since the
+    // canvas-container is always fullscreen (fixed inset-0).
+    const containerWidth = typeof window !== 'undefined' ? window.innerWidth : 1920;
+    const containerHeight = typeof window !== 'undefined' ? window.innerHeight : 1080;
     
     // Calculate visible area in space coordinates
-    const visibleLeft = -offsetX / scale;
-    const visibleTop = -offsetY / scale;
-    const visibleWidth = containerRect.width / scale;
-    const visibleHeight = containerRect.height / scale;
+    const visibleLeft = -offset.x / scale;
+    const visibleTop = -offset.y / scale;
+    const visibleWidth = containerWidth / scale;
+    const visibleHeight = containerHeight / scale;
     
     // Convert to minimap coordinates
     const left = Math.max(0, visibleLeft) * SCALE;
@@ -66,8 +40,8 @@ export const Minimap = () => {
     const width = Math.min(SPACE_WIDTH, visibleWidth) * SCALE;
     const height = Math.min(SPACE_HEIGHT, visibleHeight) * SCALE;
     
-    setViewport({ left, top, width: Math.max(10, width), height: Math.max(10, height) });
-  }
+    return { left, top, width: Math.max(10, width), height: Math.max(10, height) };
+  });
   
   function panToMinimapPosition(clientX: number, clientY: number) {
     if (!contentRef) return;
@@ -79,11 +53,57 @@ export const Minimap = () => {
     const clampedX = Math.max(0, Math.min(SPACE_WIDTH, x));
     const clampedY = Math.max(0, Math.min(SPACE_HEIGHT, y));
     
-    // Dispatch custom event for Canvas to handle
-    const canvas = document.getElementById('canvas-container');
-    if (canvas) {
-      canvas.dispatchEvent(new CustomEvent('minimap-pan', { 
-        detail: { x: clampedX, y: clampedY } 
+    // Center the canvas on this position via shared context signals
+    const scale = ctx.canvasScale();
+    const containerWidth = window.innerWidth;
+    const containerHeight = window.innerHeight;
+    
+    let newX = containerWidth / 2 - clampedX * scale;
+    let newY = containerHeight / 2 - clampedY * scale;
+    
+    // Clamp
+    const scaledWidth = SPACE_WIDTH * scale;
+    const scaledHeight = SPACE_HEIGHT * scale;
+    newX = Math.max(Math.min(0, containerWidth - scaledWidth), Math.min(0, newX));
+    newY = Math.max(Math.min(0, containerHeight - scaledHeight), Math.min(0, newY));
+    
+    ctx.setCanvasOffset({ x: newX, y: newY });
+  }
+  
+  function handleZoom(delta?: number, reset?: boolean) {
+    if (reset) {
+      ctx.setCanvasScale(1);
+      // Center on space center
+      const containerWidth = window.innerWidth;
+      const containerHeight = window.innerHeight;
+      let newX = containerWidth / 2 - (SPACE_WIDTH / 2) * 1;
+      let newY = containerHeight / 2 - (SPACE_HEIGHT / 2) * 1;
+      // Clamp
+      newX = Math.max(Math.min(0, containerWidth - SPACE_WIDTH), Math.min(0, newX));
+      newY = Math.max(Math.min(0, containerHeight - SPACE_HEIGHT), Math.min(0, newY));
+      ctx.setCanvasOffset({ x: newX, y: newY });
+    } else if (delta) {
+      const currentScale = ctx.canvasScale();
+      const newScale = Math.min(Math.max(currentScale * delta, 0.25), 2);
+      // Zoom from center of viewport
+      const containerWidth = window.innerWidth;
+      const containerHeight = window.innerHeight;
+      const centerX = containerWidth / 2;
+      const centerY = containerHeight / 2;
+      const offset = ctx.canvasOffset();
+      
+      const newX = centerX - (centerX - offset.x) * (newScale / currentScale);
+      const newY = centerY - (centerY - offset.y) * (newScale / currentScale);
+      
+      ctx.setCanvasOffset({ x: newX, y: newY });
+      ctx.setCanvasScale(newScale);
+      
+      // Clamp
+      const scaledWidth = SPACE_WIDTH * newScale;
+      const scaledHeight = SPACE_HEIGHT * newScale;
+      ctx.setCanvasOffset((prev) => ({
+        x: Math.max(Math.min(0, containerWidth - scaledWidth), Math.min(0, prev.x)),
+        y: Math.max(Math.min(0, containerHeight - scaledHeight), Math.min(0, prev.y)),
       }));
     }
   }
@@ -124,28 +144,17 @@ export const Minimap = () => {
     setIsDragging(false);
   }
   
-  function startUpdateLoop() {
-    const update = () => {
-      updateViewport();
-      animationId = requestAnimationFrame(update);
-    };
-    animationId = requestAnimationFrame(update);
-  }
-  
   onMount(() => {
     document.addEventListener('mousemove', handleMouseMove);
     document.addEventListener('mouseup', handleMouseUp);
     document.addEventListener('touchmove', handleTouchMove, { passive: true });
     document.addEventListener('touchend', handleTouchEnd);
     
-    startUpdateLoop();
-    
     onCleanup(() => {
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
       document.removeEventListener('touchmove', handleTouchMove);
       document.removeEventListener('touchend', handleTouchEnd);
-      cancelAnimationFrame(animationId);
     });
   });
   
@@ -158,17 +167,17 @@ export const Minimap = () => {
       <div class="minimap-controls flex gap-1 mb-2">
         <button 
           class={zoomBtnBase} 
-          onClick={() => dispatchZoom(1.25)}
+          onClick={() => handleZoom(1.25)}
           title={t('zoomIn')}
         >+</button>
         <button 
           class={`${zoomBtnBase} minimap-btn-reset text-base`} 
-          onClick={() => dispatchZoom(undefined, true)}
+          onClick={() => handleZoom(undefined, true)}
           title={t('resetView')}
         >⌂</button>
         <button 
           class={zoomBtnBase} 
-          onClick={() => dispatchZoom(0.8)}
+          onClick={() => handleZoom(0.8)}
           title={t('zoomOut')}
         >−</button>
       </div>
