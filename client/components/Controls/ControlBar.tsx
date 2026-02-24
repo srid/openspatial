@@ -9,8 +9,6 @@ export const ControlBar: Component = () => {
   const ctx = useSpace();
   const { openPip } = usePictureInPicture();
   
-  const [isMuted, setIsMuted] = createSignal(ctx.session()?.localUser.isMuted ?? false);
-  const [isVideoOff, setIsVideoOff] = createSignal(ctx.session()?.localUser.isVideoOff ?? false);
   const [activityOpen, setActivityOpen] = createSignal(false);
   const [hasUnread, setHasUnread] = createSignal(false);
   
@@ -54,7 +52,7 @@ export const ControlBar: Component = () => {
       // Update session with the new stream
       ctx.setSession({
         ...ctx.session()!,
-        localUser: { ...user, stream: mediaStream, isMuted: false, isVideoOff: false },
+        localUser: { ...user, stream: mediaStream },
       });
       
       // Update CRDT state
@@ -63,8 +61,6 @@ export const ControlBar: Component = () => {
       // Send tracks to existing peers
       await ctx.addLocalStreamToPeers(mediaStream);
       
-      setIsMuted(false);
-      setIsVideoOff(false);
       return mediaStream;
     } catch (e) {
       const err = e as DOMException;
@@ -89,12 +85,7 @@ export const ControlBar: Component = () => {
       return;
     }
     
-    const audioTrack = user.stream.getAudioTracks()[0];
-    if (audioTrack) {
-      audioTrack.enabled = !audioTrack.enabled;
-      setIsMuted(!audioTrack.enabled);
-      ctx.updatePeerMediaState(user.peerId, !audioTrack.enabled, isVideoOff());
-    }
+    ctx.toggleMic();
   }
   
   async function handleToggleCamera() {
@@ -106,12 +97,7 @@ export const ControlBar: Component = () => {
       return;
     }
     
-    const videoTrack = user.stream.getVideoTracks()[0];
-    if (videoTrack) {
-      videoTrack.enabled = !videoTrack.enabled;
-      setIsVideoOff(!videoTrack.enabled);
-      ctx.updatePeerMediaState(user.peerId, isMuted(), !videoTrack.enabled);
-    }
+    ctx.toggleCamera();
   }
   
   async function handleStartScreenShare() {
@@ -128,13 +114,18 @@ export const ControlBar: Component = () => {
       // Store stream in context for rendering
       ctx.setScreenShareStream(shareId, screenStream);
       
+      // Read position from CRDT
+      const peerState = ctx.peers().get(user.peerId);
+      const px = peerState?.x ?? 2000;
+      const py = peerState?.y ?? 2000;
+      
       // Add to CRDT
       ctx.addScreenShare(
         shareId,
         user.peerId,
         user.username,
-        user.x + 200,
-        user.y,
+        px + 200,
+        py,
         640,
         360
       );
@@ -162,11 +153,14 @@ export const ControlBar: Component = () => {
     
     const noteId = uuidv4();
     const sampleMarkdown = `# Welcome\n\nThis note supports **Markdown** as well as _real-time_ collaborative editing!\n\n\`\`\`haskell\nmain = do\n  putStrLn "hello"\n\`\`\`\n`;
+    const peerState = ctx.peers().get(user.peerId);
+    const px = peerState?.x ?? 2000;
+    const py = peerState?.y ?? 2000;
     ctx.addTextNote(
       noteId,
       sampleMarkdown,
-      user.x + 150,
-      user.y - 100,
+      px + 150,
+      py - 100,
       400,
       350
     );
@@ -187,11 +181,14 @@ export const ControlBar: Component = () => {
     }
     
     const playerId = uuidv4();
+    const peerState = ctx.peers().get(user.peerId);
+    const px = peerState?.x ?? 2000;
+    const py = peerState?.y ?? 2000;
     ctx.spawnMediaPlayer(
       playerId,
       url,
-      user.x + 150,
-      user.y - 100
+      px + 150,
+      py - 100
     );
   }
   
@@ -237,11 +234,11 @@ export const ControlBar: Component = () => {
         <button
           id="btn-mic"
           class={btnBase}
-          classList={{ 'bg-danger/20 border-danger text-danger': isMuted(), 'muted': isMuted() }}
+          classList={{ 'bg-danger/20 border-danger text-danger': ctx.localMediaState().isMuted, 'muted': ctx.localMediaState().isMuted }}
           title={t('toggleMicrophone')}
           onClick={handleToggleMic}
         >
-          <Show when={!isMuted()}>
+          <Show when={!ctx.localMediaState().isMuted}>
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
               <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
@@ -249,7 +246,7 @@ export const ControlBar: Component = () => {
               <line x1="8" y1="23" x2="16" y2="23" />
             </svg>
           </Show>
-          <Show when={isMuted()}>
+          <Show when={ctx.localMediaState().isMuted}>
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <line x1="1" y1="1" x2="23" y2="23" />
               <path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6" />
@@ -263,17 +260,17 @@ export const ControlBar: Component = () => {
         <button
           id="btn-camera"
           class={btnBase}
-          classList={{ 'bg-danger/20 border-danger text-danger': isVideoOff() }}
+          classList={{ 'bg-danger/20 border-danger text-danger': ctx.localMediaState().isVideoOff }}
           title={t('toggleCamera')}
           onClick={handleToggleCamera}
         >
-          <Show when={!isVideoOff()}>
+          <Show when={!ctx.localMediaState().isVideoOff}>
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M23 7l-7 5 7 5V7z" />
               <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
             </svg>
           </Show>
-          <Show when={isVideoOff()}>
+          <Show when={ctx.localMediaState().isVideoOff}>
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M16 16v1a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h2m5.66 0H14a2 2 0 0 1 2 2v3.34l1 1L23 7v10" />
               <line x1="1" y1="1" x2="23" y2="23" />

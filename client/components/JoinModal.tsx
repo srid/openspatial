@@ -112,16 +112,12 @@ export const JoinModal: Component = () => {
           ctx.connectCRDT(space);
           ctx.addPeer(peerId, name, spawnX, spawnY, noMedia, noMedia);
           
-          // Set session state with server-assigned position
+          // Set session state (position and media state live in CRDT only)
           ctx.setSession({
             spaceId: space,
             localUser: {
               peerId,
               username: name,
-              x: spawnX,
-              y: spawnY,
-              isMuted: noMedia,
-              isVideoOff: noMedia,
               status: '',
               stream: mediaStream,
             },

@@ -21,10 +21,6 @@ export type ConnectionState = 'disconnected' | 'connecting' | 'connected' | 'rec
 export interface LocalUser {
   peerId: string;
   username: string;
-  x: number;
-  y: number;
-  isMuted: boolean;
-  isVideoOff: boolean;
   status: string;
   stream: MediaStream | null;
 }
@@ -60,6 +56,17 @@ interface SpaceContextValue {
   // Derived state
   participantCount: Accessor<number>;
   spaceId: Accessor<string | undefined>;
+  localMediaState: Accessor<{ isMuted: boolean; isVideoOff: boolean }>;
+  
+  // Media toggle actions (single source of truth)
+  toggleMic: () => void;
+  toggleCamera: () => void;
+  
+  // Canvas viewport state (shared between Canvas and Minimap)
+  canvasOffset: Accessor<{ x: number; y: number }>;
+  canvasScale: Accessor<number>;
+  setCanvasOffset: Setter<{ x: number; y: number }>;
+  setCanvasScale: Setter<number>;
   
   // Connection actions
   connectSignaling: () => Promise<void>;
@@ -167,6 +174,10 @@ export const SpaceProvider: ParentComponent = (props) => {
     return map;
   });
   
+  // Canvas viewport state (shared between Canvas and Minimap)
+  const [canvasOffset, setCanvasOffset] = createSignal({ x: 0, y: 0 });
+  const [canvasScale, setCanvasScale] = createSignal(1);
+  
   // Per-peer WebRTC connection state (for UI indicators)
   const [peerConnectionStates, setPeerConnectionStates] = createSignal<Map<string, RTCPeerConnectionState>>(new Map());
   
@@ -180,6 +191,35 @@ export const SpaceProvider: ParentComponent = (props) => {
   // Derived values
   const participantCount = createMemo(() => peers().size);
   const spaceId = createMemo(() => session()?.spaceId);
+  
+  // Reactive media state derived from CRDT (single source of truth)
+  const localMediaState = createMemo(() => {
+    const s = session();
+    if (!s) return { isMuted: false, isVideoOff: false };
+    const peer = peers().get(s.localUser.peerId);
+    return {
+      isMuted: peer?.isMuted ?? false,
+      isVideoOff: peer?.isVideoOff ?? false,
+    };
+  });
+  
+  function toggleMic() {
+    const s = session();
+    if (!s?.localUser.stream) return;
+    const audioTrack = s.localUser.stream.getAudioTracks()[0];
+    if (!audioTrack) return;
+    audioTrack.enabled = !audioTrack.enabled;
+    updatePeerMediaState(s.localUser.peerId, !audioTrack.enabled, localMediaState().isVideoOff);
+  }
+  
+  function toggleCamera() {
+    const s = session();
+    if (!s?.localUser.stream) return;
+    const videoTrack = s.localUser.stream.getVideoTracks()[0];
+    if (!videoTrack) return;
+    videoTrack.enabled = !videoTrack.enabled;
+    updatePeerMediaState(s.localUser.peerId, localMediaState().isMuted, !videoTrack.enabled);
+  }
   
   // --------------- Socket.io Management ---------------
   let socket: Socket | null = null;
@@ -256,9 +296,16 @@ export const SpaceProvider: ParentComponent = (props) => {
               },
             });
             
+            // Snapshot CRDT state before removing old peer
+            const oldPeerState = peers().get(oldPeerId);
+            const currentX = oldPeerState?.x ?? 2000;
+            const currentY = oldPeerState?.y ?? 2000;
+            const currentMuted = oldPeerState?.isMuted ?? false;
+            const currentVideoOff = oldPeerState?.isVideoOff ?? false;
+            
             // Update our CRDT presence with new peerId
             removePeer(oldPeerId);
-            addPeer(newPeerId, currentSession.localUser.username, currentSession.localUser.x, currentSession.localUser.y);
+            addPeer(newPeerId, currentSession.localUser.username, currentX, currentY, currentMuted, currentVideoOff);
             
             // Listen for space-state to re-establish WebRTC with existing peers
             onceSocket('space-state', async (stateData) => {
@@ -1111,6 +1158,13 @@ export const SpaceProvider: ParentComponent = (props) => {
     activities,
     participantCount,
     spaceId,
+    localMediaState,
+    toggleMic,
+    toggleCamera,
+    canvasOffset,
+    canvasScale,
+    setCanvasOffset,
+    setCanvasScale,
     connectSignaling,
     disconnectSignaling,
     connectCRDT,
