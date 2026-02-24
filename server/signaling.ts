@@ -10,6 +10,7 @@ import type {
   ScreenShareStartedEvent,
   ScreenShareStoppedEvent,
   GetSpaceInfoEvent,
+  StreamsAnnouncedEvent,
   PeerData,
   ScreenShareData,
   SpaceStateEvent,
@@ -269,6 +270,12 @@ export function attachSignaling(io: Server, config: ServerConfig): void {
         socket.to(currentSpace).emit('screen-share-started', broadcast);
         console.log(`[Signaling] ${currentUsername} started screen share in ${currentSpace}`);
       }
+    });
+    
+    // Forward stream announcements to other peers in the space
+    socket.on('streams-announced', (data: StreamsAnnouncedEvent) => {
+      if (!currentSpace) return;
+      socket.to(currentSpace).emit('streams-announced', data);
     });
 
     socket.on('screen-share-stopped', ({ peerId: pid, shareId }: ScreenShareStoppedEvent) => {
