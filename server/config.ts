@@ -65,7 +65,7 @@ export function devConfig(): ServerConfig {
     https: true,
     dataDir: './data',
     autoCreateSpaces: true,
-    disconnectGraceMs: 0,
+    disconnectGraceMs: 10000,
     slack: {
       botToken: null,
       channelId: null,

@@ -21,8 +21,32 @@ import type {
 } from '../shared/types/events.js';
 import { getSpace as getSpaceFromDb, recordSpaceEvent, getRecentActivity } from './db.js';
 
+// ─── Two-Tier Identity Model ────────────────────────────────────────────
+//
+// The server separates TRANSPORT identity (ephemeral Peer ID, new per socket)
+// from APPLICATION identity (username, stable across reconnections).
+//
+// Space membership is keyed by username. On reconnection, the Peer ID is
+// rotated in-place — no leave/join notifications are fired.
+//
+// NOTE: This means two browser tabs with the same username in the same space
+// will collide (last tab wins). This is acceptable behaviour.
+// ─────────────────────────────────────────────────────────────────────────
+
+/** A logical user session within a space (survives transport reconnection). */
+interface UserSession {
+  username: string;
+  /** Ephemeral — rotates on every new socket connection. */
+  currentPeerId: string;
+  position: { x: number; y: number };
+  isMuted: boolean;
+  isVideoOff: boolean;
+  isScreenSharing: boolean;
+}
+
 interface Space {
-  peers: Map<string, PeerData>;
+  /** Keyed by username (stable), NOT peerId (ephemeral). */
+  users: Map<string, UserSession>;
   screenShares: Map<string, ScreenShareData>;
 }
 
@@ -32,6 +56,8 @@ interface PendingLeave {
   timeout: ReturnType<typeof setTimeout>;
   spaceId: string;
   username: string;
+  /** The peerId at time of disconnect — used to detect stale timers. */
+  peerId: string;
 }
 // Key: "spaceId:username"
 const pendingLeaves = new Map<string, PendingLeave>();
@@ -70,9 +96,12 @@ const SPAWN_RING_RADIUS = 200;
  * - First user spawns at center (2000, 2000).
  * - Subsequent users spawn near the largest group of existing peers,
  *   with guaranteed minimum separation of 150px from all existing peers.
+ *
+ * Includes disconnected-but-in-grace-period users to avoid spawning on top
+ * of someone who may reconnect.
  */
 function findSpawnPosition(space: Space): { x: number; y: number } {
-  const existingPositions = Array.from(space.peers.values()).map(p => p.position);
+  const existingPositions = Array.from(space.users.values()).map(u => u.position);
   
   if (existingPositions.length === 0) {
     return { x: SPACE_CENTER, y: SPACE_CENTER };
@@ -138,11 +167,44 @@ export function attachSignaling(io: Server, config: ServerConfig): void {
   function getSpace(spaceId: string): Space {
     if (!spaces.has(spaceId)) {
       spaces.set(spaceId, {
-        peers: new Map(),
+        users: new Map(),
         screenShares: new Map(),
       });
     }
     return spaces.get(spaceId)!;
+  }
+
+  /**
+   * Build a SpaceStateEvent from the user-keyed map.
+   * Excludes users who are disconnected during grace period (no valid socket).
+   * Keys are peerIds (ephemeral) because the client needs them for WebRTC routing.
+   */
+  function buildSpaceState(space: Space, spaceId: string): SpaceStateEvent {
+    const peers: Record<string, PeerData> = {};
+    for (const [username, user] of space.users) {
+      // Skip users who are in the grace period (disconnected, awaiting reconnect)
+      if (pendingLeaves.has(`${spaceId}:${username}`)) continue;
+
+      peers[user.currentPeerId] = {
+        username: user.username,
+        position: user.position,
+        isMuted: user.isMuted,
+        isVideoOff: user.isVideoOff,
+        isScreenSharing: user.isScreenSharing,
+      };
+    }
+    return { peers };
+  }
+
+  /**
+   * Count connected (non-grace-period) users in a space.
+   */
+  function connectedUserCount(space: Space, spaceId: string): number {
+    let count = 0;
+    for (const [username] of space.users) {
+      if (!pendingLeaves.has(`${spaceId}:${username}`)) count++;
+    }
+    return count;
   }
 
   io.on('connection', (socket: Socket) => {
@@ -160,7 +222,10 @@ export function attachSignaling(io: Server, config: ServerConfig): void {
       const exists = dbSpace !== null || config.autoCreateSpaces;
       
       if (memorySpace) {
-        const participants = Array.from(memorySpace.peers.values()).map(p => p.username);
+        // Only show currently-connected participants
+        const participants = Array.from(memorySpace.users.values())
+          .filter(u => !pendingLeaves.has(`${spaceId}:${u.username}`))
+          .map(u => u.username);
         socket.emit('space-info', { spaceId, exists, participants });
       } else {
         socket.emit('space-info', { spaceId, exists, participants: [] });
@@ -172,58 +237,87 @@ export function attachSignaling(io: Server, config: ServerConfig): void {
       currentUsername = username;
       socket.join(spaceId);
 
-      // Cancel any pending leave for this user in this space (reconnect within grace period)
+      // Cancel any pending leave for this user in this space
       const pendingKey = `${spaceId}:${username}`;
       const pendingLeave = pendingLeaves.get(pendingKey);
       if (pendingLeave) {
         clearTimeout(pendingLeave.timeout);
         pendingLeaves.delete(pendingKey);
-        console.log(`[Signaling] ${username} reconnected to ${spaceId} within grace period — leave cancelled`);
       }
 
       const space = getSpace(spaceId);
-      const wasEmpty = space.peers.size === 0;
-      const position = findSpawnPosition(space);
+      const existingUser = space.users.get(username);
 
-      const peerData: PeerData = {
-        username,
-        position,
-        isMuted: false,
-        isVideoOff: false,
-        isScreenSharing: false,
-      };
-      space.peers.set(peerId, peerData);
+      if (existingUser) {
+        // ─── RECONNECTION: Peer ID rotation ─────────────────────────
+        // The user already exists in this space. This is a transport-level
+        // reconnection, NOT a new join. Rotate the peerId silently.
+        const oldPeerId = existingUser.currentPeerId;
+        peerSockets.delete(oldPeerId);
 
-      const connectedEvent: ConnectedEvent = { peerId };
-      socket.emit('connected', connectedEvent);
+        existingUser.currentPeerId = peerId;
+        peerSockets.set(peerId, socket.id);
 
-      const spaceState: SpaceStateEvent = {
-        peers: Object.fromEntries(space.peers),
-        // Screen shares are managed by CRDT, not sent here
-      };
-      socket.emit('space-state', spaceState);
+        // Clean up stale CRDT entry for old peerId
+        cleanupCRDTOnDisconnect(spaceId, oldPeerId);
 
-      const peerJoined: PeerJoinedEvent = { peerId, username, position };
-      socket.to(spaceId).emit('peer-joined', peerJoined);
+        const connectedEvent: ConnectedEvent = { peerId };
+        socket.emit('connected', connectedEvent);
 
-      console.log(`[Signaling] ${username} joined space ${spaceId} (${space.peers.size} peers)`);
-      // Record space event and notify
-      // If there was a pending leave that we just cancelled, treat this as a regular join
-      // (the space never truly went empty from the notification perspective)
-      if (wasEmpty && !pendingLeave) {
-        recordSpaceEvent(spaceId, 'join_first', username);
-        notifySpaceActive(spaceId, username);
+        const spaceState = buildSpaceState(space, spaceId);
+        socket.emit('space-state', spaceState);
+
+        // Broadcast peer-joined with NEW peerId so other clients create fresh WebRTC connections.
+        // (They already received peer-left for the OLD peerId on disconnect.)
+        const peerJoined: PeerJoinedEvent = { peerId, username, position: existingUser.position };
+        socket.to(spaceId).emit('peer-joined', peerJoined);
+
+        console.log(`[Signaling] ${username} reconnected to ${spaceId} (peer ID rotated: ${oldPeerId.slice(0, 8)}… → ${peerId.slice(0, 8)}…)`);
+
+        // NO recordSpaceEvent, NO notification — the user never left.
+        // Push current activity so the reconnected client's panel is up-to-date.
+        getRecentActivity(spaceId).then((events) => {
+          socket.emit('space-activity', { spaceId, events });
+        });
       } else {
-        recordSpaceEvent(spaceId, 'join', username);
-        if (!pendingLeave) {
+        // ─── NEW JOIN ────────────────────────────────────────────────
+        const wasEmpty = space.users.size === 0;
+        const position = findSpawnPosition(space);
+
+        space.users.set(username, {
+          username,
+          currentPeerId: peerId,
+          position,
+          isMuted: false,
+          isVideoOff: false,
+          isScreenSharing: false,
+        });
+
+        const connectedEvent: ConnectedEvent = { peerId };
+        socket.emit('connected', connectedEvent);
+
+        const spaceState = buildSpaceState(space, spaceId);
+        socket.emit('space-state', spaceState);
+
+        const peerJoined: PeerJoinedEvent = { peerId, username, position };
+        socket.to(spaceId).emit('peer-joined', peerJoined);
+
+        console.log(`[Signaling] ${username} joined space ${spaceId} (${connectedUserCount(space, spaceId)} connected users)`);
+
+        // Record space event and notify
+        if (wasEmpty) {
+          recordSpaceEvent(spaceId, 'join_first', username);
+          notifySpaceActive(spaceId, username);
+        } else {
+          recordSpaceEvent(spaceId, 'join', username);
           notifyUserJoined(spaceId, username);
         }
+        
+        // Push recent activity to ALL users in the space
+        getRecentActivity(spaceId).then((events) => {
+          io.to(spaceId).emit('space-activity', { spaceId, events });
+        });
       }
-      
-      // Push recent activity to ALL users in the space (including existing users)
-      getRecentActivity(spaceId).then((events) => {
-        io.to(spaceId).emit('space-activity', { spaceId, events });
-      });
     });
 
     // Route signals to specific peer, not broadcast
@@ -240,20 +334,20 @@ export function attachSignaling(io: Server, config: ServerConfig): void {
     // Position updates: not for state sync (CRDT handles that) but so
     // findSpawnPosition uses live positions instead of stale join-time values.
     socket.on('position-update', (data: { x: number; y: number }) => {
-      if (!currentSpace || !peerId) return;
+      if (!currentSpace || !currentUsername) return;
       const space = spaces.get(currentSpace);
-      const peer = space?.peers.get(peerId);
-      if (peer) {
-        peer.position = { x: data.x, y: data.y };
+      const user = space?.users.get(currentUsername);
+      if (user) {
+        user.position = { x: data.x, y: data.y };
       }
     });
 
     socket.on('screen-share-started', ({ peerId: pid, shareId }: ScreenShareStartedEvent) => {
-      if (!currentSpace) return;
+      if (!currentSpace || !currentUsername) return;
       const space = spaces.get(currentSpace);
-      const peer = space?.peers.get(pid);
-      if (peer && currentUsername) {
-        peer.isScreenSharing = true;
+      const user = space?.users.get(currentUsername);
+      if (user) {
+        user.isScreenSharing = true;
         // Only track shareId -> peerId/username mapping for WebRTC routing
         // Position and size are managed by CRDT
         const shareData: ScreenShareData = {
@@ -279,11 +373,11 @@ export function attachSignaling(io: Server, config: ServerConfig): void {
     });
 
     socket.on('screen-share-stopped', ({ peerId: pid, shareId }: ScreenShareStoppedEvent) => {
-      if (!currentSpace) return;
+      if (!currentSpace || !currentUsername) return;
       const space = spaces.get(currentSpace);
-      const peer = space?.peers.get(pid);
-      if (peer) {
-        peer.isScreenSharing = false;
+      const user = space?.users.get(currentUsername);
+      if (user) {
+        user.isScreenSharing = false;
         space?.screenShares.delete(shareId);
         
         const broadcast: ScreenShareStoppedBroadcast = { peerId: pid, shareId };
@@ -292,14 +386,13 @@ export function attachSignaling(io: Server, config: ServerConfig): void {
       }
     });
 
-    socket.on('disconnect', () => {
+    socket.on('disconnect', (reason: string) => {
       peerSockets.delete(peerId);
 
-      if (currentSpace) {
+      if (currentSpace && currentUsername) {
         const space = spaces.get(currentSpace);
         if (space) {
-          space.peers.delete(peerId);
-          // Remove all screen shares from this peer
+          // Remove screen shares owned by this peer
           for (const [shareId, share] of space.screenShares) {
             if (share.peerId === peerId) {
               space.screenShares.delete(shareId);
@@ -311,30 +404,22 @@ export function attachSignaling(io: Server, config: ServerConfig): void {
           
           // Broadcast peer-left immediately so the UI stays responsive
           socket.to(currentSpace).emit('peer-left', { peerId });
-          console.log(`[Signaling] ${currentUsername} left space ${currentSpace} (${space.peers.size} peers)`);
-          
-          // Defer notification side-effects behind a grace period
-          // to absorb transient connection drops (reconnects cancel the pending leave)
-          const username = currentUsername || 'unknown';
+          console.log(`[Signaling] ${currentUsername} disconnected from ${currentSpace} (reason: ${reason})`);
+
+          const username = currentUsername;
           const spaceId = currentSpace;
-          const pendingKey = `${spaceId}:${username}`;
-          
-          // Cancel any existing pending leave for this user (shouldn't happen, but be safe)
-          const existing = pendingLeaves.get(pendingKey);
-          if (existing) {
-            clearTimeout(existing.timeout);
-          }
-          
-          const timeout = setTimeout(() => {
-            pendingLeaves.delete(pendingKey);
-            
-            // Re-check the space state — another user may have joined during the grace period
-            const currentSpaceState = spaces.get(spaceId);
-            if (!currentSpaceState || currentSpaceState.peers.size === 0) {
+          const isIntentionalLeave = reason === 'client namespace disconnect';
+
+          if (isIntentionalLeave) {
+            // ─── INTENTIONAL LEAVE (user clicked Leave) ──────────────
+            // Remove immediately, fire notifications now.
+            space.users.delete(username);
+
+            if (space.users.size === 0) {
               recordSpaceEvent(spaceId, 'leave_last', username);
               notifySpaceInactive(spaceId);
               spaces.delete(spaceId);
-              console.log(`[Signaling] Space ${spaceId} deleted (empty after grace period)`);
+              console.log(`[Signaling] Space ${spaceId} deleted (empty after intentional leave)`);
             } else {
               recordSpaceEvent(spaceId, 'leave', username);
               notifyUserLeft(spaceId, username);
@@ -343,9 +428,54 @@ export function attachSignaling(io: Server, config: ServerConfig): void {
                 io.to(spaceId).emit('space-activity', { spaceId, events });
               });
             }
-          }, disconnectGraceMs);
-          
-          pendingLeaves.set(pendingKey, { timeout, spaceId, username });
+          } else {
+            // ─── NETWORK DROP (transport close, ping timeout, etc.) ──
+            // Keep user in space.users. Defer removal behind grace period
+            // to absorb transient reconnections.
+            const pendingKey = `${spaceId}:${username}`;
+            
+            // Cancel any existing pending leave (shouldn't happen, but be safe)
+            const existing = pendingLeaves.get(pendingKey);
+            if (existing) {
+              clearTimeout(existing.timeout);
+            }
+            
+            const timeout = setTimeout(() => {
+              pendingLeaves.delete(pendingKey);
+              
+              const currentSpaceState = spaces.get(spaceId);
+              if (!currentSpaceState) return;
+
+              const user = currentSpaceState.users.get(username);
+              if (!user) return; // Already removed (shouldn't happen)
+
+              // Check if the user reconnected — if so, their peerId has rotated
+              // and this timer is stale.
+              if (user.currentPeerId !== peerId) {
+                console.log(`[Signaling] Grace period expired for ${username} in ${spaceId}, but they already reconnected — ignoring`);
+                return;
+              }
+
+              // User didn't reconnect within grace period — truly remove them.
+              currentSpaceState.users.delete(username);
+
+              if (currentSpaceState.users.size === 0) {
+                recordSpaceEvent(spaceId, 'leave_last', username);
+                notifySpaceInactive(spaceId);
+                spaces.delete(spaceId);
+                console.log(`[Signaling] Space ${spaceId} deleted (empty after grace period)`);
+              } else {
+                recordSpaceEvent(spaceId, 'leave', username);
+                notifyUserLeft(spaceId, username);
+                // Push updated activity to remaining peers
+                getRecentActivity(spaceId).then((events) => {
+                  io.to(spaceId).emit('space-activity', { spaceId, events });
+                });
+              }
+            }, disconnectGraceMs);
+            
+            pendingLeaves.set(pendingKey, { timeout, spaceId, username, peerId });
+          }
         }
       }
     });
