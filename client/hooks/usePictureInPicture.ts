@@ -299,9 +299,12 @@ export function usePictureInPicture() {
   });
   
   // Reactively update PiP control button states from CRDT
+  // NOTE: Access localMediaState() BEFORE the pipWindow check — SolidJS only
+  // tracks signals that are actually read during the effect. If we return early
+  // first, the signal is never tracked and the effect never re-runs.
   createEffect(() => {
-    if (!pipWindow) return;
     const { isMuted, isVideoOff } = ctx.localMediaState();
+    if (!pipWindow) return;
     
     const micBtn = pipWindow.document.getElementById('pip-mic') as HTMLButtonElement | null;
     if (micBtn) {
