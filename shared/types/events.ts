@@ -117,3 +117,37 @@ export interface SpaceActivityEvent {
   spaceId: string;
   events: SpaceActivityItem[];
 }
+
+// ==================== Stream Identification ====================
+
+/** Sum type for stream kind announcements */
+export type StreamAnnouncement =
+  | { kind: 'webcam' }
+  | { kind: 'screenshare'; shareId: string };
+
+/** Sender announces all outgoing streams before WebRTC negotiation */
+export interface StreamsAnnouncedEvent {
+  peerId: string;
+  streams: Array<{ streamId: string } & StreamAnnouncement>;
+}
+
+// ==================== Typed Socket Event Map ====================
+
+/** Maps every socket event name to its payload type, enabling typed dispatch */
+export interface SocketEventMap {
+  // Client -> Server
+  'join-space': JoinSpaceEvent;
+  'signal': SignalEvent;
+  'position-update': Position;
+  'screen-share-started': ScreenShareStartedEvent;
+  'screen-share-stopped': ScreenShareStoppedEvent;
+  'get-space-info': GetSpaceInfoEvent;
+  'streams-announced': StreamsAnnouncedEvent;
+  // Server -> Client
+  'connected': ConnectedEvent;
+  'space-state': SpaceStateEvent;
+  'space-info': SpaceInfoEvent;
+  'peer-joined': PeerJoinedEvent;
+  'peer-left': PeerLeftEvent;
+  'space-activity': SpaceActivityEvent;
+}

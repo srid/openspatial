@@ -94,6 +94,8 @@ const fr: Record<TranslationKey, string> = {
 
   // ── Avatar ──────────────────────────────────────────────
   setStatus: 'Définir le statut...',
+  peerConnecting: 'Connexion…',
+  peerConnectionFailed: 'Connexion échouée',
 
   // ── Minimap ─────────────────────────────────────────────
   zoomIn: 'Zoom avant',

@@ -130,8 +130,11 @@ export const JoinModal: Component = () => {
           // Fetch ICE servers (includes TURN credentials) before WebRTC setup
           await ctx.fetchIceServers();
           
-          // Initialize WebRTC for peer connections
+          // Initialize WebRTC signal handlers
           ctx.initWebRTC();
+          
+          // Joiner initiates connections to all existing peers
+          await ctx.connectToPeers(stateData.peers, peerId, mediaStream);
           
           // Update URL and switch view
           history.replaceState(null, '', `/s/${encodeURIComponent(space)}`);

@@ -122,6 +122,17 @@ The central state manager (`client/context/SpaceContext.tsx`) handles:
 - **Media streams**: Peer webcam and screen share streams
 - **CRDT mutations**: All state updates go through context methods
 
+### WebRTC Negotiation: Joiner-Initiates
+
+WebRTC connections use a **joiner-initiates** pattern: the newly-joining peer always creates offers to existing peers, never the other way around. This eliminates race conditions between handler registration and incoming offers.
+
+1. Joiner emits `join-space` → server responds with `connected` + `space-state`
+2. Joiner sets up CRDT, session, ICE servers, and WebRTC signal handlers
+3. Joiner calls `connectToPeers()` — creates offers to every peer in `space-state`
+4. Existing peers handle offers via the `signal` handler (adds their webcam + screen share tracks to the answer)
+
+The `peer-joined` event is **UI-only** (plays a sound) — it does not trigger WebRTC negotiation. Both the initial join and reconnection paths use the same `connectToPeers()` function.
+
 ## Communication Methods
 
 | Action | Method | Description |

@@ -40,6 +40,10 @@ e2e-ui:
 e2e-quick pattern="":
     npx playwright test --reporter=line {{ if pattern != "" { "--grep=" + pattern } else { "" } }}
 
+# Run E2E tests serially (1 worker) to rule out load-related flakiness
+e2e-serial pattern="":
+    npx playwright test --reporter=line --workers=1 {{ if pattern != "" { "--grep=" + pattern } else { "" } }}
+
 # Clean node_modules
 clean:
     rm -rf node_modules

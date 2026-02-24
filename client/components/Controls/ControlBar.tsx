@@ -121,7 +121,7 @@ export const ControlBar: Component = () => {
         audio: false,
       });
       
-      const shareId = uuidv4();
+      const shareId = screenStream.id;
       const user = localUser();
       if (!user) return;
       
@@ -143,7 +143,7 @@ export const ControlBar: Component = () => {
       ctx.emitSocket('screen-share-started', { peerId: user.peerId, shareId });
       
       // Add screen share tracks to all peer connections (triggers WebRTC renegotiation)
-      await ctx.addScreenShareToPeers(screenStream);
+      await ctx.addScreenShareToPeers(screenStream, shareId);
       
       // Clean up when track ends
       screenStream.getVideoTracks()[0].onended = () => {
