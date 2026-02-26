@@ -263,8 +263,30 @@ export const SpaceProvider: ParentComponent = (props) => {
         console.log('[Signaling] Disconnected:', reason);
         if (reason !== 'io client disconnect') {
           setConnectionState('disconnected');
+          
+          // Eagerly snapshot CRDT state BEFORE y-websocket propagates the server's
+          // cleanupCRDTOnDisconnect. By the time 'reconnect' fires, the old peer
+          // entry will be gone from the CRDT map.
+          const currentSession = session();
+          if (currentSession) {
+            const oldPeerId = currentSession.localUser.peerId;
+            const peerState = peers().get(oldPeerId);
+            if (peerState) {
+              lastDisconnectState = {
+                x: peerState.x,
+                y: peerState.y,
+                isMuted: peerState.isMuted,
+                isVideoOff: peerState.isVideoOff,
+              };
+              console.log(`[Signaling] Snapshotted CRDT state for ${oldPeerId} before cleanup`);
+            }
+          }
         }
       });
+      
+      // Holds CRDT state from the moment of disconnect, snapshotted before y-websocket
+      // propagates the server's cleanupCRDTOnDisconnect which deletes the old peer.
+      let lastDisconnectState: { x: number; y: number; isMuted: boolean; isVideoOff: boolean } | null = null;
       
       socket.io.on('reconnect_attempt', (attempt: number) => {
         console.log(`[Signaling] Reconnection attempt ${attempt}`);
@@ -287,25 +309,33 @@ export const SpaceProvider: ParentComponent = (props) => {
             const oldPeerId = currentSession.localUser.peerId;
             console.log(`[Signaling] Got new peerId: ${newPeerId} (was: ${oldPeerId})`);
             
-            // Update session with new peerId
+            // Use eagerly-snapshotted state (from disconnect handler), falling back to
+            // CRDT if still available, then defaults.
+            const savedState = lastDisconnectState;
+            const crdtState = peers().get(oldPeerId);
+            const currentX = savedState?.x ?? crdtState?.x ?? 2000;
+            const currentY = savedState?.y ?? crdtState?.y ?? 2000;
+            const currentMuted = savedState?.isMuted ?? crdtState?.isMuted ?? false;
+            const currentVideoOff = savedState?.isVideoOff ?? crdtState?.isVideoOff ?? false;
+            lastDisconnectState = null; // consumed
+            
+            // Update CRDT presence with new peerId
+            removePeer(oldPeerId);
+            addPeer(newPeerId, currentSession.localUser.username, currentX, currentY, currentMuted, currentVideoOff);
+            
+            // Force session signal refresh so the new Avatar component's createEffect
+            // re-fires and binds videoRef.srcObject to the (unchanged) local stream.
+            // Without this, the new video element stays black because SolidJS sees the
+            // same stream reference and skips the effect.
             setSession({
               ...currentSession,
               localUser: {
                 ...currentSession.localUser,
                 peerId: newPeerId,
+                // Clone stream reference to force reactivity
+                stream: currentSession.localUser.stream,
               },
             });
-            
-            // Snapshot CRDT state before removing old peer
-            const oldPeerState = peers().get(oldPeerId);
-            const currentX = oldPeerState?.x ?? 2000;
-            const currentY = oldPeerState?.y ?? 2000;
-            const currentMuted = oldPeerState?.isMuted ?? false;
-            const currentVideoOff = oldPeerState?.isVideoOff ?? false;
-            
-            // Update our CRDT presence with new peerId
-            removePeer(oldPeerId);
-            addPeer(newPeerId, currentSession.localUser.username, currentX, currentY, currentMuted, currentVideoOff);
             
             // Listen for space-state to re-establish WebRTC with existing peers
             onceSocket('space-state', async (stateData) => {
