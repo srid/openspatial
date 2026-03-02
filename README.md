@@ -8,6 +8,8 @@
 [![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL--3.0-blue.svg)](./LICENSE)
 [![Live Demo](https://img.shields.io/badge/demo-spatial.srid.ca-brightgreen)](https://spatial.srid.ca/s/demo)
 
+TEST
+
 A virtual space where distance disappears — spatial audio and shared canvas for gatherings of any kind.
 
 <p align="center">
